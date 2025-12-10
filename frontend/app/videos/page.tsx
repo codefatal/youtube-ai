@@ -5,6 +5,7 @@ import { Video, Upload, Loader2 } from 'lucide-react'
 
 export default function VideosPage() {
   const [loading, setLoading] = useState(false)
+  const [progress, setProgress] = useState('')
   const [script, setScript] = useState('')
   const [format, setFormat] = useState('short')
   const [style, setStyle] = useState('short_trendy')
@@ -30,22 +31,32 @@ export default function VideosPage() {
     }
 
     setLoading(true)
+    setProgress('🎬 영상 제작을 시작합니다...')
+    setResult(null)
+
     try {
+      setProgress('🎤 음성을 생성하고 있습니다... (1-2분 소요)')
+
       const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/videos/produce`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ script, format, style })
       })
+
       const data = await response.json()
       console.log('영상 제작 결과:', data)
+
       if (data.success) {
+        setProgress('✅ 영상 제작이 완료되었습니다!')
         setResult(data)
       } else {
+        setProgress('')
         alert('영상 제작 실패: ' + (data.detail || '알 수 없는 오류'))
       }
     } catch (error) {
       console.error('Error:', error)
-      alert('영상 제작 중 오류가 발생했습니다')
+      setProgress('')
+      alert('영상 제작 중 오류가 발생했습니다: ' + error)
     }
     setLoading(false)
   }
@@ -133,40 +144,69 @@ export default function VideosPage() {
               </>
             )}
           </button>
+
+          {/* 진행 상황 표시 */}
+          {progress && (
+            <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+              <p className="text-sm text-blue-800">{progress}</p>
+            </div>
+          )}
         </div>
       </div>
 
       {result && (
         <div className="bg-white rounded-lg shadow-md p-6">
-          <h3 className="text-lg font-semibold mb-4 flex items-center">
-            <Video className="w-5 h-5 mr-2 text-green-500" />
-            제작 완료
+          <h3 className="text-lg font-semibold mb-4 flex items-center text-green-600">
+            <Video className="w-5 h-5 mr-2" />
+            ✅ 제작 완료!
           </h3>
 
           <div className="space-y-4">
-            <div>
-              <p className="text-sm text-gray-600">영상 파일</p>
-              <p className="text-lg font-mono text-gray-900">{result.video_path}</p>
+            <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
+              <p className="text-sm text-green-800 mb-2">
+                영상이 서버에 저장되었습니다. 파일 경로를 확인하세요.
+              </p>
+              <div className="space-y-2">
+                <div>
+                  <p className="text-xs text-green-700 font-semibold">영상 파일:</p>
+                  <p className="text-sm font-mono text-green-900 break-all">{result.video_path}</p>
+                </div>
+                {result.thumbnail_path && (
+                  <div>
+                    <p className="text-xs text-green-700 font-semibold">썸네일:</p>
+                    <p className="text-sm font-mono text-green-900 break-all">{result.thumbnail_path}</p>
+                  </div>
+                )}
+              </div>
             </div>
 
-            {result.thumbnail_path && (
-              <div>
-                <p className="text-sm text-gray-600">썸네일 파일</p>
-                <p className="text-lg font-mono text-gray-900">{result.thumbnail_path}</p>
-              </div>
-            )}
-
-            <div className="pt-4 border-t">
+            <div className="pt-4 border-t flex gap-3">
               <button
                 onClick={() => {
-                  // YouTube 업로드 페이지로 이동하거나 업로드 API 호출
-                  alert('YouTube 업로드 기능은 준비 중입니다')
+                  // 새 영상 제작
+                  setResult(null)
+                  setProgress('')
+                }}
+                className="bg-blue-600 text-white py-2 px-6 rounded-lg hover:bg-blue-700"
+              >
+                새 영상 제작
+              </button>
+              <button
+                onClick={() => {
+                  // YouTube 업로드 페이지로 이동
+                  window.location.href = '/upload'
                 }}
                 className="bg-red-600 text-white py-2 px-6 rounded-lg hover:bg-red-700 flex items-center"
               >
                 <Upload className="w-4 h-4 mr-2" />
                 YouTube 업로드
               </button>
+            </div>
+
+            <div className="text-sm text-gray-600 bg-gray-50 p-3 rounded">
+              <p className="font-semibold mb-1">💡 파일 다운로드 방법:</p>
+              <p>서버의 output 폴더에서 위 경로의 파일을 찾을 수 있습니다.</p>
+              <p className="mt-1">예: <code className="bg-gray-200 px-1 rounded">D:\work\code\youtubeAI\output\video_xxxxx.mp4</code></p>
             </div>
           </div>
         </div>

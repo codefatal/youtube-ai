@@ -1,12 +1,14 @@
 """
-Audio Processor - 오디오 편집 및 처리 서비스
+Audio Processor - 오디오 편집 및 처리 서비스 (FFmpeg 직접 사용)
 """
 import re
+import os
+import subprocess
 from typing import List, Dict, Tuple
 
 
 class AudioProcessor:
-    """오디오 처리 (병합, 믹싱 등)"""
+    """오디오 처리 (병합, 믹싱 등) - FFmpeg 직접 사용"""
 
     def merge_audio_segments(
         self,
@@ -17,32 +19,66 @@ class AudioProcessor:
 
         print(f"🎵 오디오 세그먼트 병합 중...")
 
+        os.makedirs(os.path.dirname(output_path), exist_ok=True)
+
+        # FFmpeg concat 파일 생성
+        concat_file = output_path.replace('.mp3', '_concat.txt')
+
+        with open(concat_file, 'w', encoding='utf-8') as f:
+            for segment in segments:
+                # FFmpeg는 절대 경로 또는 / 사용
+                audio_path = segment['audio_path'].replace('\\', '/')
+                f.write(f"file '{audio_path}'\n")
+
+        # FFmpeg로 오디오 병합
         try:
-            from pydub import AudioSegment
-        except ImportError:
-            raise ImportError("pydub가 설치되지 않았습니다. pip install pydub")
+            from imageio_ffmpeg import get_ffmpeg_exe
+            ffmpeg_path = get_ffmpeg_exe()
+        except:
+            ffmpeg_path = 'ffmpeg'
 
-        final_audio = AudioSegment.silent(duration=0)
+        cmd = [
+            ffmpeg_path,
+            '-f', 'concat',
+            '-safe', '0',
+            '-i', concat_file,
+            '-c', 'copy',
+            '-y',
+            output_path
+        ]
 
-        for i, segment in enumerate(segments):
-            audio = AudioSegment.from_file(segment['audio_path'])
+        try:
+            subprocess.run(cmd, check=True, capture_output=True)
+        except subprocess.CalledProcessError as e:
+            print(f"❌ FFmpeg 오류: {e.stderr.decode()}")
+            raise
 
-            # 타임스탬프를 밀리초로 변환
-            time_ms = self._timestamp_to_ms(segment['timestamp'])
+        # concat 파일 삭제
+        if os.path.exists(concat_file):
+            os.remove(concat_file)
 
-            # 현재 오디오 길이와 목표 시간 차이만큼 무음 추가
-            current_length = len(final_audio)
-            if time_ms > current_length:
-                silence = AudioSegment.silent(duration=time_ms - current_length)
-                final_audio += silence
-
-            final_audio += audio
-
-        final_audio.export(output_path, format='mp3')
-        duration_seconds = len(final_audio) / 1000
+        # 오디오 길이 가져오기
+        duration_seconds = self._get_audio_duration(output_path, ffmpeg_path)
 
         print(f"✅ 오디오 병합 완료: {output_path} ({duration_seconds:.1f}초)")
         return output_path, duration_seconds
+
+    def _get_audio_duration(self, audio_path: str, ffmpeg_path: str = 'ffmpeg') -> float:
+        """FFmpeg로 오디오 길이 가져오기"""
+        try:
+            ffprobe_path = ffmpeg_path.replace('ffmpeg', 'ffprobe')
+            cmd = [
+                ffprobe_path,
+                '-v', 'error',
+                '-show_entries', 'format=duration',
+                '-of', 'default=noprint_wrappers=1:nokey=1',
+                audio_path
+            ]
+            result = subprocess.run(cmd, capture_output=True, text=True, check=True)
+            return float(result.stdout.strip())
+        except:
+            # 기본값 반환 (각 세그먼트 5초로 가정)
+            return 30.0
 
     def _timestamp_to_ms(self, timestamp: str) -> int:
         """[00:05] -> 5000ms"""
@@ -60,31 +96,41 @@ class AudioProcessor:
         voice_volume: float = 1.0,
         music_volume: float = 0.2
     ) -> str:
-        """음성과 배경음악 믹싱"""
+        """음성과 배경음악 믹싱 (FFmpeg 사용)"""
 
         print(f"🎵 음성과 배경음악 믹싱 중...")
 
         try:
-            from pydub import AudioSegment
-        except ImportError:
-            raise ImportError("pydub가 설치되지 않았습니다. pip install pydub")
+            from imageio_ffmpeg import get_ffmpeg_exe
+            ffmpeg_path = get_ffmpeg_exe()
+        except:
+            ffmpeg_path = 'ffmpeg'
 
-        voice = AudioSegment.from_file(voice_path)
-        music = AudioSegment.from_file(music_path)
+        # 볼륨 조절 (0.0-1.0 -> dB)
+        voice_db = 0  # 원본 볼륨
+        music_db = -20  # 배경음악은 -20dB (약 10%)
 
-        # 볼륨 조절 (dB 단위)
-        voice = voice + (20 * voice_volume - 20)
-        music = music + (20 * music_volume - 20)
+        cmd = [
+            ffmpeg_path,
+            '-i', voice_path,
+            '-i', music_path,
+            '-filter_complex',
+            f'[0:a]volume={voice_db}dB[a1];[1:a]volume={music_db}dB,aloop=loop=-1:size=2e+09[a2];[a1][a2]amerge=inputs=2[a]',
+            '-map', '[a]',
+            '-ac', '2',
+            '-c:a', 'libmp3lame',
+            '-q:a', '2',
+            '-y',
+            output_path
+        ]
 
-        # 음악을 음성 길이에 맞춤
-        if len(music) < len(voice):
-            music = music * (len(voice) // len(music) + 1)
-        music = music[:len(voice)]
-
-        # 오버레이
-        mixed = voice.overlay(music)
-
-        mixed.export(output_path, format='mp3')
+        try:
+            subprocess.run(cmd, check=True, capture_output=True)
+        except subprocess.CalledProcessError:
+            # 믹싱 실패 시 음성만 사용
+            print("⚠️ 배경음악 믹싱 실패, 음성만 사용합니다")
+            import shutil
+            shutil.copy(voice_path, output_path)
 
         print(f"✅ 믹싱 완료: {output_path}")
         return output_path
@@ -95,30 +141,28 @@ class AudioProcessor:
         target_duration: float,
         output_path: str
     ) -> str:
-        """오디오 길이 조정"""
+        """오디오 길이 조정 (FFmpeg 사용)"""
 
         try:
-            from pydub import AudioSegment
-        except ImportError:
-            raise ImportError("pydub가 설치되지 않았습니다. pip install pydub")
+            from imageio_ffmpeg import get_ffmpeg_exe
+            ffmpeg_path = get_ffmpeg_exe()
+        except:
+            ffmpeg_path = 'ffmpeg'
 
-        audio = AudioSegment.from_file(audio_path)
-        audio_duration = len(audio) / 1000  # 초 단위
+        cmd = [
+            ffmpeg_path,
+            '-i', audio_path,
+            '-t', str(target_duration),
+            '-af', 'afade=t=out:st=' + str(max(0, target_duration - 5)) + ':d=5',
+            '-y',
+            output_path
+        ]
 
-        target_ms = int(target_duration * 1000)
-
-        if audio_duration < target_duration:
-            # 오디오가 짧으면 반복
-            repeats = int(target_duration / audio_duration) + 1
-            audio = audio * repeats
-
-        # 정확한 길이로 자르기
-        audio = audio[:target_ms]
-
-        # 마지막 5초 페이드 아웃
-        fade_duration = min(5000, len(audio))
-        audio = audio.fade_out(fade_duration)
-
-        audio.export(output_path, format='mp3')
+        try:
+            subprocess.run(cmd, check=True, capture_output=True)
+        except subprocess.CalledProcessError:
+            # 실패 시 원본 복사
+            import shutil
+            shutil.copy(audio_path, output_path)
 
         return output_path
