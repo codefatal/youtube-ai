@@ -10,6 +10,8 @@
 - ✅ **배경음악 자동 추가**
 - ✅ **영상 자동 합성** (자막 포함)
 - ✅ **YouTube 자동 업로드** (메타데이터 AI 생성)
+- ✅ **웹 UI 대시보드** (Next.js) - NEW! 🎨
+- ✅ **REST API** (FastAPI)
 
 ## 💰 비용
 
@@ -26,12 +28,53 @@
 
 ## 🚀 빠른 시작
 
-### 1. 설치
+### 사용 방법 선택
+
+이 프로젝트는 **2가지 방법**으로 사용할 수 있습니다:
+
+1. **🖥️ 웹 UI** (추천) - 브라우저에서 편리하게 사용
+2. **⌨️ CLI** - 터미널에서 명령어로 사용
+
+### 옵션 A: 웹 UI 사용 (추천) 🎨
+
+**1. 백엔드 서버 실행**
 
 ```bash
 # 저장소 클론
-git clone https://github.com/yourusername/ai-youtube-automation.git
-cd ai-youtube-automation
+git clone https://github.com/codefatal/youtube-ai.git
+cd youtube-ai
+
+# Python 의존성 설치
+pip install -r requirements.txt
+
+# 백엔드 API 서버 실행
+cd backend
+python main.py
+
+# 서버가 http://localhost:8000 에서 실행됩니다
+```
+
+**2. 프론트엔드 실행**
+
+```bash
+# 새 터미널 열기
+cd frontend
+
+# Node.js 의존성 설치
+npm install
+
+# 개발 서버 실행
+npm run dev
+
+# 브라우저에서 http://localhost:3000 접속
+```
+
+### 옵션 B: CLI 사용
+
+```bash
+# 저장소 클론
+git clone https://github.com/codefatal/youtube-ai.git
+cd youtube-ai
 
 # Python 가상환경 생성
 python -m venv venv
@@ -46,7 +89,7 @@ pip install -r requirements.txt
 # Windows: https://ffmpeg.org/download.html
 ```
 
-### 2. 환경 변수 설정
+### 환경 변수 설정 (공통)
 
 ```bash
 # .env 파일 생성
