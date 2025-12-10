@@ -25,7 +25,10 @@ app = FastAPI(
 # CORS 설정
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000"],  # Next.js 개발 서버
+    allow_origins=[
+        "http://localhost:3000",
+        "http://localhost:3001"  # 포트 변경 시 대비
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -92,6 +95,9 @@ async def analyze_trends(request: TrendAnalysisRequest):
             "data": analysis
         }
     except Exception as e:
+        import traceback
+        print(f"❌ 에러 발생: {e}")
+        traceback.print_exc()
         raise HTTPException(status_code=500, detail=str(e))
 
 

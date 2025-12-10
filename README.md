@@ -101,9 +101,10 @@ cp .env.example .env
 ```
 
 **Gemini API 키 발급 (무료)**
-1. https://makersuite.google.com/app/apikey 방문
+1. https://aistudio.google.com/apikey 방문
 2. "Create API Key" 클릭
 3. API 키를 `.env`의 `GEMINI_API_KEY`에 붙여넣기
+4. 최신 모델: Gemini 2.5 Flash (무료)
 
 **YouTube API 키 발급**
 1. https://console.cloud.google.com 방문

@@ -26,24 +26,24 @@ class AIService:
         else:
             self.claude = None
 
-        # Gemini 초기화
+        # Gemini 초기화 (최신 SDK)
         if os.getenv('GEMINI_API_KEY'):
             try:
-                import google.generativeai as genai
-                genai.configure(api_key=os.getenv('GEMINI_API_KEY'))
-                self.gemini = genai.GenerativeModel('gemini-1.5-flash')
-                self.genai = genai
+                from google import genai
+                self.genai_client = genai.Client(api_key=os.getenv('GEMINI_API_KEY'))
+                # 모델 선택: 환경변수로 설정 가능, 기본값은 2.5-flash
+                self.gemini_model = os.getenv('GEMINI_MODEL', 'gemini-2.5-flash')
             except ImportError:
-                print("⚠️ google-generativeai 패키지가 설치되지 않았습니다. pip install google-generativeai")
-                self.gemini = None
-                self.genai = None
+                print("⚠️ google-genai 패키지가 설치되지 않았습니다. pip install google-genai")
+                self.genai_client = None
+                self.gemini_model = None
         else:
-            self.gemini = None
-            self.genai = None
+            self.genai_client = None
+            self.gemini_model = None
 
         # Auto 모드: Gemini 우선 (무료), 실패 시 Claude
         if provider == 'auto':
-            self.primary = 'gemini' if self.gemini else 'claude'
+            self.primary = 'gemini' if self.genai_client else 'claude'
             self.fallback = 'claude' if self.primary == 'gemini' and self.claude else None
         else:
             self.primary = provider
@@ -87,9 +87,9 @@ class AIService:
         temperature: float,
         system_prompt: Optional[str]
     ) -> str:
-        """Gemini로 생성"""
+        """Gemini로 생성 (최신 SDK 사용)"""
 
-        if not self.gemini:
+        if not self.genai_client:
             raise ValueError("Gemini API 키가 설정되지 않았습니다")
 
         # 시스템 프롬프트를 프롬프트에 포함
@@ -99,21 +99,28 @@ class AIService:
             full_prompt = prompt
 
         # 생성 설정
-        generation_config = self.genai.types.GenerationConfig(
-            max_output_tokens=max_tokens,
-            temperature=temperature,
+        config = {
+            'max_output_tokens': max_tokens,
+            'temperature': temperature,
+        }
+
+        # API 호출 (최신 SDK 방식)
+        response = self.genai_client.models.generate_content(
+            model=self.gemini_model,
+            contents=full_prompt,
+            config=config
         )
 
-        # API 호출
-        response = self.gemini.generate_content(
-            full_prompt,
-            generation_config=generation_config
-        )
+        # 응답 텍스트 추출
+        response_text = response.text
+
+        # 디버깅: 응답 길이 출력
+        print(f"🤖 Gemini 응답 길이: {len(response_text)} 문자")
 
         # 사용량 로깅
-        self._log_usage('gemini', prompt, response.text)
+        self._log_usage('gemini', prompt, response_text)
 
-        return response.text
+        return response_text
 
     def _generate_with_claude(
         self,
