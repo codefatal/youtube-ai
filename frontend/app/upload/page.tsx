@@ -50,6 +50,19 @@ export default function UploadPage() {
         <p className="text-gray-600">영상을 YouTube에 업로드</p>
       </div>
 
+      {/* 개발 중 안내 */}
+      <div className="mb-6 bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+        <h3 className="text-sm font-semibold text-yellow-900 mb-2">⚠️ OAuth 인증 필요</h3>
+        <p className="text-sm text-yellow-800">
+          YouTube 업로드 기능을 사용하려면 YouTube Data API OAuth 2.0 인증이 필요합니다.
+        </p>
+        <ul className="mt-2 text-sm text-yellow-800 list-disc list-inside space-y-1">
+          <li>Google Cloud Console에서 OAuth 2.0 클라이언트 ID 생성</li>
+          <li>credentials.json 파일 다운로드 및 설정</li>
+          <li>YouTube Data API v3 활성화</li>
+        </ul>
+      </div>
+
       {!result ? (
         <div className="bg-white rounded-lg shadow-md p-6">
           <h2 className="text-xl font-semibold mb-4">업로드 설정</h2>
