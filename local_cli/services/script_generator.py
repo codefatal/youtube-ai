@@ -57,7 +57,7 @@ class ScriptGenerator:
 
             response = self.ai_service.generate_text(
                 prompt=prompt,
-                max_tokens=2000,
+                max_tokens=8000,  # thinking 토큰 + 출력 토큰
                 temperature=0.7 + (i * 0.1),  # 버전마다 다양성 증가
                 system_prompt=system_prompt
             )
@@ -100,7 +100,7 @@ class ScriptGenerator:
 
         response = self.ai_service.generate_text(
             prompt=prompt,
-            max_tokens=2000,
+            max_tokens=8000,  # thinking 토큰 + 출력 토큰
             temperature=0.7,
             system_prompt=system_prompt
         )
@@ -128,7 +128,7 @@ class ScriptGenerator:
 
         response = self.ai_service.generate_text(
             prompt=prompt,
-            max_tokens=2000,
+            max_tokens=8000,  # thinking 토큰 + 출력 토큰
             temperature=0.7
         )
 

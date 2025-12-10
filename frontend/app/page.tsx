@@ -1,16 +1,36 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { PlayCircle, TrendingUp, FileText, Video, Upload, Settings } from 'lucide-react'
 import StatsCard from '@/components/StatsCard'
 
 export default function Dashboard() {
-  const [stats] = useState({
-    totalVideos: 24,
-    videosThisMonth: 8,
-    totalViews: 125430,
-    aiCost: 12.50,
+  const [stats, setStats] = useState({
+    totalVideos: 0,
+    videosThisMonth: 0,
+    totalViews: 0,
+    aiCost: 0,
   })
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    fetchStats()
+  }, [])
+
+  const fetchStats = async () => {
+    try {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/stats`)
+      const result = await response.json()
+      if (result.success && result.data) {
+        setStats(result.data)
+      }
+    } catch (error) {
+      console.error('통계 조회 실패:', error)
+      // 실패 시 기본값 0 유지
+    } finally {
+      setLoading(false)
+    }
+  }
 
   return (
     <div className="p-8">
@@ -50,7 +70,7 @@ export default function Dashboard() {
       {/* 빠른 액션 */}
       <div className="bg-white rounded-lg shadow-md p-6">
         <h2 className="text-xl font-semibold mb-4">빠른 액션</h2>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           <QuickActionButton
             href="/trends"
             icon={TrendingUp}
@@ -62,6 +82,12 @@ export default function Dashboard() {
             icon={FileText}
             title="대본 생성"
             description="AI로 대본 생성하기"
+          />
+          <QuickActionButton
+            href="/videos"
+            icon={Video}
+            title="영상 제작"
+            description="대본을 영상으로 변환"
           />
           <QuickActionButton
             href="/automation"

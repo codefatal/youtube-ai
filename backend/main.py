@@ -79,6 +79,34 @@ def health_check():
     return {"status": "healthy"}
 
 
+@app.get("/api/stats")
+async def get_stats():
+    """대시보드 통계"""
+    try:
+        # TODO: 실제 데이터베이스에서 통계 가져오기
+        # 현재는 기본값 반환
+        return {
+            "success": True,
+            "data": {
+                "totalVideos": 0,
+                "videosThisMonth": 0,
+                "totalViews": 0,
+                "aiCost": 0.0
+            }
+        }
+    except Exception as e:
+        print(f"❌ 통계 조회 오류: {e}")
+        return {
+            "success": False,
+            "data": {
+                "totalVideos": 0,
+                "videosThisMonth": 0,
+                "totalViews": 0,
+                "aiCost": 0.0
+            }
+        }
+
+
 @app.post("/api/trends/analyze")
 async def analyze_trends(request: TrendAnalysisRequest):
     """트렌드 분석"""
