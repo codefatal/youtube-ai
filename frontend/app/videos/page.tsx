@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Video, Upload, Loader2 } from 'lucide-react'
 
 export default function VideosPage() {
@@ -9,6 +9,19 @@ export default function VideosPage() {
   const [format, setFormat] = useState('short')
   const [style, setStyle] = useState('short_trendy')
   const [result, setResult] = useState<any>(null)
+
+  // 설정 페이지에서 저장된 기본값 불러오기
+  useEffect(() => {
+    const savedSettings = localStorage.getItem('appSettings')
+    if (savedSettings) {
+      const settings = JSON.parse(savedSettings)
+      if (settings.defaultFormat) {
+        setFormat(settings.defaultFormat)
+        // 형식에 따라 스타일도 자동 변경
+        setStyle(settings.defaultFormat === 'short' ? 'short_trendy' : 'long_educational')
+      }
+    }
+  }, [])
 
   const handleProduce = async () => {
     if (!script.trim()) {

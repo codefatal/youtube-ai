@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { TrendingUp, Play, Loader2 } from 'lucide-react'
 
 export default function TrendsPage() {
@@ -8,6 +8,20 @@ export default function TrendsPage() {
   const [region, setRegion] = useState('US')
   const [format, setFormat] = useState('short')
   const [analysis, setAnalysis] = useState<any>(null)
+
+  // 설정 페이지에서 저장된 기본값 불러오기
+  useEffect(() => {
+    const savedSettings = localStorage.getItem('appSettings')
+    if (savedSettings) {
+      const settings = JSON.parse(savedSettings)
+      if (settings.defaultRegion) {
+        setRegion(settings.defaultRegion)
+      }
+      if (settings.defaultFormat) {
+        setFormat(settings.defaultFormat)
+      }
+    }
+  }, [])
 
   const handleAnalyze = async () => {
     setLoading(true)

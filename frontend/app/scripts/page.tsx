@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { FileText, Loader2, Copy, Check } from 'lucide-react'
 
 export default function ScriptsPage() {
@@ -12,6 +12,20 @@ export default function ScriptsPage() {
   const [versions, setVersions] = useState(3)
   const [scripts, setScripts] = useState<string[]>([])
   const [copiedIndex, setCopiedIndex] = useState<number | null>(null)
+
+  // 설정 페이지에서 저장된 기본값 불러오기
+  useEffect(() => {
+    const savedSettings = localStorage.getItem('appSettings')
+    if (savedSettings) {
+      const settings = JSON.parse(savedSettings)
+      if (settings.defaultFormat) {
+        setFormat(settings.defaultFormat)
+      }
+      if (settings.defaultTone) {
+        setTone(settings.defaultTone)
+      }
+    }
+  }, [])
 
   const handleGenerate = async () => {
     setLoading(true)

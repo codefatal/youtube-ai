@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Settings, Save } from 'lucide-react'
 
 export default function SettingsPage() {
@@ -12,9 +12,18 @@ export default function SettingsPage() {
     defaultTone: 'informative'
   })
 
+  // 저장된 설정 불러오기
+  useEffect(() => {
+    const savedSettings = localStorage.getItem('appSettings')
+    if (savedSettings) {
+      setSettings(JSON.parse(savedSettings))
+    }
+  }, [])
+
   const handleSave = () => {
-    // TODO: 설정을 로컬 스토리지나 백엔드에 저장
     localStorage.setItem('appSettings', JSON.stringify(settings))
+    // 다른 탭/페이지에도 변경 알림
+    window.dispatchEvent(new Event('storage'))
     alert('설정이 저장되었습니다')
   }
 
