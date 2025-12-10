@@ -26,8 +26,10 @@ class AudioProcessor:
 
         with open(concat_file, 'w', encoding='utf-8') as f:
             for segment in segments:
-                # FFmpeg는 절대 경로 또는 / 사용
-                audio_path = segment['audio_path'].replace('\\', '/')
+                # Windows 절대 경로로 변환
+                audio_path = os.path.abspath(segment['audio_path'])
+                # FFmpeg는 / 사용 (Windows에서도)
+                audio_path = audio_path.replace('\\', '/')
                 f.write(f"file '{audio_path}'\n")
 
         # FFmpeg로 오디오 병합
