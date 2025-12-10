@@ -1,0 +1,40 @@
+# ===== 코어 =====
+# Gemini (무료!) ⭐
+google-generativeai==0.3.2
+
+# Claude (선택)
+anthropic==0.40.0
+
+# YouTube
+google-api-python-client==2.150.0
+google-auth-oauthlib==1.2.1
+google-auth-httplib2==0.2.0
+
+# ===== 비디오 처리 =====
+moviepy==1.0.3
+ffmpeg-python==0.2.0
+pydub==0.25.1
+
+# ===== TTS =====
+gTTS==2.5.3
+google-cloud-texttospeech==2.17.2
+elevenlabs==0.2.27
+pyttsx3==2.90
+
+# ===== 이미지 생성 =====
+stability-sdk==0.8.4
+# diffusers==0.27.0  # 로컬 SD 사용 시
+# torch==2.1.0
+
+# ===== 유틸리티 =====
+click==8.1.7
+python-dotenv==1.0.1
+pillow==10.4.0
+requests==2.32.3
+
+# ===== 데이터베이스 =====
+sqlalchemy==2.0.35
+
+# ===== 서버 (선택) =====
+fastapi==0.115.5
+uvicorn==0.32.1

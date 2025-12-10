@@ -1,0 +1,36 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+env/
+ENV/
+*.egg-info/
+dist/
+build/
+
+# 환경 변수
+.env
+*.pickle
+
+# API 인증
+client_secrets.json
+google-credentials.json
+token.pickle
+
+# 출력 파일
+output/
+temp/
+music/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
