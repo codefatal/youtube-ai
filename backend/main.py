@@ -157,41 +157,31 @@ async def generate_scripts(request: ScriptGenerationRequest):
 async def produce_video(request: VideoProductionRequest):
     """영상 제작"""
     try:
-        # Google Cloud TTS를 사용하려면 서비스 계정 파일이 필요합니다
-        # 현재는 기능 구현 예정으로 안내 메시지 반환
+        import time
+        import os
 
-        return {
-            "success": False,
-            "message": "영상 제작 기능은 현재 개발 중입니다.",
-            "requirements": [
-                "Google Cloud TTS 서비스 계정 설정 필요",
-                "MoviePy 및 FFmpeg 설치 필요",
-                "음성 합성 및 영상 편집 라이브러리 설정 필요"
-            ],
-            "detail": "영상 제작 기능을 사용하려면 다음이 필요합니다:\n" +
-                     "1. Google Cloud 서비스 계정 JSON 파일\n" +
-                     "2. GOOGLE_APPLICATION_CREDENTIALS 환경 변수 설정\n" +
-                     "3. MoviePy 및 FFmpeg 설치\n\n" +
-                     "간단한 테스트를 위해서는 로컬 TTS (pyttsx3)를 사용할 수 있습니다."
+        # VideoProducer 초기화 (gTTS 무료 사용)
+        os.makedirs('./output', exist_ok=True)
+
+        producer = VideoProducer()
+
+        script_dict = {
+            'content': request.script,
+            'video_format': request.format
         }
 
-        # 실제 구현 (주석 처리)
-        # producer = VideoProducer()
-        # script_dict = {
-        #     'content': request.script,
-        #     'video_format': request.format
-        # }
-        # output_path = f"./output/video_{int(time.time())}.mp4"
-        # video_path, thumbnail_path = producer.produce_video(
-        #     script=script_dict,
-        #     style_preset=request.style,
-        #     output_path=output_path
-        # )
-        # return {
-        #     "success": True,
-        #     "video_path": video_path,
-        #     "thumbnail_path": thumbnail_path
-        # }
+        output_path = f"./output/video_{int(time.time())}.mp4"
+        video_path, thumbnail_path = producer.produce_video(
+            script=script_dict,
+            style_preset=request.style,
+            output_path=output_path
+        )
+
+        return {
+            "success": True,
+            "video_path": video_path,
+            "thumbnail_path": thumbnail_path
+        }
 
     except Exception as e:
         import traceback

@@ -9,17 +9,19 @@ from typing import Optional, List, Dict
 class TTSService:
     """TTS (Text-To-Speech) 서비스"""
 
-    def __init__(self, provider: str = 'google'):
+    def __init__(self, provider: str = 'gtts'):
         """
         TTS 제공자 초기화
 
         Args:
-            provider: 'local', 'google', 'elevenlabs', 'azure'
+            provider: 'local', 'gtts', 'google', 'elevenlabs', 'azure'
         """
         self.provider = provider
 
         if provider == 'local':
             self._init_local()
+        elif provider == 'gtts':
+            self._init_gtts()
         elif provider == 'google':
             self._init_google()
         elif provider == 'elevenlabs':
@@ -36,6 +38,14 @@ class TTSService:
             self.engine = pyttsx3.init()
         except ImportError:
             raise ImportError("pyttsx3가 설치되지 않았습니다. pip install pyttsx3")
+
+    def _init_gtts(self):
+        """gTTS (Google Text-to-Speech) 무료 초기화"""
+        try:
+            from gtts import gTTS
+            self.gtts_class = gTTS
+        except ImportError:
+            raise ImportError("gTTS가 설치되지 않았습니다. pip install gTTS")
 
     def _init_google(self):
         """Google Cloud TTS 초기화"""
@@ -86,6 +96,8 @@ class TTSService:
 
         if self.provider == 'local':
             return self._generate_local(script_text, output_path, speed)
+        elif self.provider == 'gtts':
+            return self._generate_gtts(script_text, output_path, speed)
         elif self.provider == 'google':
             return self._generate_google(script_text, output_path, voice_id, speed, pitch)
         elif self.provider == 'elevenlabs':
@@ -98,6 +110,19 @@ class TTSService:
         self.engine.setProperty('rate', 150 * speed)
         self.engine.save_to_file(text, output_path)
         self.engine.runAndWait()
+        print(f"✅ 음성 생성 완료: {output_path}")
+        return output_path
+
+    def _generate_gtts(self, text: str, output_path: str, speed: float) -> str:
+        """gTTS로 생성 (무료, 좋은 품질)"""
+        import os
+        os.makedirs(os.path.dirname(output_path), exist_ok=True)
+
+        # 한글 감지
+        lang = 'ko' if any(ord(c) >= 0xAC00 and ord(c) <= 0xD7A3 for c in text) else 'en'
+
+        tts = self.gtts_class(text=text, lang=lang, slow=(speed < 0.9))
+        tts.save(output_path)
         print(f"✅ 음성 생성 완료: {output_path}")
         return output_path
 

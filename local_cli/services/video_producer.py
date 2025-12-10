@@ -13,7 +13,9 @@ class VideoProducer:
     """완전한 영상 제작 파이프라인"""
 
     def __init__(self):
-        self.tts_service = TTSService(provider=os.getenv('TTS_PROVIDER', 'google'))
+        # 무료 TTS 사용 (gTTS 또는 local)
+        tts_provider = os.getenv('TTS_PROVIDER', 'gtts')
+        self.tts_service = TTSService(provider=tts_provider)
         self.audio_processor = AudioProcessor()
         self.music_library = MusicLibrary()
 

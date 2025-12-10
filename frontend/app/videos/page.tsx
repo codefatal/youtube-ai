@@ -41,14 +41,7 @@ export default function VideosPage() {
       if (data.success) {
         setResult(data)
       } else {
-        // 개발 중 메시지 처리
-        if (data.message || data.detail) {
-          const message = data.message || '영상 제작 실패'
-          const detail = data.detail || ''
-          alert(`${message}\n\n${detail}`)
-        } else {
-          alert('영상 제작 실패: 알 수 없는 오류')
-        }
+        alert('영상 제작 실패: ' + (data.detail || '알 수 없는 오류'))
       }
     } catch (error) {
       console.error('Error:', error)
@@ -64,17 +57,12 @@ export default function VideosPage() {
         <p className="text-gray-600">대본을 영상으로 변환</p>
       </div>
 
-      {/* 개발 중 안내 */}
-      <div className="mb-6 bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-        <h3 className="text-sm font-semibold text-yellow-900 mb-2">⚠️ 개발 중인 기능</h3>
-        <p className="text-sm text-yellow-800">
-          영상 제작 기능은 현재 개발 중입니다. 이 기능을 사용하려면 다음이 필요합니다:
+      {/* 무료 TTS 사용 안내 */}
+      <div className="mb-6 bg-blue-50 border border-blue-200 rounded-lg p-4">
+        <h3 className="text-sm font-semibold text-blue-900 mb-2">ℹ️ 무료 TTS 사용</h3>
+        <p className="text-sm text-blue-800">
+          현재 gTTS (Google Text-to-Speech) 무료 서비스를 사용합니다. 한글과 영어를 자동으로 감지합니다.
         </p>
-        <ul className="mt-2 text-sm text-yellow-800 list-disc list-inside space-y-1">
-          <li>Google Cloud TTS 서비스 계정 설정</li>
-          <li>MoviePy 및 FFmpeg 설치</li>
-          <li>음성 합성 및 영상 편집 라이브러리 설정</li>
-        </ul>
       </div>
 
       <div className="bg-white rounded-lg shadow-md p-6 mb-6">
