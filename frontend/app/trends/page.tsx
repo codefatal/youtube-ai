@@ -17,8 +17,14 @@ export default function TrendsPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ region, format })
       })
-      const data = await response.json()
-      setAnalysis(data)
+      const result = await response.json()
+      console.log('API 응답:', result)
+      // data 안에 실제 분석 결과가 있음
+      if (result.success && result.data) {
+        setAnalysis(result.data)
+      } else {
+        console.error('분석 실패:', result)
+      }
     } catch (error) {
       console.error('Error:', error)
     }

@@ -48,46 +48,34 @@ class TrendAnalyzer:
 
         print(f"🤖 AI로 {video_format} 트렌드 분석 중...")
 
-        # 비디오 데이터를 텍스트로 변환
+        # 비디오 데이터를 텍스트로 변환 (상위 10개만 - 토큰 절약)
         video_summaries = []
-        for video in video_data.get('items', [])[:20]:  # 상위 20개만
+        for video in video_data.get('items', [])[:10]:
             snippet = video['snippet']
             stats = video['statistics']
 
-            summary = f"""
-제목: {snippet['title']}
-조회수: {stats.get('viewCount', 0)}
-좋아요: {stats.get('likeCount', 0)}
-댓글: {stats.get('commentCount', 0)}
-"""
+            # 간결한 형식으로 변경
+            summary = f"{snippet['title']} (조회수: {stats.get('viewCount', 0)})"
             video_summaries.append(summary)
 
-        videos_text = "\n---\n".join(video_summaries)
+        videos_text = "\n".join(video_summaries)
 
-        prompt = f"""
-다음은 YouTube에서 현재 트렌딩 중인 {video_format} 영상들입니다.
-
+        prompt = f"""분석할 트렌딩 영상들:
 {videos_text}
 
-이 데이터를 분석하여 JSON 형식으로 응답해주세요.
-
-반드시 다음 형식을 정확히 따라주세요:
+위 데이터를 분석하여 아래 JSON 형식으로만 응답하세요:
 {{
-    "keywords": ["키워드1", "키워드2", "키워드3", "키워드4", "키워드5", "키워드6", "키워드7", "키워드8", "키워드9", "키워드10"],
-    "topics": ["주제1", "주제2", "주제3", "주제4", "주제5"],
+    "keywords": ["키워드1", "키워드2", "키워드3", "키워드4", "키워드5"],
+    "topics": ["주제1", "주제2", "주제3"],
     "content_ideas": ["아이디어1", "아이디어2", "아이디어3"],
     "view_range": "10K-50K"
 }}
 
-중요:
-- 모든 필드를 반드시 포함하세요
-- JSON만 출력하고 다른 텍스트는 포함하지 마세요
-- 완전한 JSON으로 끝까지 작성하세요
-"""
+JSON만 출력하세요."""
 
         response = self.ai_service.generate_text(
             prompt=prompt,
-            max_tokens=2000,  # JSON 응답을 위해 충분한 토큰
+            max_tokens=8000,  # thinking 토큰 + 출력 토큰
             temperature=0.3  # 분석은 낮은 temperature
         )
 

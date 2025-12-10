@@ -90,6 +90,9 @@ async def analyze_trends(request: TrendAnalysisRequest):
         )
         analysis = analyzer.analyze_with_ai(videos, video_format=request.format)
 
+        # 디버깅: 분석 결과 출력
+        print(f"📤 API 응답 데이터: {analysis}")
+
         return {
             "success": True,
             "data": analysis

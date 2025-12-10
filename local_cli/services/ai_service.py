@@ -31,8 +31,8 @@ class AIService:
             try:
                 from google import genai
                 self.genai_client = genai.Client(api_key=os.getenv('GEMINI_API_KEY'))
-                # 모델 선택: 환경변수로 설정 가능, 기본값은 2.5-flash
-                self.gemini_model = os.getenv('GEMINI_MODEL', 'gemini-2.5-flash')
+                # 모델 선택: 1.5-flash가 더 안정적
+                self.gemini_model = os.getenv('GEMINI_MODEL', 'gemini-1.5-flash')
             except ImportError:
                 print("⚠️ google-genai 패키지가 설치되지 않았습니다. pip install google-genai")
                 self.genai_client = None
@@ -99,10 +99,15 @@ class AIService:
             full_prompt = prompt
 
         # 생성 설정
-        config = {
-            'max_output_tokens': max_tokens,
-            'temperature': temperature,
-        }
+        from google.genai import types
+
+        config = types.GenerateContentConfig(
+            temperature=temperature,
+            max_output_tokens=max_tokens,
+        )
+
+        print(f"🔧 설정: max_output_tokens={max_tokens}, temperature={temperature}")
+        print(f"🔧 Config 객체: {config}")
 
         # API 호출 (최신 SDK 방식)
         response = self.genai_client.models.generate_content(
@@ -114,8 +119,21 @@ class AIService:
         # 응답 텍스트 추출
         response_text = response.text
 
-        # 디버깅: 응답 길이 출력
+        # 디버깅: 응답 길이 및 완료 상태 출력
         print(f"🤖 Gemini 응답 길이: {len(response_text)} 문자")
+
+        # 응답이 완료되었는지 확인
+        if hasattr(response, 'candidates') and response.candidates:
+            finish_reason = response.candidates[0].finish_reason
+            print(f"🤖 Gemini 완료 이유: {finish_reason}")
+
+            # 응답이 잘렸는지 확인
+            if finish_reason and finish_reason != 'STOP':
+                print(f"⚠️ 응답이 완전히 생성되지 않았습니다: {finish_reason}")
+
+        # 토큰 사용량 확인
+        if hasattr(response, 'usage_metadata'):
+            print(f"📊 토큰 사용량: {response.usage_metadata}")
 
         # 사용량 로깅
         self._log_usage('gemini', prompt, response_text)
