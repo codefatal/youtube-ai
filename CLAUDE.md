@@ -149,6 +149,12 @@ AI_PROVIDER=auto                # auto/gemini/claude
 - Web UI dashboard with stats API integration
 - Trend analysis (YouTube Data API + AI)
 - Script generation with multiple versions
+- **Video Production** - Fully working! ✨
+  - gTTS (Google Text-to-Speech) free service
+  - FFmpeg-based audio/video processing
+  - No pydub dependency (Python 3.14 compatible)
+  - Real-time progress display in UI
+  - File path guidance after completion
 - Settings page with localStorage persistence
 - Settings integration across all pages
 - Backend API with CORS
@@ -157,9 +163,7 @@ AI_PROVIDER=auto                # auto/gemini/claude
 - Error handling and graceful degradation
 
 ### ⚠️ Development Notice (Not Fully Functional)
-- **Video Production**: Requires Google Cloud TTS service account setup, MoviePy, FFmpeg
 - **YouTube Upload**: Requires OAuth 2.0 client credentials setup
-- Both features show user-friendly notices instead of errors
 
 ### 📊 Database/Persistence
 - Currently uses hardcoded/default values
@@ -223,9 +227,11 @@ python local_cli/main.py test-ai --provider gemini
 
 1. **Gemini MAX_TOKENS**: Always use 8000+ tokens to avoid truncation from thinking mode
 2. **JSON Parsing**: AI responses may include markdown code blocks - strip with regex before parsing
-3. **Video Production**: Shows development notice - requires complex setup (Google Cloud TTS, MoviePy, FFmpeg)
-4. **Stats**: Currently returns zeros - needs database implementation
-5. **Line Endings**: Git warns about LF/CRLF on Windows - this is normal
+3. ~~**Video Production**~~: ✅ **Fixed!** Now uses gTTS + FFmpeg directly (no pydub)
+4. ~~**pydub/audioop**~~: ✅ **Fixed!** Replaced with direct FFmpeg calls (Python 3.14 compatible)
+5. **Stats**: Currently returns zeros - needs database implementation
+6. **Line Endings**: Git warns about LF/CRLF on Windows - this is normal
+7. **YouTube Upload**: Requires OAuth 2.0 setup with credentials.json
 
 ## Related Documentation
 

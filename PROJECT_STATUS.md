@@ -108,12 +108,15 @@ youtubeAI/
   - 아이콘과 라벨
   - 현재 페이지 하이라이트
 
-#### 개발 중 (안내 표시)
-- ⚠️ **영상 제작** (`/videos`)
+- ✅ **영상 제작** (`/videos`)
   - UI 완성
-  - 필요 요구사항 안내 추가
-  - 백엔드 미구현 (Google Cloud TTS, MoviePy 설정 필요)
+  - 무료 gTTS (Google Text-to-Speech) 통합
+  - FFmpeg 기반 오디오/영상 처리
+  - 진행 상황 실시간 표시
+  - 완료 후 파일 경로 안내
+  - 완전히 작동하는 기능
 
+#### 개발 중 (안내 표시)
 - ⚠️ **업로드** (`/upload`)
   - UI 완성
   - OAuth 인증 필요 안내 추가
@@ -142,16 +145,18 @@ youtubeAI/
 - ✅ **CORS 설정**
   - localhost:3000, 3001 허용
 
-#### 개발 중 (안내 메시지 반환)
-- ⚠️ **영상 제작 API** (`POST /api/videos/produce`)
-  - 친절한 안내 메시지 반환
-  - 실제 구현 주석 처리
+- ✅ **영상 제작 API** (`POST /api/videos/produce`)
+  - VideoProducer 완전 구현
+  - gTTS 무료 음성 합성
+  - FFmpeg 기반 영상 처리
+  - 실제 영상 파일 생성
 
+#### 개발 중
 - ⚠️ **업로드 API** (`POST /api/upload`)
   - 구현 완료 (OAuth 설정 필요)
 
 - ⚠️ **전체 자동화 API** (`POST /api/automation/full`)
-  - 구현 완료 (영상 제작 부분 제외)
+  - 구현 완료 (업로드 부분만 OAuth 필요)
 
 ### 3. AI 서비스 통합
 
@@ -194,17 +199,18 @@ youtubeAI/
 
 ### 우선순위 1: 핵심 기능 완성
 
-1. **데이터베이스 연동**
+1. **데이터베이스 연동** ⭐ 최우선
    - [ ] 통계 데이터 저장/조회
    - [ ] 영상 메타데이터 저장
    - [ ] 비용 추적
    - 추천: SQLite (간단) 또는 PostgreSQL (확장성)
 
-2. **영상 제작 기능 활성화**
-   - [ ] Google Cloud TTS 서비스 계정 설정 가이드
-   - [ ] MoviePy 및 FFmpeg 설치 자동화
-   - [ ] 로컬 TTS 옵션 활성화 (무료)
-   - [ ] 영상 제작 파이프라인 테스트
+2. ~~**영상 제작 기능 활성화**~~ ✅ **완료!**
+   - [x] gTTS 무료 TTS 통합
+   - [x] FFmpeg 기반 오디오/영상 처리
+   - [x] pydub 의존성 제거 (Python 3.14 호환)
+   - [x] 영상 제작 파이프라인 테스트
+   - [x] 프론트엔드 UX 개선
 
 3. **YouTube OAuth 설정**
    - [ ] OAuth 2.0 클라이언트 ID 설정 가이드
@@ -351,10 +357,10 @@ AI_PROVIDER=auto                # auto/gemini/claude
    - 현재 하드코딩된 0 값 반환
    - 데이터베이스 연동 필요
 
-2. **영상 제작**
-   - Google Cloud TTS 서비스 계정 설정 필요
-   - MoviePy 및 FFmpeg 설치 필요
-   - 현재 개발 중 안내 메시지 표시
+2. ~~**영상 제작**~~ ✅ **해결됨!**
+   - ~~Google Cloud TTS 서비스 계정 설정 필요~~ → gTTS 무료 사용
+   - ~~MoviePy 및 FFmpeg 설치 필요~~ → FFmpeg 직접 사용
+   - ~~pydub 의존성 오류~~ → FFmpeg 기반으로 재작성
 
 3. **YouTube 업로드**
    - OAuth 2.0 인증 설정 필요
@@ -368,21 +374,34 @@ AI_PROVIDER=auto                # auto/gemini/claude
 
 ## 📝 최근 변경사항
 
-### 2025-12-10
+### 2025-12-10 (오후)
+1. **영상 제작 기능 완전 구현** 🎉
+   - gTTS (Google Text-to-Speech) 무료 서비스 통합
+   - FFmpeg 기반 오디오 처리 (pydub 의존성 제거)
+   - Python 3.14 호환성 완벽 해결
+   - 실제 영상 파일 생성 테스트 완료
+
+2. **프론트엔드 UX 대폭 개선**
+   - 진행 상황 실시간 표시
+   - 완료 후 파일 경로 안내
+   - 파일 다운로드 방법 가이드
+   - 새 영상 제작 및 YouTube 업로드 연결
+
+3. **문서 업데이트**
+   - CLAUDE.md 추가 (Claude Code 가이드)
+   - PROJECT_STATUS.md 업데이트
+
+### 2025-12-10 (오전)
 1. **설정 페이지 연동**
    - 트렌드/대본/영상 페이지에서 설정 기본값 자동 적용
    - localStorage 기반 설정 저장
 
-2. **개발 중 안내 추가**
-   - 영상 제작/업로드 페이지에 친절한 안내 메시지
-   - 500 에러 대신 요구사항 안내
-
-3. **Gemini API 업데이트**
+2. **Gemini API 업데이트**
    - 최신 SDK로 마이그레이션 (google-genai)
    - MAX_TOKENS 이슈 해결 (8000 토큰)
    - JSON 파싱 개선
 
-4. **대시보드 API 연동**
+3. **대시보드 API 연동**
    - 통계 API 구현
    - 에러 시 기본값 표시
 
