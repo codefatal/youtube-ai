@@ -207,7 +207,7 @@ class VideoProducer:
                 )
 
             # 줌 효과 (시간에 따라 1.0에서 1.25까지 확대)
-            clip = clip.resize(lambda t: 1 + 0.05 * t)
+            clip = clip.resized(lambda t: 1 + 0.05 * t)
 
             clips.append(clip)
 
@@ -260,7 +260,7 @@ class VideoProducer:
         elif video.duration < duration:
             # 마지막 프레임을 freeze
             last_frame = visual_clips[-1]
-            video = concatenate_videoclips([video, last_frame.set_duration(duration - video.duration)])
+            video = concatenate_videoclips([video, last_frame.with_duration(duration - video.duration)])
 
         # 오디오 추가
         audio = AudioFileClip(audio_path)
@@ -290,7 +290,7 @@ class VideoProducer:
 
         # 숏폼은 9:16 크롭
         if video_format == 'short':
-            video = video.crop(
+            video = video.cropped(
                 x_center=video.w/2,
                 y_center=video.h/2,
                 width=int(video.h * 9/16),
