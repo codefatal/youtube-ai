@@ -164,10 +164,15 @@ class VideoProducer:
             ImportError: MoviePy가 설치되지 않은 경우
         """
         try:
-            import moviepy.editor as mp
+            # MoviePy 2.x import
+            from moviepy import (
+                VideoFileClip, ImageClip, ColorClip,
+                concatenate_videoclips, CompositeVideoClip,
+                AudioFileClip, TextClip
+            )
         except ImportError:
             raise ImportError(
-                "moviepy가 설치되지 않았습니다. 설치: pip install moviepy"
+                "moviepy가 설치되지 않았습니다. 설치: pip install moviepy imageio-ffmpeg"
             )
 
         clips = []
@@ -190,12 +195,12 @@ class VideoProducer:
 
             # AI 생성 이미지가 있으면 사용, 없으면 단색 배경
             if image_path and os.path.exists(image_path):
-                clip = mp.ImageClip(image_path, duration=duration)
+                clip = ImageClip(image_path, duration=duration)
                 print(f"✅ AI 이미지 사용: {image_path}")
             else:
                 # 단색 배경 클립 생성
                 color = self.VISUAL_COLORS[i % len(self.VISUAL_COLORS)]
-                clip = mp.ColorClip(
+                clip = ColorClip(
                     size=(1920, 1080),
                     color=color,
                     duration=duration
@@ -238,12 +243,16 @@ class VideoProducer:
         """최종 영상 합성"""
 
         try:
-            import moviepy.editor as mp
+            # MoviePy 2.x import
+            from moviepy import (
+                concatenate_videoclips, CompositeVideoClip,
+                AudioFileClip, TextClip
+            )
         except ImportError:
-            raise ImportError("moviepy가 설치되지 않았습니다. pip install moviepy")
+            raise ImportError("moviepy가 설치되지 않았습니다. pip install moviepy imageio-ffmpeg")
 
         # 비주얼 연결
-        video = mp.concatenate_videoclips(visual_clips, method="compose")
+        video = concatenate_videoclips(visual_clips, method="compose")
 
         # 영상을 오디오 길이에 맞춤
         if video.duration > duration:
@@ -251,34 +260,33 @@ class VideoProducer:
         elif video.duration < duration:
             # 마지막 프레임을 freeze
             last_frame = visual_clips[-1]
-            video = mp.concatenate_videoclips([video, last_frame.set_duration(duration - video.duration)])
+            video = concatenate_videoclips([video, last_frame.set_duration(duration - video.duration)])
 
         # 오디오 추가
-        audio = mp.AudioFileClip(audio_path)
-        video = video.set_audio(audio)
+        audio = AudioFileClip(audio_path)
+        video = video.with_audio(audio)
 
         # 자막 추가
         def make_textclip(txt):
-            return mp.TextClip(
-                txt,
+            return TextClip(
+                text=txt,
                 font='Arial-Bold',
-                fontsize=50 if video_format == 'short' else 40,
+                font_size=50 if video_format == 'short' else 40,
                 color='white',
                 stroke_color='black',
                 stroke_width=2,
                 method='caption',
-                size=(video.w * 0.9, None),
-                align='center'
+                size=(video.w * 0.9, None)
             )
 
         subtitle_clips = []
         for sub in subtitles:
             txt_clip = make_textclip(sub['text'])
-            txt_clip = txt_clip.set_start(sub['start']).set_duration(sub['end'] - sub['start'])
-            txt_clip = txt_clip.set_position(('center', 'bottom'))
+            txt_clip = txt_clip.with_start(sub['start']).with_duration(sub['end'] - sub['start'])
+            txt_clip = txt_clip.with_position(('center', 'bottom'))
             subtitle_clips.append(txt_clip)
 
-        video = mp.CompositeVideoClip([video] + subtitle_clips)
+        video = CompositeVideoClip([video] + subtitle_clips)
 
         # 숏폼은 9:16 크롭
         if video_format == 'short':
