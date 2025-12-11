@@ -256,7 +256,7 @@ class VideoProducer:
 
         # 영상을 오디오 길이에 맞춤
         if video.duration > duration:
-            video = video.subclip(0, duration)
+            video = video.subclipped(0, duration)
         elif video.duration < duration:
             # 마지막 프레임을 freeze
             last_frame = visual_clips[-1]
