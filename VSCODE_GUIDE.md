@@ -33,13 +33,7 @@ code .
 프로젝트를 열면 오른쪽 하단에 "이 작업 영역에 권장되는 확장 프로그램을 설치하시겠습니까?" 알림이 뜹니다.
 **"모두 설치"** 클릭!
 
-또는 수동 설치:
-1. `Ctrl + Shift + X` (확장 프로그램)
-2. 다음 검색 후 설치:
-   - Python
-   - Pylance
-   - ESLint
-   - Prettier
+자세한 확장 프로그램 설명은 아래 [추천 확장 프로그램](#추천-확장-프로그램) 섹션을 참고하세요.
 
 ## 실행 방법
 
@@ -130,6 +124,155 @@ code .
 - `Alt + F12` - 정의 미리보기
 - `Shift + F12` - 참조 찾기
 - `Ctrl + Click` - 정의로 이동
+
+## 추천 확장 프로그램
+
+VSCode의 강력함은 확장 프로그램에서 나옵니다. 프로젝트에 최적화된 확장 프로그램을 설치하세요.
+
+### 🎯 설치 방법
+
+#### 자동 설치 (추천)
+프로젝트를 열면 오른쪽 하단에 알림이 뜹니다:
+> "이 작업 영역에 권장되는 확장 프로그램을 설치하시겠습니까?"
+
+**"모두 설치"** 버튼 클릭!
+
+#### 수동 설치
+1. `Ctrl + Shift + X` (확장 프로그램 패널)
+2. 아래 확장 프로그램 검색 후 설치
+
+### 📦 필수 확장 프로그램
+
+#### Python 개발
+
+**1. Python** (Microsoft) - 필수! ⭐⭐⭐⭐⭐
+- ID: `ms-python.python`
+- 기능: Python 언어 지원, IntelliSense, 디버깅, Jupyter
+
+**2. Pylance** (Microsoft) - 필수! ⭐⭐⭐⭐⭐
+- ID: `ms-python.vscode-pylance`
+- 기능: 빠른 타입 체킹, 자동 import, 코드 탐색
+
+**3. Black Formatter** (Microsoft) - 강력 추천 ⭐⭐⭐⭐⭐
+- ID: `ms-python.black-formatter`
+- 기능: Python 코드 자동 포맷팅 (PEP 8 준수)
+
+#### JavaScript/TypeScript (Frontend 개발용)
+
+**4. ESLint** ⭐⭐⭐⭐
+- ID: `dbaeumer.vscode-eslint`
+- 기능: JavaScript/TypeScript 코드 검사
+
+**5. Prettier** ⭐⭐⭐⭐
+- ID: `esbenp.prettier-vscode`
+- 기능: 코드 자동 포맷팅 (JavaScript, TypeScript, JSON 등)
+
+### 🎨 생산성 향상
+
+**6. GitLens** ⭐⭐⭐⭐⭐
+- ID: `eamodio.gitlens`
+- 기능: Git 히스토리, blame 정보, 브랜치 관리
+
+**7. Code Spell Checker** ⭐⭐⭐⭐
+- ID: `streetsidesoftware.code-spell-checker`
+- 기능: 영어 철자 검사, 변수명 오타 방지
+
+**8. Indent Rainbow** ⭐⭐⭐
+- ID: `oderwat.indent-rainbow`
+- 기능: 들여쓰기 레벨 색상 구분 (Python에 유용)
+
+**9. Material Icon Theme** ⭐⭐⭐⭐⭐
+- ID: `pkief.material-icon-theme`
+- 기능: 파일/폴더 아이콘 예쁘게 표시
+
+### 🔧 유틸리티
+
+**10. DotENV** ⭐⭐⭐⭐
+- ID: `mikestead.dotenv`
+- 기능: `.env` 파일 문법 하이라이트
+
+**11. Better Comments** ⭐⭐⭐⭐
+- ID: `aaron-bond.better-comments`
+- 기능: 주석 색상 구분 (TODO, FIXME, NOTE 등)
+- 예시:
+  ```python
+  # TODO: 나중에 구현
+  # ! 중요: 여기 주의
+  # ? 질문: 이게 맞나?
+  # * 강조 포인트
+  ```
+
+**12. Todo Tree** ⭐⭐⭐⭐
+- ID: `Gruntfuggly.todo-tree`
+- 기능: 프로젝트 전체 TODO 검색 및 목록 표시
+
+**13. Path Intellisense** ⭐⭐⭐⭐
+- ID: `christian-kohler.path-intellisense`
+- 기능: 파일 경로 자동완성
+
+**14. Error Lens** ⭐⭐⭐⭐
+- ID: `usernamehw.errorlens`
+- 기능: 에러/경고를 코드 라인 옆에 인라인 표시
+
+### 🐛 디버깅 & 테스트
+
+**15. Thunder Client** ⭐⭐⭐⭐
+- ID: `rangav.vscode-thunder-client`
+- 기능: REST API 테스트 (Postman 대체)
+- 용도: YouTube API, Gemini API 테스트
+
+**16. SQLite Viewer** ⭐⭐⭐⭐
+- ID: `qwtel.sqlite-viewer`
+- 기능: SQLite 데이터베이스 뷰어 및 편집
+
+### 🤖 AI 도우미 (선택)
+
+**17. GitHub Copilot** ⭐⭐⭐⭐⭐
+- ID: `GitHub.copilot`
+- 기능: AI 코드 자동완성
+- 비용: $10/월 (학생/교사 무료)
+
+**대안 - Codeium** (무료!)
+- ID: `Codeium.codeium`
+- 기능: 무료 AI 자동완성
+
+### 📋 추천 조합
+
+#### 최소 필수 (5개)
+```
+1. Python (Microsoft)
+2. Pylance (Microsoft)
+3. Black Formatter
+4. Material Icon Theme
+5. DotENV
+```
+
+#### 기본 개발 (10개)
+위 5개 + 아래 5개:
+```
+6. ESLint
+7. Prettier
+8. GitLens
+9. Error Lens
+10. Better Comments
+```
+
+#### 완전체 (15개)
+위 10개 + 아래 5개:
+```
+11. Code Spell Checker
+12. Todo Tree
+13. Path Intellisense
+14. Thunder Client
+15. SQLite Viewer
+```
+
+### 🔍 설치 확인
+
+설치된 확장 프로그램 확인:
+1. `Ctrl + Shift + X`
+2. "@installed" 검색
+3. 또는 "@recommended" 검색으로 프로젝트 추천 확장 확인
 
 ## Tasks (작업)
 
