@@ -23,8 +23,6 @@
 
 ## 🚧 TODO (진행 예정 작업)
 
-<!-- 2025-12-11 작업 모두 완료 ✅ -->
-
 ### 템플릿
 ```markdown
 ### [작업명]
@@ -38,6 +36,90 @@
 ---
 
 ## ✅ DONE (완료된 작업)
+
+### 2025-12-11: 대본 길이 자동 분할 기능 추가
+- **완료일**: 2025-12-11 15:48
+- **Git 커밋**: `faf9aff`
+- **목표**: 너무 긴 텍스트를 문장 단위로 자동 분할하여 자연스러운 TTS 생성
+- **배경**: 120자 이상의 긴 대본은 한 번에 읽으면 부자연스럽고, 영상도 길어짐
+- **변경 파일**:
+  - `local_cli/services/tts_service.py:348-408`
+- **주요 내용**:
+  1. **자동 분할 로직**: 120자 이상 텍스트를 문장 단위로 분할
+  2. **`_split_into_sentences()` 메서드 추가**:
+     - 한국어/영어 문장 구분자 지원: `. ! ? 。 ！ ？`
+     - 정규식 패턴: `r'([.!?。！？]+\s*)'`
+     - 구분자와 텍스트를 함께 유지
+  3. **세그먼트 인덱싱 개선**: `segment_index` 변수로 분할된 문장도 올바르게 인덱싱
+  4. **각 문장이 별도 오디오 파일**로 생성되어 더 자연스러운 영상 제작
+
+#### 코드 예시
+```python
+# 120자 이상 텍스트 자동 분할
+if len(text_clean) > 120:
+    sentences = self._split_into_sentences(text_clean)
+    for sentence in sentences:
+        # 각 문장을 별도 오디오 파일로 생성
+        output_path = os.path.join(output_dir, f"segment_{segment_index}.mp3")
+        self.generate_speech(sentence.strip(), output_path)
+        segment_index += 1
+```
+
+---
+
+### 2025-12-11: 이미지 생성 그라데이션 배경 개선
+- **완료일**: 2025-12-11 15:30
+- **Git 커밋**: `43e8a94`
+- **목표**: 단색 배경을 그라데이션과 텍스트가 있는 시각적으로 매력적인 이미지로 개선
+- **배경**: 기존 단색 배경이 너무 평범하고 전문적이지 않음
+- **변경 파일**:
+  - `local_cli/services/video_producer.py:37-40` - 이미지 생성 기본 활성화
+  - `local_cli/services/image_generator.py:237-326` - 그라데이션 배경 구현
+- **주요 내용**:
+  1. **그라데이션 배경**: 5가지 색상 조합 (파란색, 핑크/보라, 청록, 주황, 보라)
+  2. **키워드 추출**: 텍스트에서 처음 3-5단어 추출하여 이미지에 표시
+  3. **한글 폰트 지원**: 맑은 고딕(Malgun Gothic) 사용
+  4. **텍스트 효과**:
+     - 그림자 효과 (shadow_offset=4)
+     - 동적 폰트 크기 조절 (화면 너비 초과 시 자동 축소)
+     - 중앙 정렬
+  5. **IMAGE_PROVIDER 기본값**: `'none'` → `'text'`로 변경
+
+#### 시각적 개선
+- Before: 단색 배경 (50, 50, 100)
+- After: 그라데이션 배경 + 큰 텍스트 + 그림자 효과
+
+---
+
+### 2025-12-11: 자막 () 효과음 제거 및 길이 조절 기능 추가
+- **완료일**: 2025-12-11 15:20
+- **Git 커밋**: `c64e2d6`
+- **목표**: 자막에서 효과음 표시 제거 및 긴 자막 잘림 현상 수정
+- **배경**:
+  - (박수 소리), (웃음) 등이 자막과 TTS에 출력되어 부자연스러움
+  - 긴 자막이 화면을 벗어나서 잘림
+- **변경 파일**:
+  - `local_cli/services/tts_service.py:339-346` - () 효과음 제거
+  - `local_cli/services/video_producer.py:344-377` - 동적 폰트 크기
+
+#### 1. () 효과음 제거
+```python
+# 정규식으로 () 안의 내용 모두 제거
+text_clean = re.sub(r'\([^)]*\)', '', text).strip()
+
+# 효과음만 있고 실제 텍스트가 없으면 건너뛰기
+if not text_clean:
+    continue
+```
+
+#### 2. 자막 길이 조절
+- **동적 폰트 크기**:
+  - 숏폼: <30자=45px, 30-60자=38px, 60+자=32px
+  - 긴 영상: <40자=48px, 40-80자=40px, 80+자=34px
+- **자막 너비**: 85% → **90%**로 증가
+- **자막 위치**: 숏폼 75%, 긴 영상 85%
+
+---
 
 ### 2025-12-11: 인기 배경음악 TOP 10 추천 목록 추가
 - **완료일**: 2025-12-11 14:40
@@ -393,19 +475,19 @@ def _find_font(self) -> Optional[str]:
 
 ## 📊 통계
 
-- **총 작업 수**: 16개 (오늘 6개 추가)
-- **커밋 수**: 11개
+- **총 작업 수**: 19개 (오늘 9개 추가)
+- **커밋 수**: 14개
 - **오늘 작업 (2025-12-11)**:
-  - ✅ 6개 작업 완료
-  - ✅ 5개 커밋
-  - ✅ 버그 4개 수정
-  - ✅ 새 기능 2개 추가
+  - ✅ 9개 작업 완료
+  - ✅ 8개 커밋
+  - ✅ 버그 7개 수정 (자막 2개, 이미지 1개, 기존 4개)
+  - ✅ 새 기능 3개 추가 (대본 자동 분할, 기존 2개)
 - **변경된 주요 파일**:
-  - `local_cli/services/video_producer.py` - 영상 제작 핵심 (버그 3개 수정)
-  - `local_cli/services/tts_service.py` - TTS 및 오디오 길이 측정 (속도/피치 조절 추가)
+  - `local_cli/services/tts_service.py` - TTS, 오디오 길이 측정, () 효과음 제거, 대본 자동 분할
+  - `local_cli/services/video_producer.py` - 영상 제작 핵심, 자막 길이 조절, 이미지 생성 활성화
+  - `local_cli/services/image_generator.py` - 이미지 생성 (그라데이션 배경 개선)
   - `local_cli/services/audio_processor.py` - 오디오 처리
   - `local_cli/services/music_library.py` - 배경음악 관리
-  - `local_cli/services/image_generator.py` - 이미지 생성
   - `frontend/app/settings/page.tsx` - TTS 설정 UI 추가
   - `backend/main.py` - TTS 테스트 API 추가
   - `.vscode/launch.json` - VSCode 디버그 설정
@@ -473,5 +555,5 @@ def _find_font(self) -> Optional[str]:
 
 ---
 
-**마지막 업데이트**: 2025-12-11 10:00
+**마지막 업데이트**: 2025-12-11 15:50
 **작성자**: Claude Code (Sonnet 4.5)
