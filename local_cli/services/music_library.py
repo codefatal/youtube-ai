@@ -28,16 +28,24 @@ class MusicLibrary:
         genre_mapping = {
             'short_trendy': 'upbeat',
             'long_educational': 'ambient',
-            'long_storytelling': 'cinematic'
+            'long_storytelling': 'cinematic',
+            'calm': 'ambient',
+            'energetic': 'upbeat',
+            'professional': 'ambient',
+            'creative': 'electronic'
         }
 
         genre = genre_mapping.get(style, 'ambient')
+
+        # 음악 폴더 구조 자동 생성
+        self._ensure_music_structure()
 
         # 해당 장르의 음악 파일 찾기
         music_files = self._find_music_files(genre)
 
         if not music_files:
-            print("⚠️ 음악 파일을 찾을 수 없습니다. 음악 없이 진행합니다.")
+            print("⚠️ 음악 파일을 찾을 수 없습니다.")
+            print("💡 MUSIC_GUIDE.md를 참고하여 무료 배경음악을 다운로드하세요.")
             return None
 
         # 랜덤 선택
@@ -46,6 +54,14 @@ class MusicLibrary:
         print(f"🎵 배경음악 선택: {os.path.basename(selected_music)}")
 
         return selected_music
+
+    def _ensure_music_structure(self):
+        """음악 폴더 구조가 없으면 자동 생성"""
+        for source, info in self.MUSIC_SOURCES.items():
+            for genre in info['genres']:
+                genre_path = os.path.join(info['path'], genre)
+                if not os.path.exists(genre_path):
+                    os.makedirs(genre_path, exist_ok=True)
 
     def _find_music_files(self, genre: str):
         """장르에 맞는 음악 파일 찾기"""

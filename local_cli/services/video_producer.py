@@ -62,6 +62,11 @@ class VideoProducer:
         temp_dir = './temp'
         os.makedirs(temp_dir, exist_ok=True)
 
+        # 출력 디렉토리 미리 생성
+        output_dir = os.path.dirname(output_path)
+        if output_dir:
+            os.makedirs(output_dir, exist_ok=True)
+
         # 1. TTS 음성 생성
         print("\n1️⃣ 음성 생성 중...")
         voice_segments = self.tts_service.generate_with_timestamps(
@@ -120,9 +125,6 @@ class VideoProducer:
             script['video_format'],
             voice_duration
         )
-
-        # 출력 디렉토리 생성
-        os.makedirs(os.path.dirname(output_path), exist_ok=True)
 
         final_video.write_videofile(
             output_path,

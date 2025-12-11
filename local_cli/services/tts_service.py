@@ -251,56 +251,53 @@ class TTSService:
         return audio_files
 
     def _get_audio_duration(self, audio_path: str) -> float:
-        """오디오 길이 가져오기 (FFprobe 또는 MoviePy 사용)"""
+        """오디오 길이 가져오기
 
-        # 방법 1: FFprobe 사용 (가장 빠름)
-        try:
-            import subprocess
-            import os
-
-            # imageio-ffmpeg에서 ffprobe 경로 가져오기
-            try:
-                from imageio_ffmpeg import get_ffmpeg_exe
-                ffmpeg_path = get_ffmpeg_exe()
-                # Windows: ffmpeg.exe → ffprobe.exe
-                # Linux/Mac: ffmpeg → ffprobe
-                ffmpeg_dir = os.path.dirname(ffmpeg_path)
-                ffmpeg_name = os.path.basename(ffmpeg_path)
-                ffprobe_name = ffmpeg_name.replace('ffmpeg', 'ffprobe')
-                ffprobe_path = os.path.join(ffmpeg_dir, ffprobe_name)
-
-                # ffprobe가 실제로 존재하는지 확인
-                if not os.path.exists(ffprobe_path):
-                    raise FileNotFoundError(f"ffprobe를 찾을 수 없습니다: {ffprobe_path}")
-            except Exception as e:
-                # 시스템 PATH에서 ffprobe 찾기
-                ffprobe_path = 'ffprobe'
-
-            cmd = [
-                ffprobe_path,
-                '-v', 'error',
-                '-show_entries', 'format=duration',
-                '-of', 'default=noprint_wrappers=1:nokey=1',
-                audio_path
-            ]
-            result = subprocess.run(cmd, capture_output=True, text=True, check=True)
-            duration = float(result.stdout.strip())
-            print(f"✅ 오디오 길이 측정 성공 (ffprobe): {duration:.2f}초")
-            return duration
-        except Exception as e:
-            print(f"⚠️ FFprobe 실패: {e}")
-
-        # 방법 2: MoviePy 사용 (fallback)
+        MoviePy를 사용하여 안정적으로 오디오 길이를 측정합니다.
+        imageio-ffmpeg는 FFprobe를 포함하지 않으므로 MoviePy가 가장 안정적입니다.
+        """
+        # 방법 1: MoviePy 사용 (가장 안정적)
         try:
             from moviepy import AudioFileClip
             audio = AudioFileClip(audio_path)
             duration = audio.duration
             audio.close()
-            print(f"✅ 오디오 길이 측정 성공 (MoviePy): {duration:.2f}초")
             return duration
         except Exception as e:
-            print(f"⚠️ MoviePy 실패: {e}")
+            print(f"⚠️ MoviePy 오디오 길이 측정 실패: {e}")
+
+        # 방법 2: FFmpeg 직접 사용 (fallback)
+        try:
+            import subprocess
+            from imageio_ffmpeg import get_ffmpeg_exe
+
+            ffmpeg_path = get_ffmpeg_exe()
+
+            # FFmpeg으로 오디오 정보 가져오기 (ffprobe 없이)
+            cmd = [
+                ffmpeg_path,
+                '-i', audio_path,
+                '-f', 'null',
+                '-'
+            ]
+            result = subprocess.run(
+                cmd,
+                capture_output=True,
+                text=True,
+                encoding='utf-8',
+                errors='ignore'
+            )
+
+            # stderr에서 Duration 파싱
+            import re
+            match = re.search(r'Duration: (\d{2}):(\d{2}):(\d{2}\.\d{2})', result.stderr)
+            if match:
+                hours, minutes, seconds = match.groups()
+                duration = int(hours) * 3600 + int(minutes) * 60 + float(seconds)
+                return duration
+        except Exception as e:
+            print(f"⚠️ FFmpeg 오디오 길이 측정 실패: {e}")
 
         # 방법 3: 기본값 사용
-        print(f"⚠️ 모든 방법 실패, 기본값 5초 사용")
+        print(f"⚠️ 오디오 길이 측정 실패, 기본값 5초 사용")
         return 5.0

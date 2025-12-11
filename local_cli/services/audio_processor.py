@@ -66,21 +66,44 @@ class AudioProcessor:
         return output_path, duration_seconds
 
     def _get_audio_duration(self, audio_path: str, ffmpeg_path: str = 'ffmpeg') -> float:
-        """FFmpeg로 오디오 길이 가져오기"""
+        """FFmpeg로 오디오 길이 가져오기 (ffprobe 없이)"""
         try:
-            ffprobe_path = ffmpeg_path.replace('ffmpeg', 'ffprobe')
+            # FFmpeg으로 직접 오디오 정보 가져오기
             cmd = [
-                ffprobe_path,
-                '-v', 'error',
-                '-show_entries', 'format=duration',
-                '-of', 'default=noprint_wrappers=1:nokey=1',
-                audio_path
+                ffmpeg_path,
+                '-i', audio_path,
+                '-f', 'null',
+                '-'
             ]
-            result = subprocess.run(cmd, capture_output=True, text=True, check=True)
-            return float(result.stdout.strip())
+            result = subprocess.run(
+                cmd,
+                capture_output=True,
+                text=True,
+                encoding='utf-8',
+                errors='ignore'
+            )
+
+            # stderr에서 Duration 파싱
+            match = re.search(r'Duration: (\d{2}):(\d{2}):(\d{2}\.\d{2})', result.stderr)
+            if match:
+                hours, minutes, seconds = match.groups()
+                duration = int(hours) * 3600 + int(minutes) * 60 + float(seconds)
+                return duration
+        except Exception as e:
+            print(f"⚠️ 오디오 길이 측정 실패: {e}")
+
+        # MoviePy fallback
+        try:
+            from moviepy import AudioFileClip
+            audio = AudioFileClip(audio_path)
+            duration = audio.duration
+            audio.close()
+            return duration
         except:
-            # 기본값 반환 (각 세그먼트 5초로 가정)
-            return 30.0
+            pass
+
+        # 최종 기본값
+        return 30.0
 
     def _timestamp_to_ms(self, timestamp: str) -> int:
         """[00:05] -> 5000ms"""
