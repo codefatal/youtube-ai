@@ -23,47 +23,7 @@
 
 ## 🚧 TODO (진행 예정 작업)
 
-### 버그 수정: 썸네일 RGBA→JPEG 변환 오류
-- **시작일**: 2025-12-11 14:35
-- **담당**: Claude Code
-- **목표**: 썸네일 생성 시 RGBA를 RGB로 변환 후 JPEG 저장
-- **배경**: `cannot write mode RGBA as JPEG` 오류로 영상 제작 실패
-- **예상 파일**: `local_cli/services/video_producer.py`
-
-### 버그 수정: 비주얼 클립 이미지 깨짐
-- **시작일**: 2025-12-11 14:35
-- **목표**: ColorClip 대신 안정적인 이미지 생성 방법 사용
-- **배경**: 영상 재생 시 이미지가 깨져 보임
-- **예상 파일**: `local_cli/services/video_producer.py`
-
-### 버그 수정: 숏폼 자막 잘림 현상
-- **시작일**: 2025-12-11 14:35
-- **목표**: 숏폼(9:16) 크롭 시 자막 위치 조정
-- **배경**: 자막이 화면 아래쪽에서 잘려서 보임
-- **예상 파일**: `local_cli/services/video_producer.py`
-
-### 새 기능: TTS 목소리 선택 기능
-- **시작일**: 2025-12-11 14:35
-- **목표**: 설정 페이지에서 TTS 목소리 선택 및 테스트
-- **배경**: 사용자가 다양한 목소리 중 선택하고 테스트하고 싶어함
-- **예상 파일**:
-  - `frontend/app/settings/page.tsx`
-  - `backend/main.py`
-  - `local_cli/services/tts_service.py`
-
-### 개선: TTS 템포 빠르게
-- **시작일**: 2025-12-11 14:35
-- **목표**: gTTS 속도를 현재보다 빠르게 조정
-- **예상 파일**: `local_cli/services/tts_service.py`
-
-### 새 기능: 인기 배경음악 10개 사전 등록
-- **시작일**: 2025-12-11 14:35
-- **목표**: 저작권 없는 인기 음악 10개 자동 다운로드 및 등록
-- **배경**: 매번 수동으로 음악 추가하는 번거로움 해소
-- **예상 파일**:
-  - `local_cli/services/music_library.py`
-  - `MUSIC_GUIDE.md`
-  - 새 스크립트: `scripts/download_popular_music.py`
+<!-- 2025-12-11 작업 모두 완료 ✅ -->
 
 ### 템플릿
 ```markdown
@@ -78,6 +38,71 @@
 ---
 
 ## ✅ DONE (완료된 작업)
+
+### 2025-12-11: 인기 배경음악 TOP 10 추천 목록 추가
+- **완료일**: 2025-12-11 14:40
+- **Git 커밋**: `cce5174`
+- **목표**: 사용자가 쉽게 배경음악을 찾고 다운로드할 수 있도록 추천 목록 제공
+- **변경 파일**:
+  - `MUSIC_GUIDE.md` - TOP 10 섹션 추가
+- **내용**:
+  - Pixabay & YouTube Audio Library에서 엄선한 10곡
+  - 장르별 분류: Ambient 3곡, Upbeat 3곡, Cinematic 2곡, Electronic 2곡
+  - 각 곡의 다운로드 링크, 길이, 분위기, 추천 용도 포함
+
+---
+
+### 2025-12-11: TTS 목소리 선택 기능 추가
+- **완료일**: 2025-12-11 14:39
+- **Git 커밋**: `6d3609b`
+- **목표**: 설정 페이지에서 TTS 언어, 속도, 피치를 선택하고 테스트할 수 있게 함
+- **변경 파일**:
+  - `frontend/app/settings/page.tsx` - TTS 설정 UI 추가
+  - `backend/main.py` - `/api/tts/test` 엔드포인트 추가
+  - `local_cli/services/tts_service.py` - `_generate_gtts_with_lang()` 메서드 추가
+
+#### 주요 기능
+1. **언어 선택**: 한국어, 영어, 일본어, 중국어, 스페인어, 프랑스어
+2. **속도 조절**: 0.5x ~ 2.0x 슬라이더
+3. **피치 조절**: -5 ~ +5 슬라이더
+4. **테스트 버튼**: 현재 설정으로 "안녕하세요. TTS 테스트 음성입니다." 재생
+
+#### 기술 구현
+- FFmpeg `atempo` 필터로 속도 조절
+- FFmpeg `asetrate` + `aresample`로 피치 조절
+- FastAPI FileResponse로 MP3 스트리밍
+
+---
+
+### 2025-12-11: 영상 제작 버그 4개 수정 및 TTS 속도 개선
+- **완료일**: 2025-12-11 14:36
+- **Git 커밋**: `bb80c62`
+- **목표**: 영상 제작 시 발생하는 모든 오류 수정 및 TTS 템포 개선
+
+#### 1. 썸네일 RGBA→JPEG 변환 오류 수정
+- **문제**: `cannot write mode RGBA as JPEG`
+- **해결**: PIL로 RGBA를 RGB로 변환 후 JPEG 저장
+- **코드**: `video_producer.py:142-153`
+
+#### 2. 비주얼 클립 이미지 깨짐 수정
+- **문제**: ColorClip 사용 시 영상 재생 중 이미지 깨짐
+- **해결**: PIL로 단색 이미지 생성 → numpy array → ImageClip 변환
+- **코드**: `video_producer.py:215-223`
+
+#### 3. 숏폼 자막 잘림 현상 수정
+- **문제**: 9:16 크롭 후 자막이 화면 아래쪽에서 잘림
+- **해결**:
+  - 크롭을 자막 추가 전에 먼저 수행
+  - 자막 위치를 75%(숏폼)/85%(긴 영상)로 조정
+  - 자막 크기를 85%로 줄여 여백 확보
+- **코드**: `video_producer.py:332-371`
+
+#### 4. TTS 템포 20% 빠르게 조정
+- **문제**: 기본 TTS 속도가 너무 느림
+- **해결**: FFmpeg `atempo` 필터로 1.2배 속도 적용
+- **코드**: `tts_service.py:116-163`
+
+---
 
 ### 2025-12-11: TextClip 정수 변환 오류 수정
 - **완료일**: 2025-12-11 09:59
@@ -368,17 +393,26 @@ def _find_font(self) -> Optional[str]:
 
 ## 📊 통계
 
-- **총 작업 수**: 10개
-- **커밋 수**: 5개 이상
+- **총 작업 수**: 16개 (오늘 6개 추가)
+- **커밋 수**: 11개
+- **오늘 작업 (2025-12-11)**:
+  - ✅ 6개 작업 완료
+  - ✅ 5개 커밋
+  - ✅ 버그 4개 수정
+  - ✅ 새 기능 2개 추가
 - **변경된 주요 파일**:
-  - `local_cli/services/video_producer.py` - 영상 제작 핵심
-  - `local_cli/services/tts_service.py` - TTS 및 오디오 길이 측정
+  - `local_cli/services/video_producer.py` - 영상 제작 핵심 (버그 3개 수정)
+  - `local_cli/services/tts_service.py` - TTS 및 오디오 길이 측정 (속도/피치 조절 추가)
   - `local_cli/services/audio_processor.py` - 오디오 처리
   - `local_cli/services/music_library.py` - 배경음악 관리
   - `local_cli/services/image_generator.py` - 이미지 생성
+  - `frontend/app/settings/page.tsx` - TTS 설정 UI 추가
+  - `backend/main.py` - TTS 테스트 API 추가
   - `.vscode/launch.json` - VSCode 디버그 설정
   - `VSCODE_GUIDE.md` - 확장 프로그램 가이드
-  - `MUSIC_GUIDE.md` - 배경음악 다운로드 가이드
+  - `MUSIC_GUIDE.md` - 배경음악 다운로드 가이드 + TOP 10 추가
+  - `WORK_LOG.md` - 작업 기록
+  - `WORKFLOW_GUIDE.md` - 워크플로우 가이드
 
 ---
 
