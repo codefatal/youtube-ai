@@ -251,14 +251,29 @@ class TTSService:
         return audio_files
 
     def _get_audio_duration(self, audio_path: str) -> float:
-        """FFprobe로 오디오 길이 가져오기"""
+        """오디오 길이 가져오기 (FFprobe 또는 MoviePy 사용)"""
+
+        # 방법 1: FFprobe 사용 (가장 빠름)
         try:
             import subprocess
+            import os
+
+            # imageio-ffmpeg에서 ffprobe 경로 가져오기
             try:
                 from imageio_ffmpeg import get_ffmpeg_exe
                 ffmpeg_path = get_ffmpeg_exe()
-                ffprobe_path = ffmpeg_path.replace('ffmpeg', 'ffprobe')
-            except:
+                # Windows: ffmpeg.exe → ffprobe.exe
+                # Linux/Mac: ffmpeg → ffprobe
+                ffmpeg_dir = os.path.dirname(ffmpeg_path)
+                ffmpeg_name = os.path.basename(ffmpeg_path)
+                ffprobe_name = ffmpeg_name.replace('ffmpeg', 'ffprobe')
+                ffprobe_path = os.path.join(ffmpeg_dir, ffprobe_name)
+
+                # ffprobe가 실제로 존재하는지 확인
+                if not os.path.exists(ffprobe_path):
+                    raise FileNotFoundError(f"ffprobe를 찾을 수 없습니다: {ffprobe_path}")
+            except Exception as e:
+                # 시스템 PATH에서 ffprobe 찾기
                 ffprobe_path = 'ffprobe'
 
             cmd = [
@@ -269,7 +284,23 @@ class TTSService:
                 audio_path
             ]
             result = subprocess.run(cmd, capture_output=True, text=True, check=True)
-            return float(result.stdout.strip())
+            duration = float(result.stdout.strip())
+            print(f"✅ 오디오 길이 측정 성공 (ffprobe): {duration:.2f}초")
+            return duration
         except Exception as e:
-            print(f"⚠️ 오디오 길이 측정 실패: {e}, 기본값 5초 사용")
-            return 5.0
+            print(f"⚠️ FFprobe 실패: {e}")
+
+        # 방법 2: MoviePy 사용 (fallback)
+        try:
+            from moviepy import AudioFileClip
+            audio = AudioFileClip(audio_path)
+            duration = audio.duration
+            audio.close()
+            print(f"✅ 오디오 길이 측정 성공 (MoviePy): {duration:.2f}초")
+            return duration
+        except Exception as e:
+            print(f"⚠️ MoviePy 실패: {e}")
+
+        # 방법 3: 기본값 사용
+        print(f"⚠️ 모든 방법 실패, 기본값 5초 사용")
+        return 5.0
