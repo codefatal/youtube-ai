@@ -327,7 +327,7 @@ class VideoProducer:
                 stroke_color='black',
                 stroke_width=2,
                 method='caption',
-                size=(video.w * 0.9, None)
+                size=(int(video.w * 0.9), None)
             )
 
         subtitle_clips = []
@@ -342,10 +342,10 @@ class VideoProducer:
         # 숏폼은 9:16 크롭
         if video_format == 'short':
             video = video.cropped(
-                x_center=video.w/2,
-                y_center=video.h/2,
+                x_center=int(video.w/2),
+                y_center=int(video.h/2),
                 width=int(video.h * 9/16),
-                height=video.h
+                height=int(video.h)
             )
 
         return video
