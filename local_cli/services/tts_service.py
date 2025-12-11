@@ -331,6 +331,8 @@ class TTSService:
         segments = re.split(r'\[(\d{2}:\d{2})\]', script_with_timestamps)
 
         audio_files = []
+        segment_index = 0
+
         for i in range(1, len(segments), 2):
             timestamp = segments[i]
             text = segments[i+1].strip() if i+1 < len(segments) else ""
@@ -343,21 +345,67 @@ class TTSService:
                 if not text_clean:
                     continue
 
-                output_path = os.path.join(output_dir, f"segment_{i//2}.mp3")
-                self.generate_speech(text_clean, output_path)
+                # 너무 긴 텍스트는 문장 단위로 분할 (120자 이상)
+                if len(text_clean) > 120:
+                    sentences = self._split_into_sentences(text_clean)
+                    for sentence in sentences:
+                        if sentence.strip():
+                            output_path = os.path.join(output_dir, f"segment_{segment_index}.mp3")
+                            self.generate_speech(sentence.strip(), output_path)
 
-                # 오디오 길이 측정
-                duration = self._get_audio_duration(output_path)
+                            # 오디오 길이 측정
+                            duration = self._get_audio_duration(output_path)
 
-                audio_files.append({
-                    'timestamp': timestamp,
-                    'text': text_clean,  # 효과음 제거된 텍스트 저장
-                    'audio_path': output_path,
-                    'duration': duration
-                })
+                            audio_files.append({
+                                'timestamp': timestamp,
+                                'text': sentence.strip(),
+                                'audio_path': output_path,
+                                'duration': duration
+                            })
+                            segment_index += 1
+                else:
+                    output_path = os.path.join(output_dir, f"segment_{segment_index}.mp3")
+                    self.generate_speech(text_clean, output_path)
+
+                    # 오디오 길이 측정
+                    duration = self._get_audio_duration(output_path)
+
+                    audio_files.append({
+                        'timestamp': timestamp,
+                        'text': text_clean,
+                        'audio_path': output_path,
+                        'duration': duration
+                    })
+                    segment_index += 1
 
         print(f"✅ {len(audio_files)}개 세그먼트 생성 완료")
         return audio_files
+
+    def _split_into_sentences(self, text: str) -> List[str]:
+        """텍스트를 문장 단위로 분할
+
+        Args:
+            text: 분할할 텍스트
+
+        Returns:
+            List[str]: 문장 리스트
+        """
+        # 한국어와 영어 문장 구분자
+        # ., !, ?, 。(일본어), ！, ？ 등
+        sentences = re.split(r'([.!?。！？]+\s*)', text)
+
+        # 구분자와 텍스트를 다시 합치기
+        result = []
+        for i in range(0, len(sentences) - 1, 2):
+            sentence = sentences[i] + (sentences[i+1] if i+1 < len(sentences) else '')
+            if sentence.strip():
+                result.append(sentence.strip())
+
+        # 마지막 문장 처리
+        if len(sentences) % 2 == 1 and sentences[-1].strip():
+            result.append(sentences[-1].strip())
+
+        return result
 
     def _get_audio_duration(self, audio_path: str) -> float:
         """오디오 길이 가져오기
