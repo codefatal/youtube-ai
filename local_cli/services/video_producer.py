@@ -342,8 +342,29 @@ class VideoProducer:
         font_path = self._find_font()
 
         def make_textclip(txt):
-            # 숏폼은 작은 폰트, 긴 영상은 큰 폰트
-            font_size = 45 if video_format == 'short' else 40
+            # 텍스트 길이에 따라 폰트 크기 동적 조절
+            text_length = len(txt)
+
+            if video_format == 'short':
+                # 숏폼: 짧은 텍스트는 크게, 긴 텍스트는 작게
+                if text_length < 30:
+                    font_size = 45
+                elif text_length < 60:
+                    font_size = 38
+                else:
+                    font_size = 32
+            else:
+                # 긴 영상: 전체적으로 조금 더 큰 폰트
+                if text_length < 40:
+                    font_size = 48
+                elif text_length < 80:
+                    font_size = 40
+                else:
+                    font_size = 34
+
+            # 자막 영역을 90%로 확대
+            max_width = int(video.w * 0.9)
+
             return TextClip(
                 text=txt,
                 font=font_path,
@@ -352,7 +373,7 @@ class VideoProducer:
                 stroke_color='black',
                 stroke_width=2,
                 method='caption',
-                size=(int(video.w * 0.85), None)  # 85%로 줄여서 여백 확보
+                size=(max_width, None)  # 90%로 확대
             )
 
         subtitle_clips = []

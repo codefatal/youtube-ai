@@ -336,15 +336,22 @@ class TTSService:
             text = segments[i+1].strip() if i+1 < len(segments) else ""
 
             if text:
+                # () 안의 효과음 설명 제거 (예: (박수 소리), (웃음))
+                text_clean = re.sub(r'\([^)]*\)', '', text).strip()
+
+                # 효과음만 있고 실제 텍스트가 없으면 건너뛰기
+                if not text_clean:
+                    continue
+
                 output_path = os.path.join(output_dir, f"segment_{i//2}.mp3")
-                self.generate_speech(text, output_path)
+                self.generate_speech(text_clean, output_path)
 
                 # 오디오 길이 측정
                 duration = self._get_audio_duration(output_path)
 
                 audio_files.append({
                     'timestamp': timestamp,
-                    'text': text,
+                    'text': text_clean,  # 효과음 제거된 텍스트 저장
                     'audio_path': output_path,
                     'duration': duration
                 })
