@@ -34,8 +34,9 @@ class VideoProducer:
         self.audio_processor = AudioProcessor()
         self.music_library = MusicLibrary()
 
-        # AI 이미지 생성 (현재는 비활성화)
-        image_provider = os.getenv('IMAGE_PROVIDER', 'none')
+        # 이미지 생성 (text 모드 기본 활성화)
+        # 환경 변수로 unsplash, pexels 등으로 변경 가능
+        image_provider = os.getenv('IMAGE_PROVIDER', 'text')
         self.image_generator = ImageGenerator(provider=image_provider)
 
     def produce_video(

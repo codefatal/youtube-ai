@@ -241,48 +241,84 @@ class ImageGenerator:
         width: int,
         height: int
     ) -> Optional[str]:
-        """텍스트 기반 이미지 생성 (Pillow 사용)"""
+        """텍스트 기반 이미지 생성 (Pillow 사용 - 그라데이션 배경)"""
         try:
             from PIL import Image, ImageDraw, ImageFont
             import random
+            import numpy as np
 
-            # 배경 색상 (그라데이션 효과)
-            colors = [
-                (30, 30, 60),    # 진한 파란색
-                (60, 30, 30),    # 진한 빨간색
-                (30, 60, 30),    # 진한 초록색
-                (60, 60, 30),    # 노란색
-                (60, 30, 60),    # 보라색
+            # 그라데이션 배경 색상 조합
+            gradient_colors = [
+                ((20, 30, 70), (60, 90, 180)),    # 파란색 그라데이션
+                ((70, 20, 50), (180, 60, 130)),   # 핑크/자주 그라데이션
+                ((20, 60, 50), (60, 160, 130)),   # 청록색 그라데이션
+                ((60, 40, 20), (180, 120, 60)),   # 주황색 그라데이션
+                ((30, 20, 60), (90, 60, 150)),    # 보라색 그라데이션
             ]
-            bg_color = random.choice(colors)
+            color1, color2 = random.choice(gradient_colors)
 
-            # 이미지 생성
-            image = Image.new('RGB', (width, height), bg_color)
+            # 그라데이션 이미지 생성 (세로 방향)
+            image = Image.new('RGB', (width, height))
+            pixels = image.load()
+
+            for y in range(height):
+                # 세로 방향 그라데이션 (위에서 아래로)
+                ratio = y / height
+                r = int(color1[0] + (color2[0] - color1[0]) * ratio)
+                g = int(color1[1] + (color2[1] - color1[1]) * ratio)
+                b = int(color1[2] + (color2[2] - color1[2]) * ratio)
+
+                for x in range(width):
+                    pixels[x, y] = (r, g, b)
+
             draw = ImageDraw.Draw(image)
 
-            # 텍스트 (처음 50자)
-            text_display = text[:50] + ('...' if len(text) > 50 else '')
+            # 텍스트에서 키워드 추출 (처음 3-5단어)
+            words = text.split()[:5]
+            keywords = ' '.join(words) if words else text[:30]
 
-            # 폰트 (기본 폰트 사용)
+            # 폰트 로드 (Windows 맑은 고딕 또는 Arial)
             try:
-                font = ImageFont.truetype("arial.ttf", 60)
+                # 한글 폰트 시도
+                font_large = ImageFont.truetype("C:/Windows/Fonts/malgun.ttf", 80)
+                font_small = ImageFont.truetype("C:/Windows/Fonts/malgun.ttf", 50)
             except:
-                font = ImageFont.load_default()
+                try:
+                    font_large = ImageFont.truetype("arial.ttf", 80)
+                    font_small = ImageFont.truetype("arial.ttf", 50)
+                except:
+                    font_large = ImageFont.load_default()
+                    font_small = ImageFont.load_default()
 
-            # 텍스트 위치 (중앙)
-            bbox = draw.textbbox((0, 0), text_display, font=font)
+            # 키워드를 큰 글씨로 중앙에
+            bbox = draw.textbbox((0, 0), keywords, font=font_large)
             text_width = bbox[2] - bbox[0]
             text_height = bbox[3] - bbox[1]
+
+            # 화면 너비를 초과하면 작은 폰트 사용
+            if text_width > width * 0.9:
+                bbox = draw.textbbox((0, 0), keywords, font=font_small)
+                text_width = bbox[2] - bbox[0]
+                text_height = bbox[3] - bbox[1]
+                use_font = font_small
+            else:
+                use_font = font_large
+
             position = ((width - text_width) // 2, (height - text_height) // 2)
 
-            # 텍스트 그리기
-            draw.text(position, text_display, fill=(255, 255, 255), font=font)
+            # 텍스트 그림자 효과
+            shadow_offset = 4
+            draw.text((position[0] + shadow_offset, position[1] + shadow_offset),
+                     keywords, fill=(0, 0, 0, 128), font=use_font)
+
+            # 메인 텍스트
+            draw.text(position, keywords, fill=(255, 255, 255), font=use_font)
 
             # 저장
             os.makedirs(os.path.dirname(output_path), exist_ok=True)
-            image.save(output_path)
+            image.save(output_path, quality=95)
 
-            print(f"✅ 텍스트 이미지 생성: {text[:30]}...")
+            print(f"✅ 텍스트 이미지 생성: {keywords}")
             return output_path
 
         except Exception as e:
