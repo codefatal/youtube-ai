@@ -138,7 +138,19 @@ class VideoProducer:
         # 6. 썸네일 생성
         print("\n6️⃣ 썸네일 생성 중...")
         thumbnail_path = output_path.replace('.mp4', '_thumb.jpg')
-        final_video.save_frame(thumbnail_path, t=2)
+
+        # RGBA를 RGB로 변환하여 JPEG 저장
+        from PIL import Image
+        import numpy as np
+
+        frame = final_video.get_frame(2)  # 2초 시점 프레임
+        img = Image.fromarray(frame)
+
+        # RGBA인 경우 RGB로 변환
+        if img.mode == 'RGBA':
+            img = img.convert('RGB')
+
+        img.save(thumbnail_path, 'JPEG', quality=95)
 
         print(f"\n✅ 영상 생성 완료: {output_path}")
 
@@ -200,16 +212,18 @@ class VideoProducer:
                 clip = ImageClip(image_path, duration=duration)
                 print(f"✅ AI 이미지 사용: {image_path}")
             else:
-                # 단색 배경 클립 생성
-                color = self.VISUAL_COLORS[i % len(self.VISUAL_COLORS)]
-                clip = ColorClip(
-                    size=(1920, 1080),
-                    color=color,
-                    duration=duration
-                )
+                # PIL로 단색 배경 이미지 생성 (ColorClip 대신 안정적)
+                from PIL import Image
+                import numpy as np
 
-            # 줌 효과 (시간에 따라 1.0에서 1.25까지 확대)
-            clip = clip.resized(lambda t: 1 + 0.05 * t)
+                color = self.VISUAL_COLORS[i % len(self.VISUAL_COLORS)]
+                img = Image.new('RGB', (1920, 1080), color)
+                img_array = np.array(img)
+
+                clip = ImageClip(img_array, duration=duration)
+
+            # 줌 효과 (시간에 따라 1.0에서 1.05까지 확대)
+            clip = clip.resized(lambda t: 1 + 0.01 * t)
 
             clips.append(clip)
 
@@ -315,31 +329,7 @@ class VideoProducer:
         audio = AudioFileClip(audio_path)
         video = video.with_audio(audio)
 
-        # 자막 추가 (폰트 경로 자동 탐지)
-        font_path = self._find_font()
-
-        def make_textclip(txt):
-            return TextClip(
-                text=txt,
-                font=font_path,
-                font_size=50 if video_format == 'short' else 40,
-                color='white',
-                stroke_color='black',
-                stroke_width=2,
-                method='caption',
-                size=(int(video.w * 0.9), None)
-            )
-
-        subtitle_clips = []
-        for sub in subtitles:
-            txt_clip = make_textclip(sub['text'])
-            txt_clip = txt_clip.with_start(sub['start']).with_duration(sub['end'] - sub['start'])
-            txt_clip = txt_clip.with_position(('center', 'bottom'))
-            subtitle_clips.append(txt_clip)
-
-        video = CompositeVideoClip([video] + subtitle_clips)
-
-        # 숏폼은 9:16 크롭
+        # 숏폼은 9:16 크롭 (자막 추가 전에 먼저 크롭)
         if video_format == 'short':
             video = video.cropped(
                 x_center=int(video.w/2),
@@ -347,5 +337,37 @@ class VideoProducer:
                 width=int(video.h * 9/16),
                 height=int(video.h)
             )
+
+        # 자막 추가 (폰트 경로 자동 탐지)
+        font_path = self._find_font()
+
+        def make_textclip(txt):
+            # 숏폼은 작은 폰트, 긴 영상은 큰 폰트
+            font_size = 45 if video_format == 'short' else 40
+            return TextClip(
+                text=txt,
+                font=font_path,
+                font_size=font_size,
+                color='white',
+                stroke_color='black',
+                stroke_width=2,
+                method='caption',
+                size=(int(video.w * 0.85), None)  # 85%로 줄여서 여백 확보
+            )
+
+        subtitle_clips = []
+        for sub in subtitles:
+            txt_clip = make_textclip(sub['text'])
+            txt_clip = txt_clip.with_start(sub['start']).with_duration(sub['end'] - sub['start'])
+
+            # 숏폼은 화면 중앙 하단, 긴 영상은 하단
+            if video_format == 'short':
+                txt_clip = txt_clip.with_position(('center', int(video.h * 0.75)))  # 75% 위치
+            else:
+                txt_clip = txt_clip.with_position(('center', int(video.h * 0.85)))  # 85% 위치
+
+            subtitle_clips.append(txt_clip)
+
+        video = CompositeVideoClip([video] + subtitle_clips)
 
         return video

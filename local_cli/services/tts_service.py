@@ -116,13 +116,49 @@ class TTSService:
     def _generate_gtts(self, text: str, output_path: str, speed: float) -> str:
         """gTTS로 생성 (무료, 좋은 품질)"""
         import os
+        import subprocess
         os.makedirs(os.path.dirname(output_path), exist_ok=True)
 
         # 한글 감지
         lang = 'ko' if any(ord(c) >= 0xAC00 and ord(c) <= 0xD7A3 for c in text) else 'en'
 
-        tts = self.gtts_class(text=text, lang=lang, slow=(speed < 0.9))
-        tts.save(output_path)
+        # gTTS는 slow 파라미터만 지원 (True/False)
+        # 기본 속도가 충분히 빠르므로 slow=False 사용
+        tts = self.gtts_class(text=text, lang=lang, slow=False)
+
+        # 임시 파일에 저장
+        temp_path = output_path.replace('.mp3', '_temp.mp3')
+        tts.save(temp_path)
+
+        # FFmpeg로 속도 조절 (1.2배 빠르게)
+        try:
+            from imageio_ffmpeg import get_ffmpeg_exe
+            ffmpeg_path = get_ffmpeg_exe()
+
+            # atempo 필터로 속도 조절 (1.2 = 20% 빠르게)
+            speed_factor = max(0.5, min(2.0, speed * 1.2))  # 1.0 → 1.2
+
+            cmd = [
+                ffmpeg_path,
+                '-i', temp_path,
+                '-filter:a', f'atempo={speed_factor}',
+                '-y',
+                output_path
+            ]
+
+            subprocess.run(cmd, check=True, capture_output=True)
+
+            # 임시 파일 삭제
+            if os.path.exists(temp_path):
+                os.remove(temp_path)
+
+        except Exception as e:
+            print(f"⚠️ 속도 조절 실패, 원본 사용: {e}")
+            # 실패 시 원본 사용
+            if os.path.exists(temp_path):
+                import shutil
+                shutil.move(temp_path, output_path)
+
         print(f"✅ 음성 생성 완료: {output_path}")
         return output_path
 
