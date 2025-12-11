@@ -155,6 +155,11 @@ AI_PROVIDER=auto                # auto/gemini/claude
   - No pydub dependency (Python 3.14 compatible)
   - Real-time progress display in UI
   - File path guidance after completion
+  - **NEW (2025-12-11)**: 4가지 품질 개선
+    - 자막 () 효과음 자동 제거 (정규식 기반)
+    - 자막 길이 자동 조절 (동적 폰트 크기 32-48px)
+    - 그라데이션 배경 이미지 생성 (5가지 색상 조합)
+    - 대본 자동 분할 (120자 이상 문장 단위 분할)
 - Settings page with localStorage persistence
 - Settings integration across all pages
 - Backend API with CORS
@@ -221,7 +226,9 @@ python local_cli/main.py test-ai --provider gemini
 
 - Commit messages in Korean (user preference)
 - Push directly to main branch
-- Recent changes include settings integration and development notices
+- **WORK_LOG.md** tracks all work for cross-session continuity
+- **WORKFLOW_GUIDE.md** provides workflow guidelines
+- Recent changes include video production quality improvements (2025-12-11)
 
 ## Known Issues & Workarounds
 
@@ -229,17 +236,25 @@ python local_cli/main.py test-ai --provider gemini
 2. **JSON Parsing**: AI responses may include markdown code blocks - strip with regex before parsing
 3. ~~**Video Production**~~: ✅ **Fixed!** Now uses gTTS + FFmpeg directly (no pydub)
 4. ~~**pydub/audioop**~~: ✅ **Fixed!** Replaced with direct FFmpeg calls (Python 3.14 compatible)
-5. **Stats**: Currently returns zeros - needs database implementation
-6. **Line Endings**: Git warns about LF/CRLF on Windows - this is normal
-7. **YouTube Upload**: Requires OAuth 2.0 setup with credentials.json
+5. ~~**자막 () 효과음 표시**~~: ✅ **Fixed (2025-12-11)!** 정규식 `r'\([^)]*\)'`로 자동 제거
+6. ~~**자막 길이 잘림**~~: ✅ **Fixed (2025-12-11)!** 동적 폰트 크기 + 자막 너비 90%로 증가
+7. ~~**단색 배경 이미지**~~: ✅ **Fixed (2025-12-11)!** 그라데이션 배경 + 키워드 텍스트 추가
+8. ~~**긴 대본 문제**~~: ✅ **Fixed (2025-12-11)!** 120자 이상 자동 문장 분할
+9. **Stats**: Currently returns zeros - needs database implementation
+10. **Line Endings**: Git warns about LF/CRLF on Windows - this is normal
+11. **YouTube Upload**: Requires OAuth 2.0 setup with credentials.json
 
 ## Related Documentation
 
 - `README.md` - User-facing documentation, installation guide
 - `QUICK_START.md` - 5-minute quickstart
 - `PROJECT_SUMMARY.md` - Feature completion status
+- `PROJECT_STATUS.md` - Current project status and recent changes
 - `WEB_UI_GUIDE.md` - Web interface usage
 - `TROUBLESHOOTING.md` - Common problems and solutions
+- `WORK_LOG.md` - Detailed work log for token expiration recovery
+- `WORKFLOW_GUIDE.md` - Development workflow guidelines
+- `MUSIC_GUIDE.md` - Background music download guide
 - `backend/README.md` - Backend API details
 - `frontend/README.md` - Frontend tech stack and structure
 
