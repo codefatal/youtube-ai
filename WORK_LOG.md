@@ -23,7 +23,47 @@
 
 ## 🚧 TODO (진행 예정 작업)
 
-<!-- 새 작업을 여기에 추가하세요 -->
+### 버그 수정: 썸네일 RGBA→JPEG 변환 오류
+- **시작일**: 2025-12-11 14:35
+- **담당**: Claude Code
+- **목표**: 썸네일 생성 시 RGBA를 RGB로 변환 후 JPEG 저장
+- **배경**: `cannot write mode RGBA as JPEG` 오류로 영상 제작 실패
+- **예상 파일**: `local_cli/services/video_producer.py`
+
+### 버그 수정: 비주얼 클립 이미지 깨짐
+- **시작일**: 2025-12-11 14:35
+- **목표**: ColorClip 대신 안정적인 이미지 생성 방법 사용
+- **배경**: 영상 재생 시 이미지가 깨져 보임
+- **예상 파일**: `local_cli/services/video_producer.py`
+
+### 버그 수정: 숏폼 자막 잘림 현상
+- **시작일**: 2025-12-11 14:35
+- **목표**: 숏폼(9:16) 크롭 시 자막 위치 조정
+- **배경**: 자막이 화면 아래쪽에서 잘려서 보임
+- **예상 파일**: `local_cli/services/video_producer.py`
+
+### 새 기능: TTS 목소리 선택 기능
+- **시작일**: 2025-12-11 14:35
+- **목표**: 설정 페이지에서 TTS 목소리 선택 및 테스트
+- **배경**: 사용자가 다양한 목소리 중 선택하고 테스트하고 싶어함
+- **예상 파일**:
+  - `frontend/app/settings/page.tsx`
+  - `backend/main.py`
+  - `local_cli/services/tts_service.py`
+
+### 개선: TTS 템포 빠르게
+- **시작일**: 2025-12-11 14:35
+- **목표**: gTTS 속도를 현재보다 빠르게 조정
+- **예상 파일**: `local_cli/services/tts_service.py`
+
+### 새 기능: 인기 배경음악 10개 사전 등록
+- **시작일**: 2025-12-11 14:35
+- **목표**: 저작권 없는 인기 음악 10개 자동 다운로드 및 등록
+- **배경**: 매번 수동으로 음악 추가하는 번거로움 해소
+- **예상 파일**:
+  - `local_cli/services/music_library.py`
+  - `MUSIC_GUIDE.md`
+  - 새 스크립트: `scripts/download_popular_music.py`
 
 ### 템플릿
 ```markdown
