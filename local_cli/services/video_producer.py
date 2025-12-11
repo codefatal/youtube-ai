@@ -121,7 +121,8 @@ class VideoProducer:
         """간단한 이미지 슬라이드 (실제로는 AI 이미지 생성)"""
 
         try:
-            import moviepy.editor as mp
+            # MoviePy 2.x import
+            from moviepy import ColorClip
         except ImportError:
             raise ImportError("moviepy가 설치되지 않았습니다. pip install moviepy")
 
