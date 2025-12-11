@@ -3,21 +3,40 @@ Video Producer - 영상 제작 서비스
 """
 import os
 import re
-from typing import Dict, List, Tuple
+from typing import Dict, List, Tuple, Any, Optional
 from .tts_service import TTSService
 from .audio_processor import AudioProcessor
 from .music_library import MusicLibrary
+from .image_generator import ImageGenerator
 
 
 class VideoProducer:
-    """완전한 영상 제작 파이프라인"""
+    """완전한 영상 제작 파이프라인
+
+    TTS, 오디오 처리, 비주얼 생성, 자막, 영상 합성을 포함한
+    전체 영상 제작 워크플로우를 관리합니다.
+    """
+
+    # 임시 비주얼 배경 색상 (AI 이미지 생성 비활성화 시 사용)
+    VISUAL_COLORS = [
+        (50, 50, 100),   # 진한 파란색
+        (100, 50, 50),   # 진한 빨간색
+        (50, 100, 50),   # 진한 초록색
+        (100, 100, 50),  # 노란색
+        (100, 50, 100),  # 보라색
+    ]
 
     def __init__(self):
+        """VideoProducer 초기화"""
         # 무료 TTS 사용 (gTTS 또는 local)
         tts_provider = os.getenv('TTS_PROVIDER', 'gtts')
         self.tts_service = TTSService(provider=tts_provider)
         self.audio_processor = AudioProcessor()
         self.music_library = MusicLibrary()
+
+        # AI 이미지 생성 (현재는 비활성화)
+        image_provider = os.getenv('IMAGE_PROVIDER', 'none')
+        self.image_generator = ImageGenerator(provider=image_provider)
 
     def produce_video(
         self,
@@ -25,8 +44,19 @@ class VideoProducer:
         style_preset: str,
         output_path: str
     ) -> Tuple[str, str]:
-        """완전한 영상 제작 파이프라인"""
+        """완전한 영상 제작 파이프라인
 
+        Args:
+            script: 대본 정보 (content, video_format 포함)
+            style_preset: 스타일 프리셋 (calm, energetic 등)
+            output_path: 출력 영상 경로 (.mp4)
+
+        Returns:
+            Tuple[str, str]: (영상 경로, 썸네일 경로)
+
+        Raises:
+            Exception: 영상 제작 중 오류 발생 시
+        """
         print("\n🎬 영상 제작 시작...")
 
         temp_dir = './temp'
@@ -117,32 +147,61 @@ class VideoProducer:
         script: Dict,
         voice_segments: List[Dict],
         style_preset: str
-    ) -> List:
-        """간단한 이미지 슬라이드 (실제로는 AI 이미지 생성)"""
+    ) -> List[Any]:
+        """비주얼 클립 생성
 
+        AI 이미지 생성을 시도하며, 실패 시 단색 배경 사용
+
+        Args:
+            script: 대본 정보
+            voice_segments: TTS 세그먼트 (duration 포함)
+            style_preset: 스타일 프리셋
+
+        Returns:
+            List[MoviePy VideoClip]: 비주얼 클립 리스트
+
+        Raises:
+            ImportError: MoviePy가 설치되지 않은 경우
+        """
         try:
-            # MoviePy 2.x import
-            from moviepy import ColorClip
+            import moviepy.editor as mp
         except ImportError:
-            raise ImportError("moviepy가 설치되지 않았습니다. pip install moviepy")
+            raise ImportError(
+                "moviepy가 설치되지 않았습니다. 설치: pip install moviepy"
+            )
 
         clips = []
 
-        # 임시: 단색 배경 (실제로는 AI 이미지 생성)
-        colors = [
-            (50, 50, 100),
-            (100, 50, 50),
-            (50, 100, 50),
-            (100, 100, 50),
-            (100, 50, 100),
-        ]
+        # AI 이미지 생성 시도 (활성화된 경우)
+        if self.image_generator.enabled:
+            print("\n🎨 AI 이미지 생성 중...")
+            image_paths = self.image_generator.generate_images_for_script(
+                voice_segments,
+                style_preset,
+                './temp/images'
+            )
+        else:
+            image_paths = [None] * len(voice_segments)
 
         for i, segment in enumerate(voice_segments):
-            # 5초 클립
-            color = colors[i % len(colors)]
-            clip = mp.ColorClip(size=(1920, 1080), color=color, duration=5)
+            # 세그먼트 실제 길이 사용 (기본 5초)
+            duration = segment.get('duration', 5.0)
+            image_path = image_paths[i]
 
-            # 줌 효과
+            # AI 생성 이미지가 있으면 사용, 없으면 단색 배경
+            if image_path and os.path.exists(image_path):
+                clip = mp.ImageClip(image_path, duration=duration)
+                print(f"✅ AI 이미지 사용: {image_path}")
+            else:
+                # 단색 배경 클립 생성
+                color = self.VISUAL_COLORS[i % len(self.VISUAL_COLORS)]
+                clip = mp.ColorClip(
+                    size=(1920, 1080),
+                    color=color,
+                    duration=duration
+                )
+
+            # 줌 효과 (시간에 따라 1.0에서 1.25까지 확대)
             clip = clip.resize(lambda t: 1 + 0.05 * t)
 
             clips.append(clip)
@@ -150,19 +209,21 @@ class VideoProducer:
         return clips
 
     def _create_subtitles(self, voice_segments: List[Dict]) -> List[Dict]:
-        """자막 데이터 생성"""
+        """자막 데이터 생성 (TTS 세그먼트 실제 길이 사용)"""
         subtitle_data = []
 
-        for i, segment in enumerate(voice_segments):
-            start_time = self._timestamp_to_seconds(segment['timestamp'])
-            # 각 세그먼트는 약 5초로 가정
-            end_time = start_time + 5
+        cumulative_time = 0.0
+        for segment in voice_segments:
+            # 세그먼트 실제 길이 사용 (기본값 5초)
+            duration = segment.get('duration', 5.0)
 
             subtitle_data.append({
-                'start': start_time,
-                'end': end_time,
+                'start': cumulative_time,
+                'end': cumulative_time + duration,
                 'text': segment['text']
             })
+
+            cumulative_time += duration
 
         return subtitle_data
 
@@ -229,11 +290,3 @@ class VideoProducer:
             )
 
         return video
-
-    def _timestamp_to_seconds(self, timestamp: str) -> float:
-        """[00:05] -> 5.0"""
-        match = re.match(r'(\d{2}):(\d{2})', timestamp)
-        if match:
-            minutes, seconds = map(int, match.groups())
-            return minutes * 60 + seconds
-        return 0.0

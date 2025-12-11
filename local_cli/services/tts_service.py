@@ -236,11 +236,40 @@ class TTSService:
             if text:
                 output_path = os.path.join(output_dir, f"segment_{i//2}.mp3")
                 self.generate_speech(text, output_path)
+
+                # 오디오 길이 측정
+                duration = self._get_audio_duration(output_path)
+
                 audio_files.append({
                     'timestamp': timestamp,
                     'text': text,
-                    'audio_path': output_path
+                    'audio_path': output_path,
+                    'duration': duration
                 })
 
         print(f"✅ {len(audio_files)}개 세그먼트 생성 완료")
         return audio_files
+
+    def _get_audio_duration(self, audio_path: str) -> float:
+        """FFprobe로 오디오 길이 가져오기"""
+        try:
+            import subprocess
+            try:
+                from imageio_ffmpeg import get_ffmpeg_exe
+                ffmpeg_path = get_ffmpeg_exe()
+                ffprobe_path = ffmpeg_path.replace('ffmpeg', 'ffprobe')
+            except:
+                ffprobe_path = 'ffprobe'
+
+            cmd = [
+                ffprobe_path,
+                '-v', 'error',
+                '-show_entries', 'format=duration',
+                '-of', 'default=noprint_wrappers=1:nokey=1',
+                audio_path
+            ]
+            result = subprocess.run(cmd, capture_output=True, text=True, check=True)
+            return float(result.stdout.strip())
+        except Exception as e:
+            print(f"⚠️ 오디오 길이 측정 실패: {e}, 기본값 5초 사용")
+            return 5.0
