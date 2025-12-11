@@ -232,6 +232,53 @@ class VideoProducer:
 
         return subtitle_data
 
+    def _find_font(self) -> Optional[str]:
+        """시스템에서 사용 가능한 폰트 찾기
+
+        Returns:
+            Optional[str]: 폰트 경로 또는 None (기본 폰트 사용)
+        """
+        import platform
+
+        # Windows 폰트 경로
+        if platform.system() == 'Windows':
+            fonts_dir = r'C:\Windows\Fonts'
+
+            # 한글 지원 폰트 우선 (맑은 고딕)
+            preferred_fonts = [
+                os.path.join(fonts_dir, 'malgun.ttf'),     # 맑은 고딕
+                os.path.join(fonts_dir, 'malgunbd.ttf'),   # 맑은 고딕 Bold
+                os.path.join(fonts_dir, 'gulim.ttc'),      # 굴림
+                os.path.join(fonts_dir, 'arial.ttf'),      # Arial
+                os.path.join(fonts_dir, 'arialbd.ttf'),    # Arial Bold
+            ]
+        # Linux 폰트 경로
+        elif platform.system() == 'Linux':
+            preferred_fonts = [
+                '/usr/share/fonts/truetype/nanum/NanumGothic.ttf',
+                '/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf',
+                '/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf',
+            ]
+        # macOS 폰트 경로
+        elif platform.system() == 'Darwin':
+            preferred_fonts = [
+                '/System/Library/Fonts/AppleSDGothicNeo.ttc',
+                '/Library/Fonts/Arial Bold.ttf',
+                '/System/Library/Fonts/Helvetica.ttc',
+            ]
+        else:
+            preferred_fonts = []
+
+        # 사용 가능한 첫 번째 폰트 반환
+        for font_path in preferred_fonts:
+            if os.path.exists(font_path):
+                print(f"✅ 폰트 발견: {font_path}")
+                return font_path
+
+        # 폰트를 찾지 못한 경우
+        print("⚠️ 시스템 폰트를 찾을 수 없습니다. 기본 폰트 사용")
+        return None
+
     def _compose_video(
         self,
         visual_clips: List,
@@ -266,11 +313,13 @@ class VideoProducer:
         audio = AudioFileClip(audio_path)
         video = video.with_audio(audio)
 
-        # 자막 추가
+        # 자막 추가 (폰트 경로 자동 탐지)
+        font_path = self._find_font()
+
         def make_textclip(txt):
             return TextClip(
                 text=txt,
-                font='Arial-Bold',
+                font=font_path,
                 font_size=50 if video_format == 'short' else 40,
                 color='white',
                 stroke_color='black',
