@@ -221,6 +221,36 @@ async def upload_video(request: UploadRequest):
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@app.post("/api/tts/test")
+async def test_tts(request: dict):
+    """TTS 테스트 음성 생성"""
+    try:
+        from local_cli.services.tts_service import TTSService
+        import tempfile
+
+        text = request.get('text', '안녕하세요. TTS 테스트 음성입니다.')
+        language = request.get('language', 'ko')
+        speed = float(request.get('speed', 1.2))
+        pitch = int(request.get('pitch', 0))
+
+        # TTS 서비스 초기화
+        tts = TTSService(provider='gtts')
+
+        # 임시 파일에 음성 생성
+        with tempfile.NamedTemporaryFile(delete=False, suffix='.mp3') as tmp:
+            output_path = tmp.name
+
+        # 언어 설정 (텍스트 감지 로직 사용)
+        tts._generate_gtts_with_lang(text, output_path, language, speed, pitch)
+
+        # 파일 반환
+        from fastapi.responses import FileResponse
+        return FileResponse(output_path, media_type='audio/mpeg')
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @app.post("/api/automation/full")
 async def full_automation(
     region: str = "US",

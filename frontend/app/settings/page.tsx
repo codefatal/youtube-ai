@@ -9,8 +9,13 @@ export default function SettingsPage() {
     geminiModel: 'gemini-1.5-flash',
     defaultRegion: 'KR',
     defaultFormat: 'short',
-    defaultTone: 'informative'
+    defaultTone: 'informative',
+    ttsLanguage: 'ko',
+    ttsSpeed: 1.2,
+    ttsPitch: 0
   })
+
+  const [isTestingVoice, setIsTestingVoice] = useState(false)
 
   // 저장된 설정 불러오기
   useEffect(() => {
@@ -25,6 +30,34 @@ export default function SettingsPage() {
     // 다른 탭/페이지에도 변경 알림
     window.dispatchEvent(new Event('storage'))
     alert('설정이 저장되었습니다')
+  }
+
+  const handleTestVoice = async () => {
+    setIsTestingVoice(true)
+    try {
+      const response = await fetch('http://localhost:8000/api/tts/test', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          text: '안녕하세요. TTS 테스트 음성입니다.',
+          language: settings.ttsLanguage,
+          speed: settings.ttsSpeed,
+          pitch: settings.ttsPitch
+        })
+      })
+
+      if (response.ok) {
+        const blob = await response.blob()
+        const audio = new Audio(URL.createObjectURL(blob))
+        audio.play()
+      } else {
+        alert('테스트 음성 생성 실패')
+      }
+    } catch (error) {
+      alert('서버 연결 실패: ' + error)
+    } finally {
+      setIsTestingVoice(false)
+    }
   }
 
   return (
@@ -121,6 +154,84 @@ export default function SettingsPage() {
                   <option value="entertaining">오락형</option>
                   <option value="educational">교육형</option>
                 </select>
+              </div>
+            </div>
+          </div>
+
+          {/* TTS 설정 */}
+          <div className="pt-6 border-t">
+            <h3 className="text-lg font-semibold mb-4">TTS (음성 합성) 설정</h3>
+
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  TTS 언어
+                </label>
+                <select
+                  value={settings.ttsLanguage}
+                  onChange={(e) => setSettings({...settings, ttsLanguage: e.target.value})}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                >
+                  <option value="ko">한국어 (Korean)</option>
+                  <option value="en">영어 (English)</option>
+                  <option value="ja">일본어 (Japanese)</option>
+                  <option value="zh-CN">중국어 간체 (Chinese Simplified)</option>
+                  <option value="es">스페인어 (Spanish)</option>
+                  <option value="fr">프랑스어 (French)</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  속도 조절: {settings.ttsSpeed}x
+                </label>
+                <input
+                  type="range"
+                  min="0.5"
+                  max="2.0"
+                  step="0.1"
+                  value={settings.ttsSpeed}
+                  onChange={(e) => setSettings({...settings, ttsSpeed: parseFloat(e.target.value)})}
+                  className="w-full"
+                />
+                <div className="flex justify-between text-xs text-gray-500 mt-1">
+                  <span>느림 (0.5x)</span>
+                  <span>보통 (1.0x)</span>
+                  <span>빠름 (2.0x)</span>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  피치 조절: {settings.ttsPitch > 0 ? '+' : ''}{settings.ttsPitch}
+                </label>
+                <input
+                  type="range"
+                  min="-5"
+                  max="5"
+                  step="1"
+                  value={settings.ttsPitch}
+                  onChange={(e) => setSettings({...settings, ttsPitch: parseInt(e.target.value)})}
+                  className="w-full"
+                />
+                <div className="flex justify-between text-xs text-gray-500 mt-1">
+                  <span>낮음 (-5)</span>
+                  <span>보통 (0)</span>
+                  <span>높음 (+5)</span>
+                </div>
+              </div>
+
+              <div>
+                <button
+                  onClick={handleTestVoice}
+                  disabled={isTestingVoice}
+                  className="w-full bg-green-600 text-white py-2 px-4 rounded-lg hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed"
+                >
+                  {isTestingVoice ? '테스트 중...' : '🎤 테스트 음성 재생'}
+                </button>
+                <p className="mt-2 text-xs text-gray-500">
+                  현재 설정으로 "안녕하세요. TTS 테스트 음성입니다."를 재생합니다.
+                </p>
               </div>
             </div>
           </div>

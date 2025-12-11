@@ -162,6 +162,72 @@ class TTSService:
         print(f"✅ 음성 생성 완료: {output_path}")
         return output_path
 
+    def _generate_gtts_with_lang(
+        self,
+        text: str,
+        output_path: str,
+        language: str = 'ko',
+        speed: float = 1.2,
+        pitch: int = 0
+    ) -> str:
+        """gTTS로 생성 (언어 및 피치 지정 가능)"""
+        import os
+        import subprocess
+        os.makedirs(os.path.dirname(output_path), exist_ok=True)
+
+        # gTTS 생성
+        tts = self.gtts_class(text=text, lang=language, slow=False)
+
+        # 임시 파일에 저장
+        temp_path = output_path.replace('.mp3', '_temp.mp3')
+        tts.save(temp_path)
+
+        # FFmpeg로 속도 및 피치 조절
+        try:
+            from imageio_ffmpeg import get_ffmpeg_exe
+            ffmpeg_path = get_ffmpeg_exe()
+
+            # 속도 조절 (1.2배 빠르게)
+            speed_factor = max(0.5, min(2.0, speed))
+
+            # 피치 조절 (semitones)
+            # pitch: -5 ~ +5 → -500 ~ +500 cents (100 cents = 1 semitone)
+            pitch_cents = pitch * 100
+
+            filters = []
+            filters.append(f'atempo={speed_factor}')
+
+            if pitch != 0:
+                # rubberband 또는 asetrate 사용
+                # asetrate로 피치 조절 (간단한 방법)
+                pitch_ratio = 2 ** (pitch / 12.0)  # semitone to ratio
+                filters.append(f'asetrate=44100*{pitch_ratio:.4f},aresample=44100')
+
+            filter_str = ','.join(filters)
+
+            cmd = [
+                ffmpeg_path,
+                '-i', temp_path,
+                '-filter:a', filter_str,
+                '-y',
+                output_path
+            ]
+
+            subprocess.run(cmd, check=True, capture_output=True)
+
+            # 임시 파일 삭제
+            if os.path.exists(temp_path):
+                os.remove(temp_path)
+
+        except Exception as e:
+            print(f"⚠️ 속도/피치 조절 실패, 원본 사용: {e}")
+            # 실패 시 원본 사용
+            if os.path.exists(temp_path):
+                import shutil
+                shutil.move(temp_path, output_path)
+
+        return output_path
+
     def _generate_google(
         self,
         text: str,
