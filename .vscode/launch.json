@@ -1,0 +1,98 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "🚀 Backend API Server",
+      "type": "python",
+      "request": "launch",
+      "program": "${workspaceFolder}/backend/main.py",
+      "console": "integratedTerminal",
+      "justMyCode": true,
+      "env": {
+        "PYTHONPATH": "${workspaceFolder}"
+      },
+      "cwd": "${workspaceFolder}"
+    },
+    {
+      "name": "⌨️ CLI - Full Automation",
+      "type": "python",
+      "request": "launch",
+      "module": "local_cli.main",
+      "args": [
+        "full-automation",
+        "--ai", "gemini",
+        "--no-upload"
+      ],
+      "console": "integratedTerminal",
+      "justMyCode": true,
+      "env": {
+        "PYTHONPATH": "${workspaceFolder}"
+      },
+      "cwd": "${workspaceFolder}"
+    },
+    {
+      "name": "📈 CLI - Trend Analysis",
+      "type": "python",
+      "request": "launch",
+      "module": "local_cli.main",
+      "args": [
+        "analyze-trends",
+        "--format", "short",
+        "--ai", "gemini"
+      ],
+      "console": "integratedTerminal",
+      "justMyCode": true,
+      "env": {
+        "PYTHONPATH": "${workspaceFolder}"
+      },
+      "cwd": "${workspaceFolder}"
+    },
+    {
+      "name": "✍️ CLI - Generate Script",
+      "type": "python",
+      "request": "launch",
+      "module": "local_cli.main",
+      "args": [
+        "generate-script",
+        "--keywords", "AI,기술,미래",
+        "--format", "short",
+        "--duration", "60",
+        "--ai", "gemini"
+      ],
+      "console": "integratedTerminal",
+      "justMyCode": true,
+      "env": {
+        "PYTHONPATH": "${workspaceFolder}"
+      },
+      "cwd": "${workspaceFolder}"
+    },
+    {
+      "name": "🧪 Test AI Service",
+      "type": "python",
+      "request": "launch",
+      "module": "local_cli.main",
+      "args": [
+        "test-ai",
+        "--provider", "gemini"
+      ],
+      "console": "integratedTerminal",
+      "justMyCode": true,
+      "env": {
+        "PYTHONPATH": "${workspaceFolder}"
+      },
+      "cwd": "${workspaceFolder}"
+    }
+  ],
+  "compounds": [
+    {
+      "name": "🌐 Full Stack (Backend + Frontend)",
+      "configurations": ["🚀 Backend API Server"],
+      "preLaunchTask": "Start Frontend Dev Server",
+      "presentation": {
+        "hidden": false,
+        "group": "fullstack",
+        "order": 1
+      }
+    }
+  ]
+}

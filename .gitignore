@@ -27,10 +27,10 @@ temp/
 music/
 
 # IDE
-.vscode/
 .idea/
 *.swp
 *.swo
+# Note: .vscode/ is tracked for sharing debug configurations across PCs
 
 # OS
 .DS_Store
