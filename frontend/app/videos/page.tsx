@@ -1,214 +1,168 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Video, Upload, Loader2 } from 'lucide-react'
+import { Film, Download, Languages, Trash2 } from 'lucide-react'
 
 export default function VideosPage() {
-  const [loading, setLoading] = useState(false)
-  const [progress, setProgress] = useState('')
-  const [script, setScript] = useState('')
-  const [format, setFormat] = useState('short')
-  const [style, setStyle] = useState('short_trendy')
-  const [result, setResult] = useState<any>(null)
+  const [videos, setVideos] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
+  const [filter, setFilter] = useState<string>('all')
 
-  // 설정 페이지에서 저장된 기본값 불러오기
   useEffect(() => {
-    const savedSettings = localStorage.getItem('appSettings')
-    if (savedSettings) {
-      const settings = JSON.parse(savedSettings)
-      if (settings.defaultFormat) {
-        setFormat(settings.defaultFormat)
-        // 형식에 따라 스타일도 자동 변경
-        setStyle(settings.defaultFormat === 'short' ? 'short_trendy' : 'long_educational')
-      }
-    }
-  }, [])
+    loadVideos()
+  }, [filter])
 
-  const handleProduce = async () => {
-    if (!script.trim()) {
-      alert('대본을 입력해주세요')
-      return
-    }
-
+  const loadVideos = async () => {
     setLoading(true)
-    setProgress('🎬 영상 제작을 시작합니다...')
-    setResult(null)
+    try {
+      const url = filter === 'all'
+        ? `${process.env.NEXT_PUBLIC_API_URL}/api/videos`
+        : `${process.env.NEXT_PUBLIC_API_URL}/api/videos?status=${filter}`
+
+      const res = await fetch(url)
+      const result = await res.json()
+      if (result.success) {
+        setVideos(result.data.videos)
+      }
+    } catch (err) {
+      console.error('영상 목록 조회 실패:', err)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const deleteVideo = async (videoId: string) => {
+    if (!confirm('이 영상을 삭제하시겠습니까?')) return
 
     try {
-      setProgress('🎤 음성을 생성하고 있습니다... (1-2분 소요)')
-
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/videos/produce`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ script, format, style })
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/videos/${videoId}`, {
+        method: 'DELETE'
       })
-
-      const data = await response.json()
-      console.log('영상 제작 결과:', data)
-
-      if (data.success) {
-        setProgress('✅ 영상 제작이 완료되었습니다!')
-        setResult(data)
-      } else {
-        setProgress('')
-        alert('영상 제작 실패: ' + (data.detail || '알 수 없는 오류'))
+      const result = await res.json()
+      if (result.success) {
+        alert('삭제되었습니다')
+        loadVideos()
       }
-    } catch (error) {
-      console.error('Error:', error)
-      setProgress('')
-      alert('영상 제작 중 오류가 발생했습니다: ' + error)
+    } catch (err) {
+      alert('삭제 실패')
     }
-    setLoading(false)
+  }
+
+  const getStatusBadge = (status: string) => {
+    const badges = {
+      pending: { color: 'bg-gray-100 text-gray-700', text: '대기' },
+      downloaded: { color: 'bg-blue-100 text-blue-700', text: '다운로드 완료' },
+      translated: { color: 'bg-yellow-100 text-yellow-700', text: '번역 완료' },
+      processing: { color: 'bg-purple-100 text-purple-700', text: '처리 중' },
+      completed: { color: 'bg-green-100 text-green-700', text: '완료' },
+      failed: { color: 'bg-red-100 text-red-700', text: '실패' },
+    }
+    const badge = badges[status as keyof typeof badges] || badges.pending
+    return <span className={`px-3 py-1 rounded text-sm font-semibold ${badge.color}`}>{badge.text}</span>
   }
 
   return (
     <div className="p-8">
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold text-gray-900 mb-2">영상 제작</h1>
-        <p className="text-gray-600">대본을 영상으로 변환</p>
+      <div className="mb-6">
+        <h1 className="text-3xl font-bold mb-2">영상 목록</h1>
+        <p className="text-gray-600">다운로드하고 리믹스한 모든 영상</p>
       </div>
 
-      {/* 무료 TTS 사용 안내 */}
-      <div className="mb-6 bg-blue-50 border border-blue-200 rounded-lg p-4">
-        <h3 className="text-sm font-semibold text-blue-900 mb-2">ℹ️ 무료 TTS 사용</h3>
-        <p className="text-sm text-blue-800">
-          현재 gTTS (Google Text-to-Speech) 무료 서비스를 사용합니다. 한글과 영어를 자동으로 감지합니다.
-        </p>
-      </div>
-
-      <div className="bg-white rounded-lg shadow-md p-6 mb-6">
-        <h2 className="text-xl font-semibold mb-4">제작 설정</h2>
-
-        <div className="space-y-6">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              대본
-            </label>
-            <textarea
-              value={script}
-              onChange={(e) => setScript(e.target.value)}
-              placeholder="[00:00] 안녕하세요...&#10;[00:05] 오늘은..."
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              rows={10}
-            />
-            <p className="mt-2 text-sm text-gray-500">
-              타임스탬프 형식: [00:00] 내용
-            </p>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                영상 형식
-              </label>
-              <select
-                value={format}
-                onChange={(e) => setFormat(e.target.value)}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              >
-                <option value="short">숏폼 (9:16)</option>
-                <option value="long">롱폼 (16:9)</option>
-              </select>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                스타일
-              </label>
-              <select
-                value={style}
-                onChange={(e) => setStyle(e.target.value)}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              >
-                <option value="short_trendy">숏폼 트렌디</option>
-                <option value="long_educational">롱폼 교육</option>
-                <option value="minimalist">미니멀</option>
-              </select>
-            </div>
-          </div>
-
+      {/* 필터 */}
+      <div className="flex space-x-2 mb-6">
+        {['all', 'pending', 'downloaded', 'translated', 'completed', 'failed'].map(status => (
           <button
-            onClick={handleProduce}
-            disabled={loading}
-            className="w-full bg-purple-600 text-white py-3 px-6 rounded-lg hover:bg-purple-700 disabled:bg-gray-400 flex items-center justify-center"
+            key={status}
+            onClick={() => setFilter(status)}
+            className={`px-4 py-2 rounded-lg font-medium ${
+              filter === status ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+            }`}
           >
-            {loading ? (
-              <>
-                <Loader2 className="w-5 h-5 mr-2 animate-spin" />
-                영상 제작 중...
-              </>
-            ) : (
-              <>
-                <Video className="w-5 h-5 mr-2" />
-                영상 제작 시작
-              </>
-            )}
+            {status === 'all' ? '전체' :
+             status === 'pending' ? '대기' :
+             status === 'downloaded' ? '다운로드' :
+             status === 'translated' ? '번역' :
+             status === 'completed' ? '완료' : '실패'}
           </button>
-
-          {/* 진행 상황 표시 */}
-          {progress && (
-            <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-              <p className="text-sm text-blue-800">{progress}</p>
-            </div>
-          )}
-        </div>
+        ))}
       </div>
 
-      {result && (
-        <div className="bg-white rounded-lg shadow-md p-6">
-          <h3 className="text-lg font-semibold mb-4 flex items-center text-green-600">
-            <Video className="w-5 h-5 mr-2" />
-            ✅ 제작 완료!
-          </h3>
-
-          <div className="space-y-4">
-            <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
-              <p className="text-sm text-green-800 mb-2">
-                영상이 서버에 저장되었습니다. 파일 경로를 확인하세요.
-              </p>
-              <div className="space-y-2">
-                <div>
-                  <p className="text-xs text-green-700 font-semibold">영상 파일:</p>
-                  <p className="text-sm font-mono text-green-900 break-all">{result.video_path}</p>
-                </div>
-                {result.thumbnail_path && (
-                  <div>
-                    <p className="text-xs text-green-700 font-semibold">썸네일:</p>
-                    <p className="text-sm font-mono text-green-900 break-all">{result.thumbnail_path}</p>
+      {/* 영상 목록 */}
+      {loading ? (
+        <div className="text-center py-12">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+          <p className="mt-4 text-gray-600">로딩 중...</p>
+        </div>
+      ) : videos.length === 0 ? (
+        <div className="bg-white rounded-lg shadow p-12 text-center">
+          <Film className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+          <p className="text-gray-600">영상이 없습니다</p>
+          <p className="text-sm text-gray-500 mt-1">영상 검색 페이지에서 영상을 다운로드하세요</p>
+        </div>
+      ) : (
+        <div className="space-y-4">
+          {videos.map((video) => (
+            <div key={video.video_id} className="bg-white rounded-lg shadow p-6">
+              <div className="flex items-start justify-between">
+                <div className="flex-1">
+                  <div className="flex items-center space-x-3 mb-2">
+                    <h3 className="text-lg font-semibold">{video.original?.title || 'Unknown Title'}</h3>
+                    {getStatusBadge(video.processing?.status || 'pending')}
                   </div>
-                )}
+
+                  <div className="space-y-1 text-sm text-gray-600 mb-3">
+                    <p>📺 채널: {video.original?.channel_name}</p>
+                    <p>👁️ 조회수: {(video.original?.views || 0).toLocaleString()}</p>
+                    <p>⏱️ 길이: {Math.floor((video.original?.duration || 0) / 60)}분</p>
+                    <p>🔗 <a href={video.original?.url} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">
+                      원본 보기
+                    </a></p>
+                  </div>
+
+                  {video.translated && (
+                    <div className="p-3 bg-blue-50 rounded mb-3">
+                      <p className="text-sm font-semibold text-blue-900">번역 제목</p>
+                      <p className="text-sm text-blue-700">{video.translated.title}</p>
+                    </div>
+                  )}
+
+                  <div className="flex items-center space-x-2">
+                    {video.files?.remixed_video && (
+                      <span className="text-xs px-2 py-1 bg-green-100 text-green-700 rounded">
+                        ✅ 리믹스 완료
+                      </span>
+                    )}
+                    {video.files?.translated_subtitle && (
+                      <span className="text-xs px-2 py-1 bg-yellow-100 text-yellow-700 rounded">
+                        ✅ 번역 완료
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                <button
+                  onClick={() => deleteVideo(video.video_id)}
+                  className="ml-4 p-2 text-red-600 hover:bg-red-50 rounded"
+                >
+                  <Trash2 className="w-5 h-5" />
+                </button>
               </div>
-            </div>
 
-            <div className="pt-4 border-t flex gap-3">
-              <button
-                onClick={() => {
-                  // 새 영상 제작
-                  setResult(null)
-                  setProgress('')
-                }}
-                className="bg-blue-600 text-white py-2 px-6 rounded-lg hover:bg-blue-700"
-              >
-                새 영상 제작
-              </button>
-              <button
-                onClick={() => {
-                  // YouTube 업로드 페이지로 이동
-                  window.location.href = '/upload'
-                }}
-                className="bg-red-600 text-white py-2 px-6 rounded-lg hover:bg-red-700 flex items-center"
-              >
-                <Upload className="w-4 h-4 mr-2" />
-                YouTube 업로드
-              </button>
+              {/* 파일 경로 */}
+              {video.files && (
+                <details className="mt-4">
+                  <summary className="text-sm text-gray-600 cursor-pointer hover:text-gray-900">
+                    파일 정보
+                  </summary>
+                  <div className="mt-2 p-3 bg-gray-50 rounded text-xs space-y-1">
+                    {Object.entries(video.files).map(([key, path]: [string, any]) => (
+                      path && <div key={key}><strong>{key}:</strong> {path}</div>
+                    ))}
+                  </div>
+                </details>
+              )}
             </div>
-
-            <div className="text-sm text-gray-600 bg-gray-50 p-3 rounded">
-              <p className="font-semibold mb-1">💡 파일 다운로드 방법:</p>
-              <p>서버의 output 폴더에서 위 경로의 파일을 찾을 수 있습니다.</p>
-              <p className="mt-1">예: <code className="bg-gray-200 px-1 rounded">D:\work\code\youtubeAI\output\video_xxxxx.mp4</code></p>
-            </div>
-          </div>
+          ))}
         </div>
       )}
     </div>

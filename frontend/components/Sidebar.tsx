@@ -4,23 +4,22 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import {
   Home,
-  TrendingUp,
-  FileText,
-  Video,
-  Upload,
-  Settings,
-  PlayCircle,
-  DollarSign
+  Search,
+  Download,
+  Languages,
+  Film,
+  Zap,
+  Database,
+  Settings
 } from 'lucide-react'
 
 const navigation = [
   { name: '대시보드', href: '/', icon: Home },
-  { name: '트렌드 분석', href: '/trends', icon: TrendingUp },
-  { name: '대본 생성', href: '/scripts', icon: FileText },
-  { name: '영상 제작', href: '/videos', icon: Video },
-  { name: '업로드', href: '/upload', icon: Upload },
-  { name: '전체 자동화', href: '/automation', icon: PlayCircle },
-  { name: '비용 관리', href: '/costs', icon: DollarSign },
+  { name: '영상 검색', href: '/search', icon: Search },
+  { name: '다운로드 관리', href: '/downloads', icon: Download },
+  { name: '리믹스', href: '/remix', icon: Film },
+  { name: '배치 처리', href: '/batch', icon: Zap },
+  { name: '영상 목록', href: '/videos', icon: Database },
   { name: '설정', href: '/settings', icon: Settings },
 ]
 
@@ -31,8 +30,8 @@ export default function Sidebar() {
     <div className="w-64 bg-white border-r border-gray-200 flex flex-col">
       {/* Logo */}
       <div className="p-6 border-b border-gray-200">
-        <h1 className="text-xl font-bold text-gray-900">YouTube AI</h1>
-        <p className="text-sm text-gray-600 mt-1">자동화 시스템</p>
+        <h1 className="text-xl font-bold text-gray-900">YouTube Remix</h1>
+        <p className="text-sm text-gray-600 mt-1">영상 리믹스 시스템</p>
       </div>
 
       {/* Navigation */}
@@ -63,8 +62,8 @@ export default function Sidebar() {
       {/* Footer */}
       <div className="p-4 border-t border-gray-200">
         <div className="bg-blue-50 rounded-lg p-4">
-          <p className="text-xs font-semibold text-blue-900 mb-1">Gemini 무료</p>
-          <p className="text-xs text-blue-700">월 $0 비용</p>
+          <p className="text-xs font-semibold text-blue-900 mb-1">해외 영상 리믹스</p>
+          <p className="text-xs text-blue-700">번역 + 자막 자동화</p>
         </div>
       </div>
     </div>
