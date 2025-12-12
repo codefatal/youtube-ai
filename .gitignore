@@ -25,6 +25,7 @@ token.pickle
 output/
 temp/
 music/
+cache/
 
 # IDE
 .idea/

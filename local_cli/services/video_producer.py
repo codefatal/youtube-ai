@@ -34,9 +34,9 @@ class VideoProducer:
         self.audio_processor = AudioProcessor()
         self.music_library = MusicLibrary()
 
-        # 이미지 생성 (text 모드 기본 활성화)
-        # 환경 변수로 unsplash, pexels 등으로 변경 가능
-        image_provider = os.getenv('IMAGE_PROVIDER', 'text')
+        # 이미지 생성 (Pexels API 기본 활성화)
+        # 환경 변수: pexels (추천), text (그라데이션+텍스트), unsplash, none
+        image_provider = os.getenv('IMAGE_PROVIDER', 'pexels')
         self.image_generator = ImageGenerator(provider=image_provider)
 
     def produce_video(

@@ -3,6 +3,7 @@ Image Generator - AI 이미지 생성 서비스
 """
 import os
 import requests
+import hashlib
 from typing import Dict, List, Optional
 from pathlib import Path
 
@@ -32,6 +33,10 @@ class ImageGenerator:
         self.unsplash_api_key = os.getenv('UNSPLASH_ACCESS_KEY')
         self.pexels_api_key = os.getenv('PEXELS_API_KEY')
 
+        # 이미지 캐시 디렉토리 (다운로드한 이미지 재사용)
+        self.cache_dir = './cache/images'
+        os.makedirs(self.cache_dir, exist_ok=True)
+
         if provider == 'unsplash':
             self._init_unsplash()
         elif provider == 'pexels':
@@ -46,29 +51,29 @@ class ImageGenerator:
     def _init_unsplash(self):
         """Unsplash API 초기화"""
         if not self.unsplash_api_key:
-            print("⚠️ UNSPLASH_ACCESS_KEY 환경변수가 설정되지 않았습니다")
+            print("[WARNING] UNSPLASH_ACCESS_KEY 환경변수가 설정되지 않았습니다")
             print("   https://unsplash.com/developers 에서 API 키 발급")
             self.enabled = False
         else:
-            print("✅ Unsplash API 활성화")
+            print("[OK] Unsplash API 활성화")
 
     def _init_pexels(self):
         """Pexels API 초기화"""
         if not self.pexels_api_key:
-            print("⚠️ PEXELS_API_KEY 환경변수가 설정되지 않았습니다")
+            print("[WARNING] PEXELS_API_KEY 환경변수가 설정되지 않았습니다")
             print("   https://www.pexels.com/api/ 에서 API 키 발급")
             self.enabled = False
         else:
-            print("✅ Pexels API 활성화")
+            print("[OK] Pexels API 활성화")
 
     def _init_text_image(self):
         """텍스트 이미지 생성기 초기화"""
         try:
             from PIL import Image, ImageDraw, ImageFont
             self.pil_available = True
-            print("✅ 텍스트 이미지 생성 활성화")
+            print("[OK] 텍스트 이미지 생성 활성화")
         except ImportError:
-            print("⚠️ Pillow가 설치되지 않았습니다. pip install pillow")
+            print("[WARNING] Pillow가 설치되지 않았습니다. pip install pillow")
             self.enabled = False
             self.pil_available = False
 
@@ -77,13 +82,13 @@ class ImageGenerator:
         # TODO: Gemini Imagen API 설정
         # 현재 Gemini API는 텍스트 생성만 지원
         # Imagen-3는 별도 API 필요
-        print("⚠️ Gemini Imagen은 아직 구현되지 않았습니다")
+        print("[WARNING] Gemini Imagen은 아직 구현되지 않았습니다")
         self.enabled = False
 
     def _init_dalle(self):
         """DALL-E 초기화"""
         # TODO: OpenAI DALL-E API 설정
-        print("⚠️ DALL-E는 아직 구현되지 않았습니다")
+        print("[WARNING] DALL-E는 아직 구현되지 않았습니다")
         self.enabled = False
 
     def generate_image_for_segment(
@@ -125,7 +130,7 @@ class ImageGenerator:
                 return self._generate_with_dalle(query, output_path, width, height)
 
         except Exception as e:
-            print(f"⚠️ 이미지 생성 실패: {e}")
+            print(f"[WARNING] 이미지 생성 실패: {e}")
             return None
 
     def _create_search_query(self, text: str, style_preset: str) -> str:
@@ -185,11 +190,11 @@ class ImageGenerator:
             with open(output_path, 'wb') as f:
                 f.write(img_response.content)
 
-            print(f"✅ Unsplash 이미지 다운로드: {query}")
+            print(f"[OK] Unsplash 이미지 다운로드: {query}")
             return output_path
 
         except Exception as e:
-            print(f"⚠️ Unsplash 다운로드 실패: {e}")
+            print(f"[WARNING] Unsplash 다운로드 실패: {e}")
             return None
 
     def _fetch_from_pexels(
@@ -199,8 +204,21 @@ class ImageGenerator:
         width: int,
         height: int
     ) -> Optional[str]:
-        """Pexels에서 이미지 다운로드"""
+        """Pexels에서 이미지 다운로드 (캐싱 지원)"""
         try:
+            # 캐시 확인 (query 해시로 캐시 파일명 생성)
+            query_hash = hashlib.md5(query.encode()).hexdigest()
+            cache_path = os.path.join(self.cache_dir, f"{query_hash}.jpg")
+
+            # 캐시에 이미 있으면 복사해서 사용
+            if os.path.exists(cache_path):
+                import shutil
+                os.makedirs(os.path.dirname(output_path), exist_ok=True)
+                shutil.copy(cache_path, output_path)
+                print(f"[CACHE] Pexels 이미지 캐시 사용: {query}")
+                return output_path
+
+            # 캐시에 없으면 API로 다운로드
             url = "https://api.pexels.com/v1/search"
             headers = {"Authorization": self.pexels_api_key}
             params = {
@@ -214,7 +232,7 @@ class ImageGenerator:
 
             data = response.json()
             if not data.get('photos'):
-                print(f"⚠️ Pexels에서 '{query}' 이미지를 찾을 수 없습니다")
+                print(f"[WARNING] Pexels에서 '{query}' 이미지를 찾을 수 없습니다")
                 return None
 
             image_url = data['photos'][0]['src']['large']
@@ -223,15 +241,18 @@ class ImageGenerator:
             img_response = requests.get(image_url, timeout=10)
             img_response.raise_for_status()
 
+            # output_path와 캐시 둘 다 저장
             os.makedirs(os.path.dirname(output_path), exist_ok=True)
             with open(output_path, 'wb') as f:
                 f.write(img_response.content)
+            with open(cache_path, 'wb') as f:
+                f.write(img_response.content)
 
-            print(f"✅ Pexels 이미지 다운로드: {query}")
+            print(f"[OK] Pexels 이미지 다운로드 및 캐시 저장: {query}")
             return output_path
 
         except Exception as e:
-            print(f"⚠️ Pexels 다운로드 실패: {e}")
+            print(f"[WARNING] Pexels 다운로드 실패: {e}")
             return None
 
     def _generate_text_image(
@@ -318,11 +339,11 @@ class ImageGenerator:
             os.makedirs(os.path.dirname(output_path), exist_ok=True)
             image.save(output_path, quality=95)
 
-            print(f"✅ 텍스트 이미지 생성: {keywords}")
+            print(f"[OK] 텍스트 이미지 생성: {keywords}")
             return output_path
 
         except Exception as e:
-            print(f"⚠️ 텍스트 이미지 생성 실패: {e}")
+            print(f"[WARNING] 텍스트 이미지 생성 실패: {e}")
             return None
 
     def _generate_with_gemini(
