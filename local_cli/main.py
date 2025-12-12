@@ -296,5 +296,159 @@ def list_music():
                 click.echo(f"    ... 외 {len(files) - 3}개")
 
 
+# ============================================================
+# YouTube 리믹스 시스템 명령어
+# ============================================================
+
+@cli.command()
+@click.option('--region', default='US', help='지역 코드 (US, KR, JP 등)')
+@click.option('--category', default='Science & Technology', help='카테고리')
+@click.option('--max-results', type=int, default=5, help='최대 결과 수')
+@click.option('--duration', type=click.Choice(['short', 'medium', 'long']),
+              default='short', help='영상 길이')
+@click.option('--min-views', type=int, default=10000, help='최소 조회수')
+def search_trending(region, category, max_results, duration, min_views):
+    """트렌딩 영상 검색 (리믹스용)"""
+    from services.trending_searcher import TrendingSearcher
+
+    click.echo(f"🔍 트렌딩 영상 검색 중...")
+    searcher = TrendingSearcher()
+
+    videos = searcher.search_trending_videos(
+        region=region,
+        category=category,
+        max_results=max_results,
+        video_duration=duration,
+        min_views=min_views,
+        require_subtitles=True
+    )
+
+    if not videos:
+        click.echo("\n⚠️ 검색 결과가 없습니다")
+        return
+
+    click.echo(f"\n✅ {len(videos)}개 영상 발견:\n")
+    for i, video in enumerate(videos, 1):
+        click.echo(f"{i}. {video['title']}")
+        click.echo(f"   채널: {video['channel_name']}")
+        click.echo(f"   조회수: {video['view_count']:,} | 길이: {video['duration']}초")
+        click.echo(f"   URL: {video['url']}\n")
+
+
+@cli.command()
+@click.argument('url')
+@click.option('--subtitle-lang', default='en', help='자막 언어')
+@click.option('--download-dir', default='./downloads', help='다운로드 디렉토리')
+def download_video(url, subtitle_lang, download_dir):
+    """YouTube 영상 다운로드 (영상 + 자막)"""
+    from services.youtube_downloader import YouTubeDownloader
+
+    click.echo(f"📥 영상 다운로드 중...")
+    downloader = YouTubeDownloader(download_dir=download_dir)
+
+    result = downloader.download_video(
+        url=url,
+        download_subtitles=True,
+        subtitle_lang=subtitle_lang
+    )
+
+    if result['success']:
+        click.echo(f"\n✅ 다운로드 완료!")
+        click.echo(f"영상: {result['video_path']}")
+        click.echo(f"자막: {result['subtitle_path']}")
+    else:
+        click.echo(f"\n❌ 다운로드 실패: {result.get('error')}")
+
+
+@cli.command()
+@click.argument('subtitle_path')
+@click.option('--target-lang', default='ko', help='번역 언어 (ko, ja, zh 등)')
+@click.option('--output', help='출력 파일 경로 (기본: 자동)')
+def translate_subtitle(subtitle_path, target_lang, output):
+    """SRT 자막 파일 번역"""
+    from services.subtitle_translator import SubtitleTranslator
+
+    if not output:
+        output = subtitle_path.replace('.srt', f'.{target_lang}.srt')
+
+    click.echo(f"🌐 자막 번역 중... ({target_lang})")
+    translator = SubtitleTranslator()
+
+    result = translator.translate_srt_file(
+        input_path=subtitle_path,
+        output_path=output,
+        target_lang=target_lang,
+        batch_size=10
+    )
+
+    if result['success']:
+        click.echo(f"\n✅ 번역 완료!")
+        click.echo(f"번역: {result['translated']}/{result['total']}개")
+        click.echo(f"파일: {result['output_path']}")
+    else:
+        click.echo(f"\n❌ 번역 실패: {result.get('error')}")
+
+
+@cli.command()
+@click.argument('video_path')
+@click.argument('subtitle_path')
+@click.option('--output', help='출력 파일 경로 (기본: ./remixed/)')
+def remix_video(video_path, subtitle_path, output):
+    """원본 영상 + 번역 자막 합성"""
+    from services.video_remixer import VideoRemixer
+
+    if not output:
+        video_name = os.path.basename(video_path)
+        output = os.path.join('./remixed', video_name.replace('.mp4', '_remix.mp4'))
+
+    click.echo(f"🎬 영상 리믹스 중...")
+    remixer = VideoRemixer()
+
+    result = remixer.add_translated_subtitles(
+        video_path=video_path,
+        subtitle_path=subtitle_path,
+        output_path=output
+    )
+
+    if result:
+        click.echo(f"\n✅ 리믹스 완료!")
+        click.echo(f"파일: {result}")
+    else:
+        click.echo(f"\n❌ 리믹스 실패")
+
+
+@cli.command()
+@click.option('--region', default='US', help='지역 코드')
+@click.option('--category', default='Science & Technology', help='카테고리')
+@click.option('--max-videos', type=int, default=3, help='최대 영상 수')
+@click.option('--duration', type=click.Choice(['short', 'medium', 'long']),
+              default='short', help='영상 길이')
+@click.option('--min-views', type=int, default=10000, help='최소 조회수')
+@click.option('--target-lang', default='ko', help='번역 언어')
+def batch_remix(region, category, max_videos, duration, min_views, target_lang):
+    """트렌딩 영상 자동 리믹스 (검색 → 다운로드 → 번역 → 합성)"""
+    import sys
+    sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
+
+    from batch_remix import RemixBatchProcessor
+
+    click.echo("🚀 배치 리믹스 시작...\n")
+
+    processor = RemixBatchProcessor()
+
+    stats = processor.process_trending(
+        region=region,
+        category=category,
+        max_videos=max_videos,
+        video_duration=duration,
+        min_views=min_views,
+        target_lang=target_lang,
+        skip_existing=True
+    )
+
+    click.echo(f"\n✅ 배치 처리 완료!")
+    click.echo(f"성공: {stats['remixed']}개 / 실패: {stats['failed']}개")
+
+
 if __name__ == '__main__':
     cli()
