@@ -192,28 +192,86 @@ class VideoProducer:
 
         clips = []
 
-        # AI 이미지 생성 시도 (활성화된 경우)
+        # 전체 영상 길이 계산
+        total_duration = sum(seg.get('duration', 5.0) for seg in voice_segments)
+
+        # 최소 5개 이미지 보장
+        min_images = 5
+        num_segments = len(voice_segments)
+
+        # 이미지 변경 간격 계산 (최소 3초, 최대 10초)
+        if num_segments >= min_images:
+            # 세그먼트가 충분하면 각 세그먼트당 1개 이미지
+            image_change_points = []
+            current_time = 0.0
+            for segment in voice_segments:
+                image_change_points.append((current_time, segment['text']))
+                current_time += segment.get('duration', 5.0)
+        else:
+            # 세그먼트가 부족하면 균등하게 분할 (최소 5개)
+            image_interval = max(3.0, min(10.0, total_duration / min_images))
+            image_change_points = []
+            current_time = 0.0
+            seg_idx = 0
+
+            while current_time < total_duration and len(image_change_points) < min_images * 2:  # 넉넉하게
+                # 현재 시간에 해당하는 세그먼트 찾기
+                time_sum = 0.0
+                for idx, segment in enumerate(voice_segments):
+                    time_sum += segment.get('duration', 5.0)
+                    if time_sum > current_time:
+                        seg_idx = idx
+                        break
+
+                if seg_idx < len(voice_segments):
+                    image_change_points.append((current_time, voice_segments[seg_idx]['text']))
+
+                current_time += image_interval
+
+        # 최소 5개 보장
+        if len(image_change_points) < min_images:
+            # 부족하면 세그먼트 텍스트 반복 사용
+            while len(image_change_points) < min_images:
+                idx = len(image_change_points) % num_segments
+                time_point = (len(image_change_points) * total_duration / min_images,
+                             voice_segments[idx]['text'])
+                image_change_points.append(time_point)
+
+        print(f"\n[INFO] 총 {len(image_change_points)}개 이미지 생성 예정 (최소 {min_images}개 보장)")
+
+        # AI 이미지 생성
         if self.image_generator.enabled:
             print("\n🎨 AI 이미지 생성 중...")
-            image_paths = self.image_generator.generate_images_for_script(
-                voice_segments,
-                style_preset,
-                './temp/images'
-            )
+            image_paths = []
+            for i, (time_point, text) in enumerate(image_change_points):
+                output_path = f'./temp/images/image_{i}.png'
+                image_path = self.image_generator.generate_image_for_segment(
+                    text,
+                    style_preset,
+                    output_path
+                )
+                image_paths.append(image_path)
         else:
-            image_paths = [None] * len(voice_segments)
+            image_paths = [None] * len(image_change_points)
 
-        for i, segment in enumerate(voice_segments):
-            # 세그먼트 실제 길이 사용 (기본 5초)
-            duration = segment.get('duration', 5.0)
-            image_path = image_paths[i]
+        # 이미지 클립 생성
+        for i, ((start_time, text), image_path) in enumerate(zip(image_change_points, image_paths)):
+            # 다음 이미지 변경 시점까지의 duration 계산
+            if i < len(image_change_points) - 1:
+                duration = image_change_points[i + 1][0] - start_time
+            else:
+                duration = total_duration - start_time
+
+            # duration이 너무 짧거나 음수면 보정
+            if duration <= 0:
+                continue
 
             # AI 생성 이미지가 있으면 사용, 없으면 단색 배경
             if image_path and os.path.exists(image_path):
                 clip = ImageClip(image_path, duration=duration)
-                print(f"✅ AI 이미지 사용: {image_path}")
+                print(f"[OK] AI 이미지 사용: {os.path.basename(image_path)} ({duration:.1f}초)")
             else:
-                # PIL로 단색 배경 이미지 생성 (ColorClip 대신 안정적)
+                # PIL로 단색 배경 이미지 생성
                 from PIL import Image
                 import numpy as np
 
@@ -223,7 +281,7 @@ class VideoProducer:
 
                 clip = ImageClip(img_array, duration=duration)
 
-            # 줌 효과 (시간에 따라 1.0에서 1.05까지 확대)
+            # 줌 효과
             clip = clip.resized(lambda t: 1 + 0.01 * t)
 
             clips.append(clip)
@@ -347,24 +405,32 @@ class VideoProducer:
             text_length = len(txt)
 
             if video_format == 'short':
-                # 숏폼: 짧은 텍스트는 크게, 긴 텍스트는 작게
-                if text_length < 30:
-                    font_size = 45
-                elif text_length < 60:
-                    font_size = 38
+                # 숏폼: 더 공격적인 폰트 크기 조절로 잘림 방지
+                if text_length < 20:
+                    font_size = 42
+                elif text_length < 35:
+                    font_size = 35
+                elif text_length < 50:
+                    font_size = 30
+                elif text_length < 70:
+                    font_size = 26
                 else:
-                    font_size = 32
+                    font_size = 22  # 매우 긴 텍스트
             else:
-                # 긴 영상: 전체적으로 조금 더 큰 폰트
-                if text_length < 40:
-                    font_size = 48
-                elif text_length < 80:
-                    font_size = 40
+                # 긴 영상: 더 공격적인 폰트 크기 조절
+                if text_length < 25:
+                    font_size = 45
+                elif text_length < 45:
+                    font_size = 38
+                elif text_length < 65:
+                    font_size = 32
+                elif text_length < 90:
+                    font_size = 28
                 else:
-                    font_size = 34
+                    font_size = 24  # 매우 긴 텍스트
 
-            # 자막 영역을 90%로 확대
-            max_width = int(video.w * 0.9)
+            # 자막 영역을 95%로 확대 (더 넓게)
+            max_width = int(video.w * 0.95)
 
             return TextClip(
                 text=txt,

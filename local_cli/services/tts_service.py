@@ -345,8 +345,9 @@ class TTSService:
                 if not text_clean:
                     continue
 
-                # 너무 긴 텍스트는 문장 단위로 분할 (120자 이상)
-                if len(text_clean) > 120:
+                # 너무 긴 텍스트는 문장 단위로 분할 (60자 이상)
+                # 자막이 잘리지 않도록 짧게 분할
+                if len(text_clean) > 60:
                     sentences = self._split_into_sentences(text_clean)
                     for sentence in sentences:
                         if sentence.strip():

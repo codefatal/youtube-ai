@@ -134,7 +134,7 @@ class ImageGenerator:
             return None
 
     def _create_search_query(self, text: str, style_preset: str) -> str:
-        """이미지 검색 쿼리 생성
+        """이미지 검색 쿼리 생성 (실제 내용 기반)
 
         Args:
             text: 원본 텍스트
@@ -143,21 +143,51 @@ class ImageGenerator:
         Returns:
             str: 이미지 검색 쿼리
         """
-        # 스타일별 키워드
-        style_keywords = {
-            'calm': 'peaceful calm serene',
-            'energetic': 'dynamic vibrant energetic',
-            'professional': 'professional business modern',
-            'creative': 'creative artistic colorful',
+        # 불용어 목록 (이미지 검색에 도움 안 되는 단어들)
+        stopwords = {
+            # 한글 불용어
+            '은', '는', '이', '가', '을', '를', '의', '에', '에서', '로', '으로',
+            '와', '과', '도', '만', '하고', '그리고', '그러나', '하지만',
+            '입니다', '습니다', '있습니다', '합니다', '됩니다', '입니까', '습니까',
+            # 영어 불용어
+            'is', 'are', 'was', 'were', 'be', 'been', 'being',
+            'the', 'a', 'an', 'and', 'or', 'but', 'if', 'then',
+            'this', 'that', 'these', 'those', 'with', 'for', 'from', 'to',
+            'in', 'on', 'at', 'by', 'about', 'as', 'of', 'it', 'its'
         }
 
-        keyword = style_keywords.get(style_preset, 'abstract background')
+        # 텍스트에서 의미있는 키워드 추출
+        words = text.split()
 
-        # 텍스트에서 키워드 추출 (간단하게 처음 3단어)
-        words = text.split()[:3]
-        text_keywords = ' '.join(words) if words else ''
+        # 불용어 제거 및 키워드 추출
+        keywords = []
+        for word in words:
+            # 불용어가 아니고, 2글자 이상인 단어만 선택
+            if word.lower() not in stopwords and len(word) > 1:
+                keywords.append(word)
+                # 최대 5개 키워드만
+                if len(keywords) >= 5:
+                    break
 
-        query = f"{keyword} {text_keywords}".strip()
+        # 키워드가 없으면 원본 텍스트의 처음 3단어 사용
+        if not keywords:
+            keywords = words[:3]
+
+        # 키워드만으로 검색 쿼리 생성 (스타일 키워드 제거)
+        query = ' '.join(keywords).strip()
+
+        # 쿼리가 너무 짧으면 스타일 힌트 추가 (선택적)
+        if len(query) < 10 and style_preset:
+            # 간단한 스타일 힌트만 추가
+            style_hint = {
+                'calm': 'nature peaceful',
+                'energetic': 'dynamic action',
+                'professional': 'business',
+                'creative': 'artistic'
+            }.get(style_preset, '')
+            if style_hint:
+                query = f"{query} {style_hint}".strip()
+
         return query[:100]  # API 제한을 위해 100자로 제한
 
     def _fetch_from_unsplash(
