@@ -37,6 +37,66 @@
 
 ## ✅ DONE (완료된 작업)
 
+### 2025-12-12: Phase 3 - 트렌딩 검색 & 자동화 구현
+- **완료일**: 2025-12-12 14:14
+- **Git 커밋**: `31211c2`
+- **목표**: YouTube 트렌딩 검색 및 전체 워크플로우 자동화
+- **배경**: Phase 2 완료 후, 영상 자동 발굴 및 배치 처리 필요
+- **새 파일**:
+  - `local_cli/services/trending_searcher.py` (400줄) - YouTube 트렌딩 검색
+  - `batch_remix.py` (300줄) - 배치 자동 처리
+  - `test_phase3_integration.py` (190줄) - Phase 3 통합 테스트
+- **수정 파일**:
+  - `local_cli/main.py` - 5개 CLI 명령어 추가
+- **주요 내용**:
+  1. **TrendingSearcher 클래스**:
+     - YouTube Data API v3 통합
+     - 트렌딩 영상 검색 (지역, 카테고리별)
+     - 키워드 검색 (정렬: 조회수, 날짜, 관련성)
+     - 필터링: 영상 길이 (short/medium/long), 최소 조회수, 자막 유무
+     - 정렬: 조회수, 참여도 (좋아요 + 댓글)
+     - 숏폼/롱폼 필터링 함수
+     - ISO 8601 duration 파싱 (PT1H2M3S → 초)
+  2. **RemixBatchProcessor 클래스**:
+     - 전체 워크플로우 자동화
+     - 트렌딩 검색 → 다운로드 → 번역 → 리믹스
+     - 이미 처리된 영상 자동 스킵
+     - API 한도 보호 (1초 대기)
+     - 통계 추적 (검색, 다운로드, 번역, 리믹스, 실패)
+  3. **CLI 통합 (5개 명령어)**:
+     - `search-trending`: 트렌딩 영상 검색
+     - `download-video <url>`: 영상 + 자막 다운로드
+     - `translate-subtitle <file>`: SRT 자막 번역
+     - `remix-video <video> <subtitle>`: 영상 + 자막 합성
+     - `batch-remix`: 전체 자동 처리
+  4. **통합 테스트**:
+     - 트렌딩 검색: Science & Technology (미국)
+     - 키워드 검색: "AI technology" (3개 결과)
+     - 필터링: 10개 중 9개 숏폼 추출
+     - 메타데이터 연동 확인
+
+#### 테스트 결과
+```
+키워드 검색: 3개 영상 발견
+- 조회수: 3,594만 ~ 1,648만
+필터링: 10개 → 9개 숏폼 (≤60초)
+메타데이터: 1개 영상 (pending)
+```
+
+#### CLI 사용 예시
+```bash
+# 1. 트렌딩 검색
+python local_cli/main.py search-trending --region US --category "Science & Technology"
+
+# 2. 배치 처리
+python local_cli/main.py batch-remix --max-videos 3 --duration short
+
+# 3. 배치 스크립트 직접 실행
+python batch_remix.py --region US --max-videos 5 --min-views 50000
+```
+
+---
+
 ### 2025-12-12: Phase 2 - 리믹스 시스템 메타데이터 & 영상 합성 구현
 - **완료일**: 2025-12-12 11:59
 - **Git 커밋**: `bc7b2f0`
