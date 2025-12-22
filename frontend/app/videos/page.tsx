@@ -8,10 +8,17 @@ export default function VideosPage() {
   const [loading, setLoading] = useState(true)
   const [filter, setFilter] = useState<string>('all')
   const [previewVideo, setPreviewVideo] = useState<string | null>(null)
+  const [processingJobs, setProcessingJobs] = useState<Record<string, any>>({})
 
   useEffect(() => {
     loadVideos()
   }, [filter])
+
+  useEffect(() => {
+    // 진행 중인 작업을 주기적으로 확인
+    const interval = setInterval(checkProcessingJobs, 3000)
+    return () => clearInterval(interval)
+  }, [videos])
 
   const loadVideos = async () => {
     setLoading(true)
@@ -49,6 +56,24 @@ export default function VideosPage() {
     }
   }
 
+  const checkProcessingJobs = async () => {
+    try {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/batch/jobs`)
+      const result = await res.json()
+      if (result.success) {
+        const jobs: Record<string, any> = {}
+        result.data.jobs.forEach((job: any) => {
+          if (job.video_id && job.job_id.startsWith('hardcoded_')) {
+            jobs[job.video_id] = job
+          }
+        })
+        setProcessingJobs(jobs)
+      }
+    } catch (err) {
+      console.error('작업 상태 조회 실패:', err)
+    }
+  }
+
   const processHardcodedSubtitle = async (videoId: string) => {
     if (!confirm('하드코딩된 자막을 추출하고 번역하시겠습니까?\n(OCR 처리로 시간이 걸릴 수 있습니다)')) return
 
@@ -60,8 +85,8 @@ export default function VideosPage() {
       })
       const result = await res.json()
       if (result.success) {
-        alert(`하드코딩 자막 처리가 시작되었습니다!\nJob ID: ${result.data.job_id}\n\n배치 처리 페이지에서 진행 상황을 확인하세요.`)
-        loadVideos()
+        alert(`하드코딩 자막 처리가 시작되었습니다!\n\n아래에서 진행 상황을 확인할 수 있습니다.`)
+        checkProcessingJobs() // 즉시 상태 업데이트
       } else {
         alert('처리 실패')
       }
@@ -188,6 +213,43 @@ export default function VideosPage() {
                   </button>
                 </div>
               </div>
+
+              {/* 하드코딩 자막 처리 진행도 */}
+              {processingJobs[video.video_id] && (
+                <div className="mt-4 p-4 bg-purple-50 border border-purple-200 rounded-lg">
+                  <div className="flex items-center justify-between mb-2">
+                    <h4 className="font-semibold text-purple-900">하드코딩 자막 처리 진행 중</h4>
+                    <span className={`px-3 py-1 rounded text-sm font-semibold ${
+                      processingJobs[video.video_id].status === 'completed' ? 'bg-green-100 text-green-700' :
+                      processingJobs[video.video_id].status === 'failed' ? 'bg-red-100 text-red-700' :
+                      'bg-yellow-100 text-yellow-700'
+                    }`}>
+                      {processingJobs[video.video_id].status === 'completed' ? '완료' :
+                       processingJobs[video.video_id].status === 'failed' ? '실패' : '처리 중'}
+                    </span>
+                  </div>
+
+                  {processingJobs[video.video_id].result && (
+                    <div className="text-sm text-purple-700">
+                      {processingJobs[video.video_id].result.success ? (
+                        <p>✅ 처리 완료! 번역된 자막이 삽입되었습니다.</p>
+                      ) : (
+                        <p>❌ 처리 실패: {processingJobs[video.video_id].result.error || '알 수 없는 오류'}</p>
+                      )}
+                    </div>
+                  )}
+
+                  {processingJobs[video.video_id].error && (
+                    <div className="text-sm text-red-700 mt-2">
+                      ❌ 오류: {processingJobs[video.video_id].error}
+                    </div>
+                  )}
+
+                  <div className="text-xs text-purple-600 mt-2">
+                    Job ID: <code className="bg-purple-100 px-2 py-1 rounded">{processingJobs[video.video_id].job_id}</code>
+                  </div>
+                </div>
+              )}
 
               {/* 파일 경로 */}
               {video.files && (

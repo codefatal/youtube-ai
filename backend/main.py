@@ -431,7 +431,8 @@ async def start_batch_remix(request: BatchRemixRequest, background_tasks: Backgr
 
         batch_jobs[job_id] = {
             'status': 'pending',
-            'params': request.dict()
+            'params': request.dict(),
+            'started_at': time.time()
         }
 
         # 백그라운드 작업 시작
@@ -628,17 +629,17 @@ async def process_hardcoded_subtitle(request: HardcodedSubtitleRequest, backgrou
                     metadata['processing_status'] = 'hardcoded_completed'
                     metadata_manager.update_video_metadata(request.video_id, metadata)
 
-                batch_jobs[job_id] = {
+                batch_jobs[job_id].update({
                     'status': 'completed' if result['success'] else 'failed',
                     'result': result,
                     'completed_at': time.time()
-                }
+                })
             except Exception as e:
-                batch_jobs[job_id] = {
+                batch_jobs[job_id].update({
                     'status': 'failed',
                     'error': str(e),
                     'completed_at': time.time()
-                }
+                })
 
         batch_jobs[job_id] = {
             'status': 'processing',

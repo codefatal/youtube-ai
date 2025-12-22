@@ -65,7 +65,8 @@ class HardcodedSubtitleProcessor:
         self,
         video_path: str,
         subtitle_region: Optional[Tuple[int, int, int, int]] = None,
-        sample_interval: float = 0.5
+        sample_interval: float = 0.5,
+        debug_output_dir: Optional[str] = None
     ) -> List[Dict]:
         """영상에서 하드코딩된 자막 추출
 
@@ -135,11 +136,10 @@ class HardcodedSubtitleProcessor:
             subtitle_frame = frame[y:y+h, x:x+w]
 
             # 첫 번째 프레임 저장 (디버깅용)
-            if processed_frames == 1:
-                debug_frame_path = os.path.join(output_dir, f"{Path(video_path).stem}_debug_frame.jpg") if 'output_dir' in locals() else None
-                if debug_frame_path:
-                    cv2.imwrite(debug_frame_path, subtitle_frame)
-                    print(f"[DEBUG] 첫 번째 샘플 프레임 저장: {debug_frame_path}")
+            if processed_frames == 1 and debug_output_dir:
+                debug_frame_path = os.path.join(debug_output_dir, f"{Path(video_path).stem}_debug_frame.jpg")
+                cv2.imwrite(debug_frame_path, subtitle_frame)
+                print(f"[DEBUG] 첫 번째 샘플 프레임 저장: {debug_frame_path}")
 
             # OCR 수행
             results = self.reader.readtext(subtitle_frame)
@@ -476,7 +476,7 @@ class HardcodedSubtitleProcessor:
         print("\n" + "="*70)
         print("STEP 1: 하드코딩 자막 추출")
         print("="*70)
-        subtitles = self.extract_hardcoded_subtitles(video_path)
+        subtitles = self.extract_hardcoded_subtitles(video_path, debug_output_dir=output_dir)
 
         if not subtitles:
             print("[WARNING] 자막을 찾을 수 없습니다")
