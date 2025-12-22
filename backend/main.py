@@ -565,12 +565,24 @@ async def process_hardcoded_subtitle(request: HardcodedSubtitleRequest, backgrou
 
         # 하드코딩 자막 프로세서 초기화 확인
         try:
+            print(f"[DEBUG] HardcodedSubtitleProcessor import 시도...")
             from local_cli.services.hardcoded_subtitle_processor import HardcodedSubtitleProcessor
+            print(f"[DEBUG] HardcodedSubtitleProcessor 초기화 시도...")
             processor = HardcodedSubtitleProcessor()
+            print(f"[DEBUG] HardcodedSubtitleProcessor 초기화 완료")
         except ImportError as e:
+            print(f"[ERROR] ImportError 발생: {e}")
             raise HTTPException(
                 status_code=500,
                 detail=f"하드코딩 자막 처리 기능을 사용하려면 추가 패키지 설치가 필요합니다: pip install easyocr opencv-python torch torchvision"
+            )
+        except Exception as e:
+            print(f"[ERROR] 프로세서 초기화 실패: {e}")
+            import traceback
+            traceback.print_exc()
+            raise HTTPException(
+                status_code=500,
+                detail=f"하드코딩 자막 프로세서 초기화 실패: {str(e)}"
             )
 
         # 출력 디렉토리
