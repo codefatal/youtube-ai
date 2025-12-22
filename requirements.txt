@@ -19,9 +19,20 @@ ffmpeg-python>=0.2.0
 pydub>=0.25.1
 
 # ===== OCR (하드코딩 자막 추출) =====
-easyocr>=1.7.0  # OCR 엔진
-opencv-python>=4.8.0  # 영상 처리
-numpy>=1.24.0  # 배열 연산
+easyocr==1.7.2  # OCR 엔진
+opencv-python-headless==4.12.0.88  # 영상 처리 (headless 버전)
+numpy>=2.3.0  # 배열 연산 (Python 3.14 호환)
+# torch와 torchvision은 아래 명령으로 설치:
+# pip install --only-binary :all: torch torchvision --index-url https://download.pytorch.org/whl/cpu
+torch==2.9.1  # PyTorch CPU 버전
+torchvision==0.24.1  # torchvision CPU 버전
+scipy==1.16.3
+scikit-image==0.26.0
+PyYAML==6.0.3
+Shapely==2.1.2
+pyclipper==1.4.0
+python-bidi==0.6.7
+ninja==1.13.0
 
 # ===== TTS =====
 gTTS>=2.5.0
