@@ -67,6 +67,7 @@ python local_cli/main.py full-automation --ai gemini --no-upload
 - `music_library.py` - Background music management
 - `video_producer.py` - MoviePy-based video composition
 - `youtube_uploader.py` - OAuth2-based YouTube upload
+- `hardcoded_subtitle_processor.py` - **NEW! 하드코딩 자막 처리**. OCR로 영상에 인코딩된 자막 추출 → 번역 → 원본 자막 제거 (검은 박스) → 번역 자막 재인코딩. EasyOCR 기반, 원본 스타일 (색상, 크기, 위치) 유지
 
 **API Endpoints** (`backend/main.py`):
 - `POST /api/trends/analyze` - Returns keywords, topics, content ideas, view range
@@ -75,6 +76,7 @@ python local_cli/main.py full-automation --ai gemini --no-upload
 - `POST /api/upload` - YouTube upload with metadata
 - `POST /api/stats` - Dashboard statistics
 - `POST /api/automation/full` - End-to-end automation
+- `POST /api/hardcoded-subtitle/process` - **NEW!** 하드코딩 자막 추출 및 번역 (백그라운드 작업)
 
 ### Frontend Architecture (Next.js 14 App Router)
 
@@ -243,6 +245,10 @@ python local_cli/main.py test-ai --provider gemini
 9. **Stats**: Currently returns zeros - needs database implementation
 10. **Line Endings**: Git warns about LF/CRLF on Windows - this is normal
 11. **YouTube Upload**: Requires OAuth 2.0 setup with credentials.json
+12. **하드코딩 자막 처리**: EasyOCR + OpenCV 필요. 패키지 설치 시 컴파일러 문제 발생 가능
+    - 해결: `pip install easyocr opencv-python-headless --no-deps` 후 수동으로 의존성 설치
+    - 필요 패키지: torch, torchvision, pyyaml, python-bidi
+    - OCR 처리는 시간이 오래 걸릴 수 있음 (백그라운드 작업 사용 권장)
 
 ## Related Documentation
 

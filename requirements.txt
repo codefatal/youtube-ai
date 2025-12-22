@@ -9,12 +9,19 @@ anthropic>=0.40.0
 google-api-python-client>=2.100.0
 google-auth-oauthlib>=1.2.0
 google-auth-httplib2>=0.2.0
+yt-dlp>=2025.12.0  # YouTube 영상 다운로드 (리믹스 시스템)
+pysrt>=1.1.2  # SRT 자막 파싱/편집
 
 # ===== 비디오 처리 =====
 moviepy>=2.0.0  # MoviePy 2.x (최신 API)
 imageio-ffmpeg>=0.5.0  # FFmpeg for MoviePy (필수!)
 ffmpeg-python>=0.2.0
 pydub>=0.25.1
+
+# ===== OCR (하드코딩 자막 추출) =====
+easyocr>=1.7.0  # OCR 엔진
+opencv-python>=4.8.0  # 영상 처리
+numpy>=1.24.0  # 배열 연산
 
 # ===== TTS =====
 gTTS>=2.5.0

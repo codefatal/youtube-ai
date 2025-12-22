@@ -18,7 +18,19 @@
       "Bash(where:*)",
       "Bash(ls:*)",
       "Bash(del nul)",
-      "Bash(./venv/Scripts/python.exe:*)"
+      "Bash(./venv/Scripts/python.exe:*)",
+      "Bash(pip show:*)",
+      "Bash(../../venv/Scripts/python.exe:*)",
+      "Bash(python -c \"import sys; sys.path.insert(0, ''..''); from local_cli.services.trending_searcher import TrendingSearcher; print(''Import success'')\")",
+      "Bash(../venv/Scripts/python.exe -c \"import sys; sys.path.insert(0, ''..''); from local_cli.services.trending_searcher import TrendingSearcher; print(''OK'')\")",
+      "Bash(../venv/Scripts/python.exe main.py)",
+      "Bash(timeout:*)",
+      "Bash(ping:*)",
+      "Bash(netstat:*)",
+      "Bash(findstr:*)",
+      "Bash(../venv/Scripts/python.exe:*)",
+      "Bash(venv\\Scripts\\pip.exe install:*)",
+      "Bash(./venv/Scripts/pip.exe:*)"
     ],
     "deny": [],
     "ask": []
