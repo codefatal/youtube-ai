@@ -1,12 +1,13 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Film, Download, Languages, Trash2 } from 'lucide-react'
+import { Film, Download, Languages, Trash2, Scan, Play } from 'lucide-react'
 
 export default function VideosPage() {
   const [videos, setVideos] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [filter, setFilter] = useState<string>('all')
+  const [previewVideo, setPreviewVideo] = useState<string | null>(null)
 
   useEffect(() => {
     loadVideos()
@@ -45,6 +46,27 @@ export default function VideosPage() {
       }
     } catch (err) {
       alert('삭제 실패')
+    }
+  }
+
+  const processHardcodedSubtitle = async (videoId: string) => {
+    if (!confirm('하드코딩된 자막을 추출하고 번역하시겠습니까?\n(OCR 처리로 시간이 걸릴 수 있습니다)')) return
+
+    try {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/hardcoded-subtitle/process`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ video_id: videoId, target_lang: 'ko' })
+      })
+      const result = await res.json()
+      if (result.success) {
+        alert(`하드코딩 자막 처리가 시작되었습니다!\nJob ID: ${result.data.job_id}\n\n배치 처리 페이지에서 진행 상황을 확인하세요.`)
+        loadVideos()
+      } else {
+        alert('처리 실패')
+      }
+    } catch (err: any) {
+      alert(`처리 실패: ${err.message || '알 수 없는 오류'}`)
     }
   }
 
@@ -140,12 +162,31 @@ export default function VideosPage() {
                   </div>
                 </div>
 
-                <button
-                  onClick={() => deleteVideo(video.video_id)}
-                  className="ml-4 p-2 text-red-600 hover:bg-red-50 rounded"
-                >
-                  <Trash2 className="w-5 h-5" />
-                </button>
+                <div className="flex space-x-2 ml-4">
+                  {video.files?.remixed_video && (
+                    <button
+                      onClick={() => setPreviewVideo(video.video_id)}
+                      className="p-2 text-green-600 hover:bg-green-50 rounded"
+                      title="미리보기"
+                    >
+                      <Play className="w-5 h-5" />
+                    </button>
+                  )}
+                  <button
+                    onClick={() => processHardcodedSubtitle(video.video_id)}
+                    className="p-2 text-purple-600 hover:bg-purple-50 rounded"
+                    title="하드코딩 자막 추출 및 번역"
+                  >
+                    <Scan className="w-5 h-5" />
+                  </button>
+                  <button
+                    onClick={() => deleteVideo(video.video_id)}
+                    className="p-2 text-red-600 hover:bg-red-50 rounded"
+                    title="삭제"
+                  >
+                    <Trash2 className="w-5 h-5" />
+                  </button>
+                </div>
               </div>
 
               {/* 파일 경로 */}
@@ -163,6 +204,48 @@ export default function VideosPage() {
               )}
             </div>
           ))}
+        </div>
+      )}
+
+      {/* 미리보기 모달 */}
+      {previewVideo && (
+        <div
+          className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50"
+          onClick={() => setPreviewVideo(null)}
+        >
+          <div
+            className="bg-white rounded-lg p-6 max-w-4xl w-full max-h-[90vh] overflow-auto"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-xl font-bold">영상 미리보기</h2>
+              <button
+                onClick={() => setPreviewVideo(null)}
+                className="text-gray-500 hover:text-gray-700 text-2xl"
+              >
+                ×
+              </button>
+            </div>
+            <div className="aspect-video bg-black rounded">
+              <video
+                src={`${process.env.NEXT_PUBLIC_API_URL}/api/media/${previewVideo}`}
+                controls
+                autoPlay
+                className="w-full h-full"
+                onError={(e) => {
+                  console.error('영상 로드 실패:', e)
+                  alert('영상을 로드할 수 없습니다.')
+                }}
+              >
+                영상을 재생할 수 없습니다.
+              </video>
+            </div>
+            <div className="mt-4 p-3 bg-gray-50 rounded">
+              <p className="text-sm text-gray-600">
+                리믹스된 영상이 재생됩니다. 번역된 자막이 포함되어 있습니다.
+              </p>
+            </div>
+          </div>
         </div>
       )}
     </div>

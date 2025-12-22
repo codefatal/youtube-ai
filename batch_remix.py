@@ -60,7 +60,10 @@ class RemixBatchProcessor:
         video_duration: str = 'short',
         min_views: int = 10000,
         target_lang: str = 'ko',
-        skip_existing: bool = True
+        skip_existing: bool = True,
+        order: str = 'viewCount',
+        published_after: str = None,
+        published_before: str = None
     ) -> Dict:
         """트렌딩 영상 자동 처리
 
@@ -88,7 +91,10 @@ class RemixBatchProcessor:
             max_results=max_videos,
             video_duration=video_duration,
             min_views=min_views,
-            require_subtitles=True
+            require_subtitles=True,
+            order=order,
+            published_after=published_after,
+            published_before=published_before
         )
 
         self.stats['searched'] = len(videos)

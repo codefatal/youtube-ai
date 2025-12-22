@@ -5,9 +5,6 @@ import { usePathname } from 'next/navigation'
 import {
   Home,
   Search,
-  Download,
-  Languages,
-  Film,
   Zap,
   Database,
   Settings
@@ -16,8 +13,6 @@ import {
 const navigation = [
   { name: '대시보드', href: '/', icon: Home },
   { name: '영상 검색', href: '/search', icon: Search },
-  { name: '다운로드 관리', href: '/downloads', icon: Download },
-  { name: '리믹스', href: '/remix', icon: Film },
   { name: '배치 처리', href: '/batch', icon: Zap },
   { name: '영상 목록', href: '/videos', icon: Database },
   { name: '설정', href: '/settings', icon: Settings },

@@ -15,6 +15,19 @@ export default function BatchPage() {
   const [duration, setDuration] = useState('short')
   const [minViews, setMinViews] = useState(10000)
   const [targetLang, setTargetLang] = useState('ko')
+  const [order, setOrder] = useState('viewCount')
+  const [startDate, setStartDate] = useState('')
+  const [endDate, setEndDate] = useState('')
+
+  // 날짜를 RFC 3339 형식으로 변환
+  const toRFC3339 = (dateStr: string, isEndDate: boolean = false) => {
+    if (!dateStr) return undefined
+    const date = new Date(dateStr)
+    if (isEndDate) {
+      date.setHours(23, 59, 59, 999)
+    }
+    return date.toISOString()
+  }
 
   useEffect(() => {
     if (jobId) {
@@ -28,17 +41,23 @@ export default function BatchPage() {
 
     setLoading(true)
     try {
+      const payload = {
+        region,
+        category,
+        max_videos: maxVideos,
+        duration,
+        min_views: minViews,
+        target_lang: targetLang,
+        order,
+        published_after: toRFC3339(startDate, false),
+        published_before: toRFC3339(endDate, true)
+      }
+      console.log('[BATCH] 배치 시작 요청:', payload)
+
       const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/batch/start`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          region,
-          category,
-          max_videos: maxVideos,
-          duration,
-          min_views: minViews,
-          target_lang: targetLang
-        })
+        body: JSON.stringify(payload)
       })
       const result = await res.json()
       if (result.success) {
@@ -90,6 +109,17 @@ export default function BatchPage() {
               <option value="Science & Technology">과학/기술</option>
               <option value="Education">교육</option>
               <option value="Entertainment">엔터테인먼트</option>
+              <option value="Music">음악</option>
+              <option value="Gaming">게임</option>
+              <option value="Sports">스포츠</option>
+              <option value="News & Politics">뉴스/정치</option>
+              <option value="Howto & Style">생활/노하우</option>
+              <option value="Film & Animation">영화/애니메이션</option>
+              <option value="Comedy">코미디</option>
+              <option value="People & Blogs">사람/블로그</option>
+              <option value="Autos & Vehicles">자동차</option>
+              <option value="Pets & Animals">동물</option>
+              <option value="Travel & Events">여행/이벤트</option>
             </select>
           </div>
           <div>
@@ -109,12 +139,29 @@ export default function BatchPage() {
             <input type="number" value={minViews} onChange={(e) => setMinViews(Number(e.target.value))} className="w-full border rounded px-3 py-2" />
           </div>
           <div>
+            <label className="block text-sm font-medium mb-2">정렬</label>
+            <select value={order} onChange={(e) => setOrder(e.target.value)} className="w-full border rounded px-3 py-2">
+              <option value="viewCount">조회수</option>
+              <option value="date">최신 날짜</option>
+              <option value="rating">평점</option>
+              <option value="relevance">관련성</option>
+            </select>
+          </div>
+          <div>
             <label className="block text-sm font-medium mb-2">번역 언어</label>
             <select value={targetLang} onChange={(e) => setTargetLang(e.target.value)} className="w-full border rounded px-3 py-2">
               <option value="ko">한국어</option>
               <option value="ja">일본어</option>
               <option value="zh">중국어</option>
             </select>
+          </div>
+          <div>
+            <label className="block text-sm font-medium mb-2">시작 날짜 (선택)</label>
+            <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} className="w-full border rounded px-3 py-2" />
+          </div>
+          <div>
+            <label className="block text-sm font-medium mb-2">종료 날짜 (선택)</label>
+            <input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} className="w-full border rounded px-3 py-2" />
           </div>
         </div>
 

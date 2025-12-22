@@ -33,6 +33,11 @@ class TrendingSearcher:
             'Howto & Style': '26',
             'Film & Animation': '1',
             'Comedy': '23',
+            'Sports': '17',
+            'People & Blogs': '22',
+            'Autos & Vehicles': '2',
+            'Pets & Animals': '15',
+            'Travel & Events': '19',
         }
 
     def search_trending_videos(
@@ -43,7 +48,10 @@ class TrendingSearcher:
         video_license: str = 'any',  # 'any', 'creativeCommon'
         video_duration: str = 'any',  # 'any', 'short', 'medium', 'long'
         min_views: int = 0,
-        require_subtitles: bool = True
+        require_subtitles: bool = True,
+        order: str = 'viewCount',  # 'date', 'rating', 'relevance', 'viewCount'
+        published_after: Optional[str] = None,  # RFC 3339 형식 (예: 2024-01-01T00:00:00Z)
+        published_before: Optional[str] = None  # RFC 3339 형식
     ) -> List[Dict]:
         """트렌딩 영상 검색
 
@@ -55,6 +63,9 @@ class TrendingSearcher:
             video_duration: 'any', 'short' (<4분), 'medium' (4-20분), 'long' (>20분)
             min_views: 최소 조회수
             require_subtitles: 자막 필수 여부
+            order: 정렬 기준 ('date', 'rating', 'relevance', 'viewCount')
+            published_after: 이 날짜 이후 업로드된 영상만 (RFC 3339 형식)
+            published_before: 이 날짜 이전 업로드된 영상만 (RFC 3339 형식)
 
         Returns:
             List[Dict]: 영상 정보 리스트
@@ -65,28 +76,83 @@ class TrendingSearcher:
         print(f"  - 라이선스: {video_license}")
         print(f"  - 길이: {video_duration}")
         print(f"  - 최소 조회수: {min_views:,}")
+        print(f"  - 정렬: {order}")
+        if published_after:
+            print(f"  - 시작일: {published_after}")
+        if published_before:
+            print(f"  - 종료일: {published_before}")
 
         try:
-            # 검색 요청
-            request_params = {
-                'part': 'snippet,contentDetails,statistics',
-                'chart': 'mostPopular',
-                'regionCode': region,
-                'maxResults': max_results * 2,  # 필터링 고려하여 2배 요청
-            }
+            # 날짜 범위 또는 정렬이 필요한 경우 search()를 사용
+            if published_after or published_before or order != 'viewCount':
+                print(f"[DEBUG] search() API 사용 - order: {order}, after: {published_after}, before: {published_before}")
 
-            # 카테고리 필터
-            if category and category in self.categories:
-                request_params['videoCategoryId'] = self.categories[category]
+                # search().list() 사용
+                search_params = {
+                    'part': 'id',
+                    'type': 'video',
+                    'regionCode': region,
+                    'maxResults': max_results * 2,
+                    'order': order,
+                    'videoLicense': video_license,
+                    'videoDuration': video_duration,
+                    'videoCaption': 'closedCaption' if require_subtitles else 'any'
+                }
 
-            # 라이선스 필터는 search()에서만 가능, videos().list()는 불가
-            # 따라서 검색 후 라이선스 필터링
+                # 카테고리 필터
+                if category and category in self.categories:
+                    search_params['videoCategoryId'] = self.categories[category]
 
-            request = self.youtube.videos().list(**request_params)
-            response = request.execute()
+                # 날짜 범위
+                if published_after:
+                    search_params['publishedAfter'] = published_after
+                if published_before:
+                    search_params['publishedBefore'] = published_before
+
+                print(f"[DEBUG] search() 파라미터: {search_params}")
+
+                search_request = self.youtube.search().list(**search_params)
+                search_response = search_request.execute()
+
+                print(f"[DEBUG] search() 응답 items 수: {len(search_response.get('items', []))}")
+
+                # 비디오 ID 추출
+                video_ids = [item['id']['videoId'] for item in search_response.get('items', [])]
+
+                if not video_ids:
+                    print("[WARNING] 검색 결과 없음")
+                    return []
+
+                # 비디오 상세 정보 조회
+                videos_request = self.youtube.videos().list(
+                    part='snippet,contentDetails,statistics',
+                    id=','.join(video_ids)
+                )
+                response = videos_request.execute()
+                raw_items = response.get('items', [])
+                print(f"[DEBUG] API에서 {len(raw_items)}개 영상 받음 (search)")
+            else:
+                # 기존 방식: videos().list() 사용 (트렌딩)
+                request_params = {
+                    'part': 'snippet,contentDetails,statistics',
+                    'chart': 'mostPopular',
+                    'regionCode': region,
+                    'maxResults': max_results * 2,  # 필터링 고려하여 2배 요청
+                }
+
+                # 카테고리 필터
+                if category and category in self.categories:
+                    request_params['videoCategoryId'] = self.categories[category]
+
+                request = self.youtube.videos().list(**request_params)
+                response = request.execute()
+
+                raw_items = response.get('items', [])
+                print(f"[DEBUG] API에서 {len(raw_items)}개 영상 받음 (trending)")
 
             videos = []
-            for item in response.get('items', []):
+            filtered_count = 0
+            for item in raw_items:
                 video_info = self._parse_video_item(item)
 
                 # 필터링
@@ -97,6 +163,8 @@ class TrendingSearcher:
                     min_views=min_views,
                     require_subtitles=require_subtitles
                 ):
+                    filtered_count += 1
+                    print(f"[DEBUG] 필터링됨: {video_info['title'][:30]}... (조회수: {video_info['view_count']:,}, 길이: {video_info['duration']}초, 자막: {video_info.get('caption')})")
                     continue
 
                 videos.append(video_info)
@@ -121,8 +189,11 @@ class TrendingSearcher:
         max_results: int = 10,
         video_license: str = 'any',
         video_duration: str = 'any',
+        min_views: int = 0,
         order: str = 'viewCount',  # 'viewCount', 'relevance', 'date', 'rating'
-        require_subtitles: bool = True
+        require_subtitles: bool = True,
+        published_after: Optional[str] = None,  # RFC 3339 형식
+        published_before: Optional[str] = None  # RFC 3339 형식
     ) -> List[Dict]:
         """키워드로 영상 검색
 
@@ -132,8 +203,11 @@ class TrendingSearcher:
             max_results: 최대 결과 수
             video_license: 'any' 또는 'creativeCommon'
             video_duration: 'any', 'short', 'medium', 'long'
-            order: 정렬 기준
+            min_views: 최소 조회수
+            order: 정렬 기준 ('viewCount', 'relevance', 'date', 'rating')
             require_subtitles: 자막 필수 여부
+            published_after: 이 날짜 이후 업로드된 영상만 (RFC 3339 형식)
+            published_before: 이 날짜 이전 업로드된 영상만 (RFC 3339 형식)
 
         Returns:
             List[Dict]: 영상 정보 리스트
@@ -141,20 +215,34 @@ class TrendingSearcher:
         print(f"\n[INFO] 키워드 검색: '{keywords}'")
         print(f"  - 지역: {region}")
         print(f"  - 정렬: {order}")
+        print(f"  - 영상 길이: {video_duration}")
+        print(f"  - 최소 조회수: {min_views:,}")
+        if published_after:
+            print(f"  - 시작일: {published_after}")
+        if published_before:
+            print(f"  - 종료일: {published_before}")
 
         try:
             # 검색 요청
-            search_request = self.youtube.search().list(
-                part='id',
-                q=keywords,
-                type='video',
-                regionCode=region,
-                maxResults=max_results * 2,
-                order=order,
-                videoLicense=video_license,
-                videoDuration=video_duration,
-                videoCaption='closedCaption' if require_subtitles else 'any'
-            )
+            search_params = {
+                'part': 'id',
+                'q': keywords,
+                'type': 'video',
+                'regionCode': region,
+                'maxResults': max_results * 2,
+                'order': order,
+                'videoLicense': video_license,
+                'videoDuration': video_duration,
+                'videoCaption': 'closedCaption' if require_subtitles else 'any'
+            }
+
+            # 날짜 범위 추가
+            if published_after:
+                search_params['publishedAfter'] = published_after
+            if published_before:
+                search_params['publishedBefore'] = published_before
+
+            search_request = self.youtube.search().list(**search_params)
 
             search_response = search_request.execute()
 
@@ -176,6 +264,17 @@ class TrendingSearcher:
             videos = []
             for item in videos_response.get('items', []):
                 video_info = self._parse_video_item(item)
+
+                # 필터링
+                if not self._apply_filters(
+                    video_info,
+                    video_license=video_license,
+                    video_duration=video_duration,
+                    min_views=min_views,
+                    require_subtitles=require_subtitles
+                ):
+                    continue
+
                 videos.append(video_info)
 
                 if len(videos) >= max_results:

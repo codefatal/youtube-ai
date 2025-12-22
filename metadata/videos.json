@@ -40,5 +40,23 @@
       "commercial_use": false,
       "modifications": true
     }
+  },
+  "bK8IGV5cOQ8": {
+    "video_id": "bK8IGV5cOQ8",
+    "original": {
+      "url": "https://www.youtube.com/watch?v=bK8IGV5cOQ8",
+      "title": "\"Technology doesn't replace humans — it replaces human error.\" ❤️‍🩹",
+      "channel_name": "Endless Love",
+      "duration": 16,
+      "view_count": 34828290
+    },
+    "processing": {
+      "status": "downloaded",
+      "last_updated": "2025-12-22T11:49:23.477183"
+    },
+    "files": {
+      "original_video": "./downloads\\bK8IGV5cOQ8.mp4",
+      "original_subtitle": null
+    }
   }
 }
