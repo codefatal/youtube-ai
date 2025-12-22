@@ -134,8 +134,8 @@ export default function VideosPage() {
 
                   <div className="space-y-1 text-sm text-gray-600 mb-3">
                     <p>📺 채널: {video.original?.channel_name}</p>
-                    <p>👁️ 조회수: {(video.original?.views || 0).toLocaleString()}</p>
-                    <p>⏱️ 길이: {Math.floor((video.original?.duration || 0) / 60)}분</p>
+                    <p>👁️ 조회수: {(video.original?.views || video.original?.view_count || 0).toLocaleString()}</p>
+                    <p>⏱️ 길이: {Math.floor((video.original?.duration || 0) / 60)}분 {(video.original?.duration || 0) % 60}초</p>
                     <p>🔗 <a href={video.original?.url} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">
                       원본 보기
                     </a></p>

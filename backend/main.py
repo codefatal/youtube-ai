@@ -548,11 +548,16 @@ async def process_hardcoded_subtitle(request: HardcodedSubtitleRequest, backgrou
         # video_path 또는 original_video 찾기
         video_path = metadata.get('files', {}).get('video_path') or \
                      metadata.get('files', {}).get('original_video')
-        print(f"[DEBUG] 영상 파일 경로: {video_path}")
+        print(f"[DEBUG] 영상 파일 경로 (원본): {video_path}")
 
         if not video_path:
             print(f"[ERROR] 영상 파일 경로가 메타데이터에 없음")
             raise HTTPException(status_code=404, detail="영상 파일 경로를 찾을 수 없습니다")
+
+        # 상대 경로를 절대 경로로 변환
+        if not os.path.isabs(video_path):
+            video_path = os.path.abspath(os.path.join(PROJECT_ROOT, video_path))
+        print(f"[DEBUG] 영상 파일 경로 (절대): {video_path}")
 
         if not os.path.exists(video_path):
             print(f"[ERROR] 영상 파일이 존재하지 않음: {video_path}")
@@ -638,9 +643,17 @@ async def serve_video(video_id: str):
 
         # 리믹스된 영상 우선, 없으면 원본 영상
         video_path = metadata.get('files', {}).get('remixed_video') or \
-                     metadata.get('files', {}).get('video_path')
+                     metadata.get('files', {}).get('video_path') or \
+                     metadata.get('files', {}).get('original_video')
 
-        if not video_path or not os.path.exists(video_path):
+        if not video_path:
+            raise HTTPException(status_code=404, detail="영상 파일을 찾을 수 없습니다")
+
+        # 상대 경로를 절대 경로로 변환
+        if not os.path.isabs(video_path):
+            video_path = os.path.abspath(os.path.join(PROJECT_ROOT, video_path))
+
+        if not os.path.exists(video_path):
             raise HTTPException(status_code=404, detail="영상 파일을 찾을 수 없습니다")
 
         return FileResponse(
