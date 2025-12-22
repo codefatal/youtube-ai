@@ -7,7 +7,7 @@ import cv2
 import numpy as np
 from typing import List, Dict, Tuple, Optional
 from pathlib import Path
-from moviepy.editor import VideoFileClip, TextClip, CompositeVideoClip
+from moviepy import VideoFileClip, TextClip, CompositeVideoClip
 from PIL import Image, ImageDraw, ImageFont
 import pysrt
 from datetime import timedelta
