@@ -1,0 +1,82 @@
+# YouTube AI v3.0 기본 설정
+
+# AI 설정
+ai:
+  provider: "gemini"  # gemini, claude, openai
+  gemini:
+    model: "gemini-1.5-flash"
+    temperature: 0.7
+    max_output_tokens: 8000
+  claude:
+    model: "claude-3-5-sonnet-20241022"
+    temperature: 0.7
+    max_tokens: 4000
+
+# TTS 설정
+tts:
+  provider: "elevenlabs"  # elevenlabs, google_cloud, gtts
+  elevenlabs:
+    voice_id: null  # 설정 필요
+    model: "eleven_multilingual_v2"
+  google_cloud:
+    voice_name: "ko-KR-Neural2-A"
+    speaking_rate: 1.0
+
+# 영상 설정
+video:
+  default_format: "shorts"  # shorts, landscape, square
+  default_duration: 60  # 초
+  resolution:
+    shorts: [1080, 1920]  # width x height
+    landscape: [1920, 1080]
+    square: [1080, 1080]
+  fps: 30
+
+# 스톡 영상 설정
+stock_video:
+  providers: ["pexels", "pixabay"]
+  pexels:
+    api_key: ${PEXELS_API_KEY}
+    videos_per_query: 5
+  pixabay:
+    api_key: ${PIXABAY_API_KEY}
+    videos_per_query: 5
+  download_dir: "./downloads/stock_videos"
+  cache_enabled: true
+
+# 편집 설정
+editor:
+  enable_transitions: true
+  enable_subtitle_animation: true
+  subtitle:
+    fontsize: 40
+    color: "white"
+    bg_color: "black"
+    position: "bottom"
+    animation: "fade"  # fade, slide, none
+  background_music:
+    enabled: true
+    volume: 0.3
+    library_dir: "./music"
+  output_dir: "./output"
+
+# 업로드 설정
+upload:
+  auto_upload: false
+  default_privacy: "private"  # public, private, unlisted
+  default_category: "22"  # People & Blogs
+  add_watermark: false
+
+# 자동화 설정
+automation:
+  enabled: false
+  schedule_interval_hours: 24
+  max_jobs_per_day: 3
+  cms_type: null  # google_sheets, airtable, null
+
+# 로깅 설정
+logging:
+  level: "INFO"  # DEBUG, INFO, WARNING, ERROR
+  file: "./logs/youtube_ai.log"
+  console: true
+  format: "[%(levelname)s] %(asctime)s - %(message)s"
