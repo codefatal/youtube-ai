@@ -461,6 +461,28 @@ async def get_batch_status(job_id: str):
     }
 
 
+@app.get("/api/batch/jobs")
+async def list_batch_jobs():
+    """모든 배치 작업 목록 조회 (최근 순)"""
+    jobs_list = []
+    for job_id, job_data in batch_jobs.items():
+        jobs_list.append({
+            "job_id": job_id,
+            **job_data
+        })
+
+    # 최근 작업이 먼저 오도록 정렬 (started_at 기준)
+    jobs_list.sort(key=lambda x: x.get('started_at', 0), reverse=True)
+
+    return {
+        "success": True,
+        "data": {
+            "jobs": jobs_list,
+            "count": len(jobs_list)
+        }
+    }
+
+
 # ============================================================
 # 메타데이터 관리
 # ============================================================

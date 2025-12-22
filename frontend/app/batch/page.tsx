@@ -7,6 +7,7 @@ export default function BatchPage() {
   const [loading, setLoading] = useState(false)
   const [jobId, setJobId] = useState<string | null>(null)
   const [jobStatus, setJobStatus] = useState<any>(null)
+  const [allJobs, setAllJobs] = useState<any[]>([])
 
   // 설정
   const [region, setRegion] = useState('US')
@@ -30,11 +31,21 @@ export default function BatchPage() {
   }
 
   useEffect(() => {
+    loadAllJobs()
+  }, [])
+
+  useEffect(() => {
     if (jobId) {
       const interval = setInterval(checkJobStatus, 3000)
       return () => clearInterval(interval)
     }
   }, [jobId])
+
+  useEffect(() => {
+    // 작업 목록을 주기적으로 새로고침
+    const interval = setInterval(loadAllJobs, 5000)
+    return () => clearInterval(interval)
+  }, [])
 
   const startBatch = async () => {
     if (!confirm(`${maxVideos}개 영상을 자동 리믹스하시겠습니까?`)) return
@@ -83,6 +94,35 @@ export default function BatchPage() {
     } catch (err) {
       console.error('상태 조회 실패:', err)
     }
+  }
+
+  const loadAllJobs = async () => {
+    try {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/batch/jobs`)
+      const result = await res.json()
+      if (result.success) {
+        setAllJobs(result.data.jobs)
+      }
+    } catch (err) {
+      console.error('작업 목록 조회 실패:', err)
+    }
+  }
+
+  const getJobType = (jobId: string) => {
+    if (jobId.startsWith('hardcoded_')) return '하드코딩 자막'
+    if (jobId.startsWith('batch_')) return '배치 리믹스'
+    return '알 수 없음'
+  }
+
+  const getStatusBadge = (status: string) => {
+    const badges = {
+      processing: { color: 'bg-yellow-100 text-yellow-700', text: '처리 중' },
+      running: { color: 'bg-blue-100 text-blue-700', text: '실행 중' },
+      completed: { color: 'bg-green-100 text-green-700', text: '완료' },
+      failed: { color: 'bg-red-100 text-red-700', text: '실패' },
+    }
+    const badge = badges[status as keyof typeof badges] || { color: 'bg-gray-100 text-gray-700', text: status }
+    return <span className={`px-3 py-1 rounded text-sm font-semibold ${badge.color}`}>{badge.text}</span>
   }
 
   return (
@@ -225,6 +265,69 @@ export default function BatchPage() {
                 새 작업 시작
               </button>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* 모든 작업 목록 */}
+      {allJobs.length > 0 && (
+        <div className="mt-6 bg-white rounded-lg shadow p-6">
+          <h2 className="text-xl font-semibold mb-4">전체 작업 목록</h2>
+          <div className="space-y-3">
+            {allJobs.map((job) => (
+              <div key={job.job_id} className="border border-gray-200 rounded-lg p-4">
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center space-x-3">
+                    <span className="text-sm font-medium text-gray-700">{getJobType(job.job_id)}</span>
+                    {getStatusBadge(job.status)}
+                  </div>
+                  <span className="text-xs text-gray-500">
+                    {new Date((job.started_at || 0) * 1000).toLocaleString('ko-KR')}
+                  </span>
+                </div>
+
+                <div className="text-xs text-gray-600 mb-2">
+                  <code className="bg-gray-100 px-2 py-1 rounded">{job.job_id}</code>
+                </div>
+
+                {job.video_id && (
+                  <div className="text-sm text-gray-600 mb-2">
+                    영상 ID: <code className="bg-gray-100 px-2 py-1 rounded text-xs">{job.video_id}</code>
+                  </div>
+                )}
+
+                {job.result && (
+                  <div className="mt-2 p-3 bg-gray-50 rounded text-xs">
+                    {job.result.searched !== undefined && (
+                      <div className="grid grid-cols-3 gap-2">
+                        <div>검색: {job.result.searched}개</div>
+                        <div>다운로드: {job.result.downloaded}개</div>
+                        <div>번역: {job.result.translated}개</div>
+                        <div>리믹스: {job.result.remixed}개</div>
+                        <div className="text-red-600">실패: {job.result.failed}개</div>
+                        <div className="text-gray-500">스킵: {job.result.skipped}개</div>
+                      </div>
+                    )}
+                    {job.result.success !== undefined && (
+                      <div className="text-sm">
+                        {job.result.success ? '✅ 처리 완료' : '❌ 처리 실패'}
+                        {job.result.output_video && (
+                          <div className="mt-1 text-xs text-gray-600">
+                            출력: {job.result.output_video}
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {job.error && (
+                  <div className="mt-2 p-2 bg-red-50 border border-red-200 rounded text-xs text-red-700">
+                    오류: {job.error}
+                  </div>
+                )}
+              </div>
+            ))}
           </div>
         </div>
       )}

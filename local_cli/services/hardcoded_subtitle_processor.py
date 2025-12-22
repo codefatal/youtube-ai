@@ -106,6 +106,7 @@ class HardcodedSubtitleProcessor:
 
         print(f"[INFO] 영상 정보: {frame_width}x{frame_height}, {fps:.2f}fps, {duration:.1f}초")
         print(f"[INFO] 자막 영역: {subtitle_region}")
+        print(f"[INFO] 프레임 샘플링 간격: {sample_interval}초 ({int(fps * sample_interval)}프레임마다)")
 
         subtitles = []
         current_text = None
@@ -114,6 +115,7 @@ class HardcodedSubtitleProcessor:
 
         frame_count = 0
         processed_frames = 0
+        ocr_detected_count = 0
 
         while True:
             ret, frame = cap.read()
@@ -126,13 +128,24 @@ class HardcodedSubtitleProcessor:
                 continue
 
             current_time = frame_count / fps
+            processed_frames += 1
 
             # 자막 영역 추출
             x, y, w, h = subtitle_region
             subtitle_frame = frame[y:y+h, x:x+w]
 
+            # 첫 번째 프레임 저장 (디버깅용)
+            if processed_frames == 1:
+                debug_frame_path = os.path.join(output_dir, f"{Path(video_path).stem}_debug_frame.jpg") if 'output_dir' in locals() else None
+                if debug_frame_path:
+                    cv2.imwrite(debug_frame_path, subtitle_frame)
+                    print(f"[DEBUG] 첫 번째 샘플 프레임 저장: {debug_frame_path}")
+
             # OCR 수행
             results = self.reader.readtext(subtitle_frame)
+
+            if processed_frames % 20 == 0:  # 20프레임마다 진행 상황 출력
+                print(f"[INFO] 처리 중... {current_time:.1f}초 / {duration:.1f}초 (OCR 감지: {ocr_detected_count}건)")
 
             if results:
                 # 가장 큰 텍스트 박스 선택 (보통 자막이 가장 큼)
@@ -142,6 +155,8 @@ class HardcodedSubtitleProcessor:
                 text = text.strip()
 
                 if confidence > 0.3 and len(text) > 2:  # 신뢰도 필터
+                    ocr_detected_count += 1
+
                     # 자막 위치 계산 (전체 프레임 기준)
                     abs_bbox = (
                         int(bbox[0][0] + x),
@@ -182,15 +197,19 @@ class HardcodedSubtitleProcessor:
                         current_text = text
                         current_start = current_time
 
-                    processed_frames += 1
-                    if processed_frames % 10 == 0:
-                        print(f"[PROGRESS] {current_time:.1f}s / {duration:.1f}s - 자막 {len(subtitles)}개 발견")
+                        if len(subtitles) % 10 == 0:
+                            print(f"[PROGRESS] {current_time:.1f}s / {duration:.1f}s - 자막 {len(subtitles)}개 발견")
             else:
                 current_text = None
 
             frame_count += 1
 
         cap.release()
+
+        print(f"\n[SUMMARY] OCR 처리 완료:")
+        print(f"  - 처리한 프레임: {processed_frames}개")
+        print(f"  - OCR 감지: {ocr_detected_count}건")
+        print(f"  - 추출된 자막: {len(subtitles)}개")
 
         print(f"[OK] 자막 추출 완료: {len(subtitles)}개")
         return subtitles
