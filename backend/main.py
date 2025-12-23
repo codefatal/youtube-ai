@@ -235,7 +235,7 @@ async def get_job_status(request: GetJobStatusRequest):
         orchestrator = get_orchestrator()
 
         # 작업 히스토리에서 조회
-        job = orchestrator.history.get_job(request.job_id)
+        job = orchestrator.get_job(request.job_id)
 
         if not job:
             raise HTTPException(status_code=404, detail="작업을 찾을 수 없습니다")
@@ -245,13 +245,13 @@ async def get_job_status(request: GetJobStatusRequest):
             "data": {
                 "job_id": job.job_id,
                 "status": job.status.value,
-                "topic": job.metadata.get("topic", ""),
-                "format": job.metadata.get("format", ""),
+                "topic": job.plan.title if job.plan else "",
+                "format": job.plan.format.value if job.plan else "",
                 "output_video_path": job.output_video_path,
-                "youtube_url": job.youtube_url,
+                "youtube_url": job.upload_result.url if job.upload_result else None,
                 "error_log": job.error_log,
                 "created_at": job.created_at.isoformat() if job.created_at else None,
-                "completed_at": job.completed_at.isoformat() if job.completed_at else None
+                "completed_at": job.updated_at.isoformat() if job.updated_at else None
             }
         }
     except HTTPException:
@@ -275,10 +275,10 @@ async def get_recent_jobs(limit: int = 10):
                     {
                         "job_id": job.job_id,
                         "status": job.status.value,
-                        "topic": job.metadata.get("topic", ""),
-                        "format": job.metadata.get("format", ""),
+                        "topic": job.plan.title if job.plan else "",
+                        "format": job.plan.format.value if job.plan else "",
                         "created_at": job.created_at.isoformat() if job.created_at else None,
-                        "completed_at": job.completed_at.isoformat() if job.completed_at else None
+                        "completed_at": job.updated_at.isoformat() if job.updated_at else None
                     }
                     for job in recent_jobs
                 ],
