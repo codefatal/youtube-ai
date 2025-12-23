@@ -22,15 +22,14 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 from core.orchestrator import ContentOrchestrator
 from core.planner import ContentPlanner
 from core.asset_manager import AssetManager
-from core.editor import Editor
-from core.uploader import Uploader
+from core.editor import VideoEditor
+from core.uploader import YouTubeUploader
 from core.models import (
     SystemConfig,
     VideoFormat,
     AIProvider,
     TTSProvider,
-    ContentStatus,
-    StockProvider
+    ContentStatus
 )
 
 app = FastAPI(
@@ -317,7 +316,6 @@ async def get_config():
             "data": {
                 "ai_provider": config.ai_provider.value,
                 "tts_provider": config.tts_provider.value,
-                "stock_provider": config.stock_provider.value if hasattr(config, 'stock_provider') else "pexels",
                 "default_format": config.default_format.value,
                 "default_duration": config.default_duration,
                 "auto_upload": config.auto_upload
