@@ -198,7 +198,7 @@ async def create_video(request: CreateVideoRequest, background_tasks: Background
         # 주제가 없으면 AI가 자동 생성
         topic = request.topic
         if not topic:
-            planner = Planner()
+            planner = ContentPlanner()
             topics = await planner.generate_topic_ideas(count=1, trending=True)
             topic = topics[0] if topics else "AI 기술 소개"
 
