@@ -4,17 +4,17 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-**AI YouTube Automation** - Complete automated video production pipeline from trend analysis to YouTube upload.
+**YouTube AI v3.0** - Complete AI-powered original content creation system for YouTube automation.
 
 This is a dual-interface system:
 - **Web UI** (Next.js frontend + FastAPI backend) - Primary interface
 - **CLI** (Python Click-based) - Command-line interface
 
-The system uses AI (Gemini/Claude) for trend analysis, script generation, and metadata creation, combined with TTS, audio processing, and video synthesis to create complete YouTube videos automatically.
+The system uses AI (Gemini/Claude) for content planning, script generation, and metadata creation, combined with TTS, stock videos, and video synthesis to create complete YouTube videos automatically.
 
 ## Development Commands
 
-### Web UI Development (Primary)
+### Backend Development
 
 **Start Backend Server:**
 ```bash
@@ -24,7 +24,9 @@ python main.py
 # API docs at http://localhost:8000/docs
 ```
 
-**Start Frontend Development:**
+### Frontend Development
+
+**Start Frontend:**
 ```bash
 cd frontend
 npm install  # First time only
@@ -41,89 +43,97 @@ npm run dev
 venv\Scripts\activate  # Windows
 source venv/bin/activate  # Linux/Mac
 
-# Test AI services
-python local_cli/main.py test-ai --provider gemini
+# Auto-create content
+python scripts/auto_create.py --topic "AI 기술 소개" --format shorts --duration 60
 
-# Analyze trends
-python local_cli/main.py analyze-trends --region KR --format short --ai gemini
+# Full automation with upload
+python scripts/auto_create.py --upload
 
-# Generate scripts
-python local_cli/main.py generate-script --keywords "AI,tech" --format short --duration 60 --ai gemini
+# Local scheduler (daily automation)
+python scripts/schedule_local.py
 
-# Full automation (without upload)
-python local_cli/main.py full-automation --ai gemini --no-upload
+# Run tests
+python tests/test_integration.py
+
+# Performance benchmark
+python scripts/benchmark.py
 ```
 
 ## Architecture
 
-### Backend Architecture (FastAPI)
+### Core Modules (`core/`)
 
-**Core Services** (`local_cli/services/`):
-- `ai_service.py` - **Central AI integration**. Handles both Gemini and Claude APIs with automatic fallback. Uses `google.genai` SDK (not deprecated `google-generativeai`). Implements retry logic and token tracking.
-- `trend_analyzer.py` - YouTube Data API integration + AI analysis
-- `script_generator.py` - AI-powered script generation with timestamps
-- `tts_service.py` - Multi-provider TTS (Google Cloud, local, ElevenLabs, Azure)
-- `audio_processor.py` - Audio merging, mixing with pydub
-- `music_library.py` - Background music management
-- `video_producer.py` - MoviePy-based video composition
-- `youtube_uploader.py` - OAuth2-based YouTube upload
-- `hardcoded_subtitle_processor.py` - **NEW! 하드코딩 자막 처리**. OCR로 영상에 인코딩된 자막 추출 → 번역 → 원본 자막 제거 (검은 박스) → 번역 자막 재인코딩. EasyOCR 기반, 원본 스타일 (색상, 크기, 위치) 유지
+- **planner.py** - AI-based content planning and script generation
+  - `generate_topic_ideas()` - AI topic generation (trending or custom)
+  - `generate_content_plan()` - Full script with segments, keywords, timing
 
-**API Endpoints** (`backend/main.py`):
-- `POST /api/trends/analyze` - Returns keywords, topics, content ideas, view range
-- `POST /api/scripts/generate` - Returns array of script versions
-- `POST /api/videos/produce` - Currently returns development notice (not fully implemented)
-- `POST /api/upload` - YouTube upload with metadata
-- `POST /api/stats` - Dashboard statistics
-- `POST /api/automation/full` - End-to-end automation
-- `POST /api/hardcoded-subtitle/process` - **NEW!** 하드코딩 자막 추출 및 번역 (백그라운드 작업)
+- **asset_manager.py** - Asset collection (stock videos + TTS)
+  - `collect_assets()` - Collect videos and generate TTS audio
+  - Supports Pexels, Pixabay (stock videos)
+  - Supports gTTS, ElevenLabs, Google Cloud TTS
 
-### Frontend Architecture (Next.js 14 App Router)
+- **editor.py** - MoviePy-based video editing
+  - `create_video()` - Full video composition (clips + subtitles + audio)
+  - Automatic subtitle generation and timing
+  - Resolution: 1080x1920 (Shorts) or 1920x1080 (Landscape)
 
-**Pages** (`frontend/app/`):
-- `page.tsx` - Dashboard with stats and quick actions
-- `trends/page.tsx` - Trend analysis interface
-- `scripts/page.tsx` - Script generation with multiple versions
-- `videos/page.tsx` - Video production (development notice)
-- `upload/page.tsx` - YouTube upload (development notice)
-- `automation/page.tsx` - Full automation workflow
-- `costs/page.tsx` - Cost tracking
-- `settings/page.tsx` - App settings with localStorage
+- **uploader.py** - YouTube upload automation
+  - `upload_video()` - OAuth 2.0 based YouTube upload
+  - `generate_metadata()` - AI-generated title, description, tags
 
-**Components** (`frontend/components/`):
-- `Sidebar.tsx` - Navigation sidebar
-- `StatsCard.tsx` - Dashboard stat cards
+- **orchestrator.py** - Pipeline management
+  - `create_content()` - Full pipeline: Plan → Assets → Edit → Upload
+  - Job queue management
+  - Progress tracking and error handling
 
-**Settings Integration:**
-- Settings are stored in `localStorage` as `appSettings`
-- Trend/Scripts/Videos pages read default values from settings on mount
-- Format, region, and tone preferences are synced across pages
+### Provider System (`providers/`)
 
-### Key Implementation Details
+**AI Providers** (`providers/ai/`):
+- **gemini.py** - Google Gemini API (free, fast)
+- **claude.py** - Anthropic Claude API (premium)
 
-**Gemini API Integration:**
-- Uses latest `google-genai` SDK (v0.2.0+), NOT `google-generativeai`
-- Model: `gemini-1.5-flash` (stable) or `gemini-2.5-flash` (newer)
-- **Critical**: `max_output_tokens` must be 8000+ to accommodate Gemini's "thinking mode" which consumes 1900-5000 tokens internally
-- Uses `types.GenerateContentConfig` for proper parameter passing
-- JSON responses must be parsed with regex to strip markdown code blocks
+**Stock Video Providers** (`providers/stock/`):
+- **pexels.py** - Pexels API (free, high quality)
+- **pixabay.py** - Pixabay API (free, fallback)
 
-**AI Service Fallback:**
-```python
-# .env
-AI_PROVIDER=auto  # Tries Gemini first, falls back to Claude
-AI_PROVIDER=gemini  # Gemini only (free)
-AI_PROVIDER=claude  # Claude only (premium)
+**TTS Providers** (`providers/tts/`):
+- **gtts_provider.py** - Google TTS (free, fast)
+- **elevenlabs.py** - ElevenLabs (premium, natural)
+- **google_cloud.py** - Google Cloud TTS (premium)
+
+### Backend API (`backend/main.py`)
+
+**Key Endpoints**:
+- `POST /api/topics/generate` - Generate AI topics
+- `POST /api/scripts/generate` - Generate AI scripts
+- `POST /api/videos/create` - Create video (full pipeline)
+- `POST /api/jobs/status` - Check job status
+- `GET /api/jobs/recent` - Recent jobs list
+- `GET /api/stats` - Statistics (total/completed/failed)
+- `GET /api/config` - Current system configuration
+
+**Response Format**:
+```json
+{
+  "success": true,
+  "data": { ... }
+}
 ```
 
-**CORS Configuration:**
-Backend allows `http://localhost:3000` and `http://localhost:3001` for frontend development.
+### Data Models (`core/models.py`)
 
-**Data Flow:**
-1. Frontend fetches from backend API
-2. Backend calls `local_cli/services/` modules
-3. Services call external APIs (Gemini, YouTube, etc.)
-4. Responses flow back with `{success: bool, data: {...}}` structure
+**Core Models**:
+- `ContentPlan` - Full content plan with segments
+- `ScriptSegment` - Individual script segment (text, keyword, duration)
+- `AssetBundle` - Collection of videos + audio
+- `ContentJob` - Job tracking (status, progress, output)
+- `SystemConfig` - System configuration (AI provider, TTS provider, format)
+
+**Enums**:
+- `VideoFormat` - SHORTS, LANDSCAPE, SQUARE
+- `AIProvider` - GEMINI, CLAUDE, OPENAI
+- `TTSProvider` - GTTS, ELEVENLABS, GOOGLE_CLOUD
+- `ContentStatus` - PLANNING, COLLECTING_ASSETS, EDITING, UPLOADING, COMPLETED, FAILED
 
 ## Environment Variables
 
@@ -132,79 +142,110 @@ Required `.env` file at project root:
 ```bash
 # Required for basic functionality
 GEMINI_API_KEY=AIza...          # From https://aistudio.google.com/apikey
-YOUTUBE_API_KEY=...             # For trend analysis
+
+# Stock Videos (at least one)
+PEXELS_API_KEY=...              # From https://www.pexels.com/api/
+PIXABAY_API_KEY=...             # From https://pixabay.com/api/docs/
 
 # Optional
 ANTHROPIC_API_KEY=sk-ant-...    # For Claude
-GEMINI_MODEL=gemini-1.5-flash   # Model selection
-AI_PROVIDER=auto                # auto/gemini/claude
+ELEVENLABS_API_KEY=...          # For premium TTS
+GOOGLE_APPLICATION_CREDENTIALS=path/to/credentials.json  # For Google Cloud TTS
+YOUTUBE_API_KEY=...             # For trend analysis (optional)
 ```
 
-**Important**:
-- `GOOGLE_APPLICATION_CREDENTIALS` is needed for Google Cloud TTS (video production)
-- `client_secrets.json` is needed for YouTube OAuth upload
-- These are currently not fully implemented in Web UI
+**YouTube Upload** requires `client_secrets.json` for OAuth 2.0.
 
 ## Current Status
 
 ### ✅ Fully Implemented
-- Web UI dashboard with stats API integration
-- Trend analysis (YouTube Data API + AI)
-- Script generation with multiple versions
-- **Video Production** - Fully working! ✨
-  - gTTS (Google Text-to-Speech) free service
-  - FFmpeg-based audio/video processing
-  - No pydub dependency (Python 3.14 compatible)
-  - Real-time progress display in UI
-  - File path guidance after completion
-  - **NEW (2025-12-11)**: 4가지 품질 개선
-    - 자막 () 효과음 자동 제거 (정규식 기반)
-    - 자막 길이 자동 조절 (동적 폰트 크기 32-48px)
-    - 그라데이션 배경 이미지 생성 (5가지 색상 조합)
-    - 대본 자동 분할 (120자 이상 문장 단위 분할)
-- Settings page with localStorage persistence
-- Settings integration across all pages
-- Backend API with CORS
-- CLI for all features
-- Gemini API integration with latest SDK
-- Error handling and graceful degradation
+- Core pipeline (Planner → Asset Manager → Editor → Uploader → Orchestrator)
+- AI providers (Gemini, Claude)
+- Stock video providers (Pexels, Pixabay)
+- TTS providers (gTTS, ElevenLabs, Google Cloud)
+- Video editing (MoviePy with subtitles, audio mixing)
+- YouTube upload (OAuth 2.0)
+- Automation (GitHub Actions, local scheduler)
+- Testing (integration tests, error cases, benchmarks)
+- Backend API (FastAPI with 8 endpoints)
 
-### ⚠️ Development Notice (Not Fully Functional)
-- **YouTube Upload**: Requires OAuth 2.0 client credentials setup
+### 🚧 In Progress
+- Frontend UI update (adapting to new backend)
 
-### 📊 Database/Persistence
-- Currently uses hardcoded/default values
-- Stats API returns zeros (no database yet)
-- Settings stored in browser localStorage only
-- TODO: Add database for actual tracking
+### 📊 Project Completion
+
+```
+✅ Phase 1: Foundation (100%)
+✅ Phase 2: Planner (100%)
+✅ Phase 3: Asset Manager (100%)
+✅ Phase 4: Editor (100%)
+✅ Phase 5: Uploader (100%)
+✅ Phase 6: Orchestrator (100%)
+✅ Phase 7: Automation (100%)
+✅ Phase 8: Testing & Optimization (100%)
+```
+
+**Overall: 100% Complete (8/8 Phases)**
 
 ## Common Development Patterns
 
-### Adding a New Page
+### Creating Content Programmatically
 
-1. Create `frontend/app/newpage/page.tsx`
-2. Add to sidebar in `frontend/components/Sidebar.tsx`
-3. Optionally create backend endpoint in `backend/main.py`
-4. Add settings integration if needed (read from localStorage)
+```python
+from core.orchestrator import ContentOrchestrator
+from core.models import VideoFormat
 
-### Adding a New Backend Service
+# Create orchestrator
+orchestrator = ContentOrchestrator()
 
-1. Create `local_cli/services/new_service.py`
-2. Follow pattern: import AIService, use `self.ai_service.generate_text()`
-3. Add endpoint in `backend/main.py`
-4. Import and instantiate service in endpoint handler
+# Create video (full pipeline)
+job = orchestrator.create_content(
+    topic="Python 프로그래밍 팁",  # Or None for AI-generated topic
+    video_format=VideoFormat.SHORTS,
+    target_duration=60,
+    upload=True  # Upload to YouTube
+)
 
-### API Response Format
-
-All API endpoints return:
-```json
-{
-  "success": true,
-  "data": { ... }
-}
+print(f"Video created: {job.output_video_path}")
+print(f"YouTube URL: {job.youtube_url}")
 ```
 
-Frontend should check `result.success` and access `result.data`.
+### Using Individual Modules
+
+```python
+# 1. Generate topics
+from core.planner import Planner
+
+planner = Planner()
+topics = await planner.generate_topic_ideas(count=3, trending=True)
+
+# 2. Generate script
+plan = await planner.generate_content_plan(
+    topic=topics[0],
+    format=VideoFormat.SHORTS,
+    target_duration=60,
+    style="정보성"
+)
+
+# 3. Collect assets
+from core.asset_manager import AssetManager
+
+asset_manager = AssetManager()
+bundle = await asset_manager.collect_assets(plan)
+
+# 4. Create video
+from core.editor import Editor
+
+editor = Editor()
+video_path = await editor.create_video(plan, bundle)
+
+# 5. Upload to YouTube
+from core.uploader import Uploader
+
+uploader = Uploader()
+metadata = await uploader.generate_metadata(plan)
+youtube_url = await uploader.upload_video(video_path, metadata)
+```
 
 ## Testing Changes
 
@@ -212,6 +253,11 @@ Frontend should check `result.success` and access `result.data`.
 ```bash
 # Restart backend server (Ctrl+C, then)
 python backend/main.py
+
+# Test specific endpoint
+curl -X POST http://localhost:8000/api/topics/generate \
+  -H "Content-Type: application/json" \
+  -d '{"count": 3, "trending": true}'
 ```
 
 **Frontend changes:**
@@ -219,50 +265,100 @@ python backend/main.py
 - Check browser console for errors
 - Backend logs appear in backend terminal
 
-**AI Service testing:**
+**Run tests:**
 ```bash
-python local_cli/main.py test-ai --provider gemini
+# Integration tests
+python tests/test_integration.py
+
+# Error cases
+python tests/test_error_cases.py
+
+# Performance benchmark
+python scripts/benchmark.py
 ```
 
 ## Git Workflow
 
 - Commit messages in Korean (user preference)
 - Push directly to main branch
-- **WORK_LOG.md** tracks all work for cross-session continuity
-- **WORKFLOW_GUIDE.md** provides workflow guidelines
-- Recent changes include video production quality improvements (2025-12-11)
+- Phase summary documents (PHASE1_SUMMARY.md ~ PHASE8_SUMMARY.md) track progress
 
-## Known Issues & Workarounds
+## Known Issues & Solutions
 
-1. **Gemini MAX_TOKENS**: Always use 8000+ tokens to avoid truncation from thinking mode
-2. **JSON Parsing**: AI responses may include markdown code blocks - strip with regex before parsing
-3. ~~**Video Production**~~: ✅ **Fixed!** Now uses gTTS + FFmpeg directly (no pydub)
-4. ~~**pydub/audioop**~~: ✅ **Fixed!** Replaced with direct FFmpeg calls (Python 3.14 compatible)
-5. ~~**자막 () 효과음 표시**~~: ✅ **Fixed (2025-12-11)!** 정규식 `r'\([^)]*\)'`로 자동 제거
-6. ~~**자막 길이 잘림**~~: ✅ **Fixed (2025-12-11)!** 동적 폰트 크기 + 자막 너비 90%로 증가
-7. ~~**단색 배경 이미지**~~: ✅ **Fixed (2025-12-11)!** 그라데이션 배경 + 키워드 텍스트 추가
-8. ~~**긴 대본 문제**~~: ✅ **Fixed (2025-12-11)!** 120자 이상 자동 문장 분할
-9. **Stats**: Currently returns zeros - needs database implementation
-10. **Line Endings**: Git warns about LF/CRLF on Windows - this is normal
-11. **YouTube Upload**: Requires OAuth 2.0 setup with credentials.json
-12. **하드코딩 자막 처리**: EasyOCR + OpenCV 필요. 패키지 설치 시 컴파일러 문제 발생 가능
-    - 해결: `pip install easyocr opencv-python-headless --no-deps` 후 수동으로 의존성 설치
-    - 필요 패키지: torch, torchvision, pyyaml, python-bidi
-    - OCR 처리는 시간이 오래 걸릴 수 있음 (백그라운드 작업 사용 권장)
+1. **ImageMagick Required**: MoviePy needs ImageMagick for text rendering
+   - Windows: Download from https://imagemagick.org/
+   - Set path in `moviepy/config_defaults.py`
+
+2. **API Keys**: Ensure `.env` file exists with required keys
+   - Minimum: `GEMINI_API_KEY`, `PEXELS_API_KEY` (or `PIXABAY_API_KEY`)
+
+3. **YouTube Upload**: Requires OAuth 2.0 setup
+   - Create project at https://console.cloud.google.com/
+   - Download `client_secrets.json`
+   - Run upload once to authorize
+
+4. **Python 3.14 Compatibility**: All dependencies updated for Python 3.14
+   - numpy >= 2.3.0
+   - Pillow >= 11.0.0
+
+5. **Performance**: First run is slower due to model downloads
+   - Gemini API: 10-30s
+   - Stock video download: 5-15s per video
+   - TTS generation: 2-5s
+   - Video editing: 30-60s for 60s video
+
+## API Usage Examples
+
+### Generate Topics
+
+```bash
+curl -X POST http://localhost:8000/api/topics/generate \
+  -H "Content-Type: application/json" \
+  -d '{"count": 3, "trending": true}'
+```
+
+### Generate Script
+
+```bash
+curl -X POST http://localhost:8000/api/scripts/generate \
+  -H "Content-Type: application/json" \
+  -d '{
+    "topic": "Python 기초",
+    "format": "shorts",
+    "duration": 60,
+    "style": "정보성"
+  }'
+```
+
+### Create Video
+
+```bash
+curl -X POST http://localhost:8000/api/videos/create \
+  -H "Content-Type: application/json" \
+  -d '{
+    "topic": "AI 기술 소개",
+    "format": "shorts",
+    "duration": 60,
+    "upload": false
+  }'
+```
+
+### Check Job Status
+
+```bash
+curl -X POST http://localhost:8000/api/jobs/status \
+  -H "Content-Type: application/json" \
+  -d '{"job_id": "job_20251223_123456"}'
+```
 
 ## Related Documentation
 
-- `README.md` - User-facing documentation, installation guide
-- `QUICK_START.md` - 5-minute quickstart
-- `PROJECT_SUMMARY.md` - Feature completion status
-- `PROJECT_STATUS.md` - Current project status and recent changes
-- `WEB_UI_GUIDE.md` - Web interface usage
-- `TROUBLESHOOTING.md` - Common problems and solutions
-- `WORK_LOG.md` - Detailed work log for token expiration recovery
-- `WORKFLOW_GUIDE.md` - Development workflow guidelines
-- `MUSIC_GUIDE.md` - Background music download guide
-- `backend/README.md` - Backend API details
-- `frontend/README.md` - Frontend tech stack and structure
+- `README.md` - Project overview, installation guide
+- `REFACTOR_PLAN.md` - Refactoring plan and progress
+- `PHASE1_SUMMARY.md` ~ `PHASE8_SUMMARY.md` - Phase completion reports
+- `MUSIC_GUIDE.md` - Background music guide
+- `tests/` - Test files with usage examples
+- `scripts/` - Automation scripts
 
 ## Repository URL
 
