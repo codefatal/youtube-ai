@@ -124,9 +124,11 @@ async def generate_topics(request: GenerateTopicsRequest):
     try:
         planner = ContentPlanner()
 
+        # trending이 True면 "트렌드" 카테고리, False면 "일반" 카테고리 사용
+        category = "트렌드" if request.trending else "일반"
         topics = await planner.generate_topic_ideas(
-            count=request.count,
-            trending=request.trending
+            category=category,
+            count=request.count
         )
 
         return {
@@ -199,7 +201,7 @@ async def create_video(request: CreateVideoRequest, background_tasks: Background
         topic = request.topic
         if not topic:
             planner = ContentPlanner()
-            topics = await planner.generate_topic_ideas(count=1, trending=True)
+            topics = await planner.generate_topic_ideas(category="트렌드", count=1)
             topic = topics[0] if topics else "AI 기술 소개"
 
         # 영상 생성 (비동기)
