@@ -245,6 +245,6 @@ class SystemConfig(BaseModel):
                 "ai_provider": "gemini",
                 "tts_provider": "elevenlabs",
                 "default_format": "shorts",
-                "auto_upload": false
+                "auto_upload": False
             }
         }
