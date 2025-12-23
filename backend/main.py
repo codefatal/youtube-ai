@@ -20,7 +20,7 @@ load_dotenv(os.path.join(os.path.dirname(__file__), '..', '.env'))
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
 from core.orchestrator import ContentOrchestrator
-from core.planner import Planner
+from core.planner import ContentPlanner
 from core.asset_manager import AssetManager
 from core.editor import Editor
 from core.uploader import Uploader
@@ -123,7 +123,7 @@ async def health_check():
 async def generate_topics(request: GenerateTopicsRequest):
     """AI 주제 생성"""
     try:
-        planner = Planner()
+        planner = ContentPlanner()
 
         topics = await planner.generate_topic_ideas(
             count=request.count,
@@ -145,7 +145,7 @@ async def generate_topics(request: GenerateTopicsRequest):
 async def generate_script(request: GenerateScriptRequest):
     """AI 스크립트 생성"""
     try:
-        planner = Planner()
+        planner = ContentPlanner()
 
         # 포맷 변환
         video_format = VideoFormat[request.format.upper()]
