@@ -1,349 +1,563 @@
-# YouTube Remix System - 해외 영상 자동 번역 및 리믹스
+# YouTube AI - 독창적 콘텐츠 자동 생성 시스템
 
-해외 인기 영상을 자동으로 다운로드하고, 자막을 번역하여 한국어 숏폼으로 재가공하는 완전 자동화 시스템
+AI 기반 완전 자동화 YouTube 콘텐츠 생성 파이프라인 - 기획부터 업로드까지 자동화
 
-## 🎯 핵심 기능
+## 🎯 핵심 개념
 
-### ✅ 완전 구현된 기능
-- **트렌딩 영상 검색** - YouTube Data API v3 기반, 14가지 카테고리 지원, 날짜 범위 검색, 정렬 (조회수/날짜/평점/관련성)
-- **키워드 검색** - 맞춤형 영상 검색 (영상 길이, 최소 조회수 필터, 날짜 범위, 정렬 옵션)
-- **영상 다운로드** - yt-dlp 기반 고품질 다운로드 (영상 + SRT 자막)
-- **자막 번역** - Gemini API로 무료 번역 (타임스탬프 유지)
-- **영상 리믹스** - MoviePy 2.x로 번역 자막 합성
-- **하드코딩 자막 처리** - OCR로 영상 내 자막 추출 → 번역 → 재인코딩 (NEW!)
-- **메타데이터 관리** - JSON 기반 영상 정보 및 출처 자동 기록
-- **배치 자동화** - 검색 → 다운로드 → 번역 → 리믹스 전체 자동화
-- **웹 UI** - Next.js 14 기반 직관적 인터페이스
-- **REST API** - FastAPI 기반 백엔드
+**기존 "리믹스 시스템"에서 "독창적 콘텐츠 생성"으로 전환**
+
+- ❌ **기존**: 해외 영상 다운로드 → 번역 → 재업로드 (저작권 위험)
+- ✅ **현재**: AI가 주제 생성 → 스크립트 작성 → 무료 소재 수집 → 영상 제작 → 업로드 (100% 독창적)
+
+### 왜 전환했나?
+
+1. **저작권 안전**: 타인의 영상 재업로드는 채널 정지 위험
+2. **독창성**: AI 생성 스크립트 + 저작권 프리 소재 = 완전히 새로운 콘텐츠
+3. **지속 가능성**: YouTube의 중복 콘텐츠 정책 준수
+4. **법적 안정성**: 모든 소재가 상업적 이용 가능 (Pexels, Pixabay)
 
 ## 💰 비용
 
-### 💯 완전 무료 사용 가능! 🎉
-- **번역**: 무료 (Gemini Flash API)
-- **영상 처리**: 무료 (FFmpeg, MoviePy)
-- **OCR**: 무료 (EasyOCR)
-- **YouTube 검색**: 무료 (YouTube Data API - 할당량 제한 있음)
+### 💯 완전 무료 사용 가능!
+
+- **AI (Gemini Flash)**: 무료 (월 1,500 requests)
+- **스톡 영상 (Pexels/Pixabay)**: 무료 (상업적 이용 가능)
+- **TTS (gTTS)**: 무료
+- **영상 편집 (MoviePy/FFmpeg)**: 무료
+- **YouTube API**: 무료 (일 10,000 쿼터)
+
+**선택적 유료 옵션**:
+- ElevenLabs TTS (고품질 음성): $5/월~
+- Claude API (고급 AI): $20/월~
 
 ## 🚀 빠른 시작
 
-### 1. 저장소 클론 및 의존성 설치
+### 1. 저장소 클론 및 환경 설정
 
 ```bash
 git clone https://github.com/codefatal/youtube-ai.git
 cd youtube-ai
 
-# Python 의존성 설치
+# Python 가상환경 생성 (권장)
+python -m venv venv
+venv\Scripts\activate  # Windows
+source venv/bin/activate  # Linux/Mac
+
+# 의존성 설치
 pip install -r requirements.txt
 ```
 
-### 2. 환경 변수 설정
+### 2. API 키 설정
 
-`.env` 파일 생성:
+`.env` 파일 생성 (`.env.example` 참고):
 
 ```bash
 # 필수
 GEMINI_API_KEY=your_gemini_api_key_here
-YOUTUBE_API_KEY=your_youtube_data_api_key_here
+PEXELS_API_KEY=your_pexels_api_key_here
 
-# 선택 (Claude 사용 시)
-ANTHROPIC_API_KEY=your_anthropic_api_key_here
-AI_PROVIDER=gemini  # 또는 claude, auto
+# 선택 (더 많은 소재)
+PIXABAY_API_KEY=your_pixabay_api_key_here
+
+# 선택 (YouTube 업로드)
+YOUTUBE_API_KEY=your_youtube_api_key_here
 ```
 
-**API 키 발급:**
-- Gemini API: https://aistudio.google.com/apikey (무료)
-- YouTube Data API: https://console.cloud.google.com/apis/credentials
+**API 키 발급 방법**:
+- **Gemini**: https://aistudio.google.com/apikey (무료)
+- **Pexels**: https://www.pexels.com/api/ (무료)
+- **Pixabay**: https://pixabay.com/api/docs/ (무료)
+- **YouTube**: https://console.cloud.google.com/apis/credentials
 
-### 3. 웹 UI 실행 (추천)
-
-**백엔드 서버 실행:**
-```bash
-cd backend
-python main.py
-# http://localhost:8000 에서 실행
-```
-
-**프론트엔드 서버 실행 (새 터미널):**
-```bash
-cd frontend
-npm install  # 최초 1회만
-npm run dev
-# http://localhost:3000 에서 실행
-```
-
-브라우저에서 `http://localhost:3000` 접속!
-
-### 4. CLI 사용
+### 3. 빠른 테스트
 
 ```bash
-# 가상환경 활성화 (선택)
-venv\Scripts\activate  # Windows
-source venv/bin/activate  # Linux/Mac
+# 1. AI 연결 테스트
+python tests/test_planner.py
 
-# 트렌딩 영상 검색
-python local_cli/main.py search-trending --region US --category "Science & Technology"
+# 2. 스톡 영상 검색 테스트
+python tests/test_asset_manager.py
 
-# 영상 다운로드
-python local_cli/main.py download-video --url "https://youtube.com/watch?v=..."
-
-# 자막 번역
-python local_cli/main.py translate-subtitle --subtitle-path "path/to/subtitle.srt"
-
-# 영상 리믹스
-python local_cli/main.py remix-video --video-path "video.mp4" --subtitle-path "translated.srt"
-
-# 전체 자동화 (검색 → 다운로드 → 번역 → 리믹스)
-python local_cli/main.py batch-remix --region US --max-videos 5
+# 3. 전체 파이프라인 테스트 (업로드 제외)
+python scripts/auto_create.py \
+  --topic "강아지 훈련 팁" \
+  --format shorts \
+  --duration 60 \
+  --no-upload
 ```
 
-## 📖 주요 사용법
+## 📖 사용 방법
 
-### 웹 UI 워크플로우
+### CLI 사용 (스크립트)
 
-1. **영상 검색** (`/search`)
-   - 트렌딩 검색: 지역, 카테고리, 영상 길이, 최소 조회수, **정렬 (조회수/날짜/평점/관련성)**, **날짜 범위** 선택
-   - 키워드 검색: 검색어 입력 + 필터 설정 + **정렬 옵션** + **날짜 범위**
-   - 다운로드 버튼 클릭 → 자동 다운로드 + 메타데이터 저장
-   - ⚠️ **주의**: 트렌딩 검색에서 정렬/날짜 범위를 설정하면 일반 검색으로 전환됩니다 (YouTube API 제한)
-
-2. **영상 목록** (`/videos`)
-   - 다운로드한 모든 영상 확인
-   - 상태별 필터링 (대기, 다운로드 완료, 번역 완료, 완료)
-   - **하드코딩 자막 처리**: 스캔 아이콘 클릭 (영상 내 자막 OCR)
-   - 파일 정보 확인
-
-3. **배치 처리** (`/batch`)
-   - 설정: 지역, 카테고리, 최대 영상 수 등
-   - 시작 버튼 클릭 → 전체 자동화 실행
-   - 실시간 진행 상황 모니터링 (3초마다 갱신)
-
-### CLI 워크플로우
+#### 1. 자동 콘텐츠 생성
 
 ```bash
-# 1단계: 트렌딩 영상 검색 (날짜 범위, 정렬 포함)
-python local_cli/main.py search-trending \
-  --region US \
-  --category "Science & Technology" \
-  --duration short \
-  --min-views 10000 \
-  --order date \
-  --published-after "2024-01-01T00:00:00Z" \
-  --published-before "2024-12-31T23:59:59Z"
+# 기본 사용 (AI가 주제 자동 생성)
+python scripts/auto_create.py --upload
 
-# 2단계: 영상 다운로드
-python local_cli/main.py download-video \
-  --url "https://youtube.com/watch?v=VIDEO_ID"
+# 주제 지정
+python scripts/auto_create.py \
+  --topic "초보자를 위한 Python 팁" \
+  --format shorts \
+  --duration 60 \
+  --upload
 
-# 3단계: 자막 번역
-python local_cli/main.py translate-subtitle \
-  --subtitle-path downloads/VIDEO_ID.en.srt \
-  --target-lang ko
-
-# 4단계: 영상 리믹스
-python local_cli/main.py remix-video \
-  --video-path downloads/VIDEO_ID.mp4 \
-  --subtitle-path downloads/VIDEO_ID.ko.srt \
-  --output final.mp4
-
-# 또는 전체 자동화 (1~4단계 통합)
-python local_cli/main.py batch-remix \
-  --region US \
-  --category "Science & Technology" \
-  --max-videos 3 \
-  --target-lang ko
+# 포맷 옵션
+python scripts/auto_create.py \
+  --format landscape \    # shorts, landscape, square
+  --duration 300 \        # 초 단위
+  --no-upload             # 로컬에만 저장
 ```
+
+#### 2. 로컬 스케줄러 (매일 자동 실행)
+
+```bash
+# 스케줄러 시작 (매일 오전 9시 자동 실행)
+python scripts/schedule_local.py
+
+# 테스트 (즉시 실행)
+python scripts/schedule_local.py --test
+```
+
+### Python 코드로 사용
+
+```python
+from core.orchestrator import ContentOrchestrator
+from core.models import VideoFormat, SystemConfig, AIProvider, TTSProvider
+
+# 설정
+config = SystemConfig(
+    ai_provider=AIProvider.GEMINI,
+    tts_provider=TTSProvider.GTTS,
+    default_format=VideoFormat.SHORTS,
+    default_duration=60,
+    auto_upload=False
+)
+
+# Orchestrator 생성
+orchestrator = ContentOrchestrator(
+    config=config,
+    log_file="logs/my_job.log"
+)
+
+# 콘텐츠 생성
+job = orchestrator.create_content(
+    topic="건강한 아침 루틴",
+    video_format=VideoFormat.SHORTS,
+    target_duration=60,
+    upload=False
+)
+
+# 결과 확인
+print(f"영상 경로: {job.output_video_path}")
+print(f"상태: {job.status.value}")
+
+if job.upload_result and job.upload_result.success:
+    print(f"YouTube URL: {job.upload_result.url}")
+```
+
+### GitHub Actions (자동 스케줄링)
+
+#### 설정 방법
+
+1. **GitHub Secrets 추가** (Repository → Settings → Secrets and variables → Actions)
+   - `GEMINI_API_KEY`
+   - `PEXELS_API_KEY`
+   - `PIXABAY_API_KEY` (선택)
+   - `YOUTUBE_API_KEY` (선택)
+
+2. **자동 실행**
+   - 매일 오전 9시 (KST) 자동 실행 (`.github/workflows/auto_create_content.yml`)
+
+3. **수동 실행**
+   - GitHub → Actions → "Auto Create YouTube Content" → Run workflow
 
 ## 🏗️ 시스템 아키텍처
 
-### Backend (FastAPI)
-```
-local_cli/services/
-├── trending_searcher.py      # YouTube 트렌딩/키워드 검색
-├── youtube_downloader.py     # yt-dlp 영상 다운로드
-├── subtitle_translator.py    # Gemini API 자막 번역
-├── video_remixer.py          # MoviePy 영상 합성
-├── metadata_manager.py       # JSON 메타데이터 관리
-└── hardcoded_subtitle_processor.py  # OCR 자막 처리 (NEW!)
-```
+### 전체 파이프라인
 
-### Frontend (Next.js 14)
 ```
-frontend/app/
-├── page.tsx           # 대시보드
-├── search/            # 영상 검색
-├── videos/            # 영상 목록
-├── batch/             # 배치 처리
-└── settings/          # 설정
-```
-
-### API 엔드포인트
-```
-POST /api/search/trending         # 트렌딩 검색
-POST /api/search/keywords          # 키워드 검색
-POST /api/download                 # 영상 다운로드
-POST /api/translate                # 자막 번역
-POST /api/remix                    # 영상 리믹스
-POST /api/batch/start              # 배치 시작
-GET  /api/batch/status/{job_id}   # 배치 상태
-GET  /api/videos                   # 영상 목록
-POST /api/hardcoded-subtitle/process  # 하드코딩 자막 처리 (NEW!)
+┌─────────────────────────────────────────────────────────────────┐
+│                        ContentOrchestrator                       │
+│                      (파이프라인 총괄 관리)                       │
+└─────────────────────────────────────────────────────────────────┘
+                                 │
+                    ┌────────────┼────────────┐
+                    ▼            ▼            ▼
+        ┌───────────────┐ ┌─────────────┐ ┌──────────┐
+        │   Planner     │ │AssetManager │ │  Editor  │
+        │ (AI 기획)     │ │ (소재 수집) │ │(영상편집)│
+        └───────────────┘ └─────────────┘ └──────────┘
+                │                 │              │
+                ▼                 ▼              ▼
+        ┌───────────────┐ ┌─────────────┐ ┌──────────┐
+        │ContentPlan    │ │AssetBundle  │ │Video File│
+        │(스크립트/키워드)│ │(영상/음성)   │ │(.mp4)    │
+        └───────────────┘ └─────────────┘ └──────────┘
+                                                  │
+                                                  ▼
+                                          ┌──────────┐
+                                          │ Uploader │
+                                          │(YouTube) │
+                                          └──────────┘
 ```
 
-## 🆕 새로운 기능
+### 핵심 모듈
 
-### 하드코딩 자막 처리 (2025-12-12)
+#### 1. **Planner** (`core/planner.py`)
+- **기능**: AI 기반 콘텐츠 기획
+- **작업**:
+  - 주제 아이디어 생성 (트렌드 분석)
+  - 스크립트 작성 (타임스탬프 포함)
+  - 키워드 추출 (영상/음악 검색용)
+- **AI Provider**: Gemini Flash (무료)
 
-영상에 이미 인코딩된 자막을 OCR로 추출하고 번역하는 기능:
+#### 2. **Asset Manager** (`core/asset_manager.py`)
+- **기능**: 스톡 소재 자동 수집
+- **작업**:
+  - 키워드 기반 영상 검색 (Pexels, Pixabay)
+  - 자동 다운로드 및 캐싱
+  - TTS 음성 생성 (gTTS, ElevenLabs)
+- **소스**: 100% 저작권 프리 (상업적 이용 가능)
 
-**처리 과정:**
-1. EasyOCR로 영상 내 자막 추출
-2. 자막 위치, 색상, 크기 분석
-3. Gemini API로 번역
-4. 원본 자막 영역을 검은 박스로 제거
-5. 같은 위치에 번역 자막 재인코딩 (흰색 테두리 + 원본 스타일 유지)
+#### 3. **Editor** (`core/editor.py`)
+- **기능**: 영상 합성 및 편집
+- **작업**:
+  - 영상 클립 자동 배치
+  - 자막 생성 및 싱크
+  - 트랜지션 효과
+  - 배경 음악 믹싱 (선택)
+- **엔진**: MoviePy 2.x
 
-**사용 방법:**
-- 웹 UI: 영상 목록에서 보라색 스캔 아이콘 클릭
-- CLI: `python test_hardcoded_subtitle.py`
+#### 4. **Uploader** (`core/uploader.py`)
+- **기능**: YouTube 자동 업로드
+- **작업**:
+  - OAuth 2.0 인증
+  - 메타데이터 자동 생성 (제목, 설명, 태그)
+  - SEO 최적화
+  - 예약 업로드 (선택)
+  - 실패 시 자동 재시도
+- **API**: YouTube Data API v3
 
-**필요 패키지:**
+#### 5. **Orchestrator** (`core/orchestrator.py`)
+- **기능**: 전체 파이프라인 조율
+- **작업**:
+  - 작업 상태 관리 (State Machine)
+  - 작업 큐 관리
+  - 진행 상황 실시간 추적
+  - 에러 핸들링 및 롤백
+  - 로깅 및 통계
+
+### 디렉토리 구조
+
+```
+youtube-ai/
+├── core/                      # 핵심 모듈
+│   ├── models.py              # Pydantic 데이터 모델 (15개)
+│   ├── planner.py             # AI 기획 모듈
+│   ├── asset_manager.py       # 소재 수집 모듈
+│   ├── editor.py              # 영상 편집 모듈
+│   ├── uploader.py            # YouTube 업로드 모듈
+│   └── orchestrator.py        # 파이프라인 총괄
+│
+├── providers/                 # 외부 서비스 연동
+│   ├── ai/                    # AI Provider (Gemini, Claude)
+│   │   ├── gemini.py
+│   │   └── __init__.py
+│   ├── stock/                 # 스톡 영상 (Pexels, Pixabay)
+│   │   ├── pexels.py
+│   │   ├── pixabay.py
+│   │   └── __init__.py
+│   └── tts/                   # TTS (gTTS, ElevenLabs)
+│       └── __init__.py
+│
+├── templates/                 # AI 프롬프트 템플릿
+│   ├── script_prompts/
+│   │   ├── shorts_script.txt
+│   │   └── landscape_script.txt
+│   └── metadata_prompts/
+│       └── title_description.txt
+│
+├── scripts/                   # 자동화 스크립트
+│   ├── auto_create.py         # CLI 콘텐츠 생성
+│   └── schedule_local.py      # 로컬 스케줄러
+│
+├── tests/                     # 테스트 코드
+│   ├── test_planner.py
+│   ├── test_asset_manager.py
+│   ├── test_editor.py
+│   ├── test_uploader.py
+│   └── test_orchestrator.py
+│
+├── .github/workflows/         # GitHub Actions
+│   └── auto_create_content.yml
+│
+├── config/                    # 설정 파일
+│   └── default.yaml
+│
+├── data/                      # 런타임 데이터
+│   ├── cache/                 # 다운로드 캐시
+│   └── job_history.json       # 작업 이력
+│
+├── output/                    # 생성된 영상
+├── logs/                      # 로그 파일
+│
+└── legacy/                    # 기존 리믹스 시스템 (참고용)
+```
+
+## 📊 현재 상태
+
+### ✅ 완료된 Phase (100%)
+
+- **Phase 1**: 기반 구조 설계 (디렉토리, 데이터 모델)
+- **Phase 2**: Planner 모듈 (AI 기획)
+- **Phase 3**: Asset Manager (스톡 소재 수집)
+- **Phase 4**: Editor 모듈 (영상 편집)
+- **Phase 5**: Uploader 모듈 (YouTube 업로드)
+- **Phase 6**: Orchestrator (파이프라인 통합)
+- **Phase 7**: 자동화 및 스케줄링 (GitHub Actions, 로컬 스케줄러)
+
+### 🔄 진행 중
+
+- **Phase 8**: 테스트 및 최적화
+  - 통합 테스트 작성
+  - 성능 벤치마크
+  - 에러 케이스 처리
+  - 문서화 최종 업데이트
+
+### 전체 진행률: **87.5%** (7/8 Phase 완료)
+
+## 🎬 예제 출력물
+
+### 1. Shorts (세로형 60초)
+
+```
+제목: "하루 10분으로 건강해지는 아침 루틴"
+길이: 60초
+해상도: 1080x1920 (9:16)
+포맷: MP4
+자막: 한국어 (gTTS 음성 + 자동 자막)
+소재: Pexels 무료 영상 5-10개 + 트랜지션
+```
+
+### 2. Landscape (가로형 5분)
+
+```
+제목: "초보자를 위한 Python 기초 완전 정복"
+길이: 300초
+해상도: 1920x1080 (16:9)
+포맷: MP4
+자막: 한국어 (ElevenLabs 음성 + 자동 자막)
+소재: Pixabay 무료 영상 15-20개 + 배경 음악
+```
+
+## 🔧 고급 설정
+
+### 1. AI Provider 변경
+
+```python
+# Gemini (무료)
+config = SystemConfig(ai_provider=AIProvider.GEMINI)
+
+# Claude (유료, 고품질)
+config = SystemConfig(ai_provider=AIProvider.CLAUDE)
+```
+
+### 2. TTS Provider 변경
+
+```python
+# gTTS (무료)
+config = SystemConfig(tts_provider=TTSProvider.GTTS)
+
+# ElevenLabs (유료, 고품질)
+config = SystemConfig(tts_provider=TTSProvider.ELEVENLABS)
+```
+
+### 3. 영상 포맷 설정
+
+```python
+# Shorts (세로형)
+VideoFormat.SHORTS       # 1080x1920 (9:16)
+
+# Landscape (가로형)
+VideoFormat.LANDSCAPE    # 1920x1080 (16:9)
+
+# Square (정방형)
+VideoFormat.SQUARE       # 1080x1080 (1:1)
+```
+
+### 4. 진행 상황 콜백
+
+```python
+def my_callback(message: str, progress: int):
+    print(f"[{progress}%] {message}")
+
+orchestrator = ContentOrchestrator(
+    progress_callback=my_callback
+)
+```
+
+## 🧪 테스트
+
+### 개별 모듈 테스트
+
 ```bash
-pip install easyocr opencv-python-headless torch torchvision
+# Planner 테스트
+python tests/test_planner.py
+
+# Asset Manager 테스트
+python tests/test_asset_manager.py
+
+# Editor 테스트
+python tests/test_editor.py
+
+# Uploader 테스트
+python tests/test_uploader.py
+
+# Orchestrator 통합 테스트
+python tests/test_orchestrator.py
 ```
 
-## ⚠️ 저작권 주의사항
+### 전체 파이프라인 테스트
 
-### 🔴 위험: 일반 영상 재업로드
-일반 영상을 단순 번역해서 재업로드하면 **저작권 침해**로 채널 정지될 수 있습니다.
-
-### ✅ 안전한 사용 방법
-
-1. **Creative Commons 영상만 사용**
-   ```python
-   # 검색 시 CC 라이선스 필터 적용
-   searcher.search_trending_videos(
-       video_license='creativeCommon',
-       ...
-   )
-   ```
-
-2. **원 제작자 허락 받기**
-   - 이메일로 번역 및 재업로드 허가 요청
-   - 수익 공유 조건 협의
-
-3. **Fair Use 조건 충족**
-   - 교육, 비평, 리뷰 등 변형적 사용
-   - 짧은 클립만 사용
-   - 원본 링크 명시
-
-4. **출처 명시**
-   - 영상 설명란에 원본 링크 및 출처 명시
-   - 메타데이터 관리자가 자동으로 생성해줌
-
-## 📊 시스템 비교
-
-### 현재 시스템 vs 일반 양산형 쇼츠 프로그램
-
-| 항목 | 현재 시스템 | 일반 양산형 프로그램 |
-|------|------------|-------------------|
-| **영상 소스** | YouTube 검색 API | 수동 선택/크롤링 |
-| **자막 처리** | SRT 번역 + 하드코딩 OCR | SRT만 또는 수동 |
-| **번역** | Gemini API (무료) | 유료 API 필요 |
-| **자동화** | 완전 자동 (배치) | 반자동/수동 |
-| **웹 UI** | Next.js 대시보드 | 간단한 UI 또는 CLI만 |
-| **메타데이터** | 자동 기록/관리 | 수동 관리 |
-| **비용** | 무료 | 월 $20-50 |
-
-### 장점
-- ✅ 완전 무료 (Gemini API 사용)
-- ✅ 검색부터 리믹스까지 완전 자동화
-- ✅ 하드코딩 자막도 처리 가능 (OCR)
-- ✅ 출처 자동 기록 (저작권 안전)
-- ✅ 웹 UI + CLI 듀얼 인터페이스
-
-### 개선 가능 영역
-- ⚠️ OCR 정확도 (폰트/배경에 따라 다름)
-- ⚠️ YouTube API 할당량 제한 (일 10,000 유닛)
-- ⚠️ 하드코딩 자막 처리 시간 (1분 영상 ≈ 5-10분)
-
-## 🔧 트러블슈팅
-
-### 1. Gemini API 오류
 ```bash
-# API 키 확인
-echo $GEMINI_API_KEY  # Linux/Mac
-echo %GEMINI_API_KEY%  # Windows
+# 업로드 제외 (로컬 테스트)
+python scripts/auto_create.py \
+  --topic "테스트 주제" \
+  --format shorts \
+  --duration 60 \
+  --no-upload
 
-# 새 API 키 발급: https://aistudio.google.com/apikey
+# 업로드 포함 (실제 배포)
+python scripts/auto_create.py \
+  --topic "테스트 주제" \
+  --upload
 ```
 
-### 2. 영상 다운로드 실패
-```bash
-# yt-dlp 업데이트
-pip install --upgrade yt-dlp
-```
+## 📚 상세 문서
 
-### 3. OCR 패키지 설치 오류
-```bash
-# 빌드 툴 문제 시
-pip install easyocr opencv-python-headless --no-deps
-pip install torch torchvision pyyaml python-bidi
-```
+### 개발자 가이드
 
-### 4. 프론트엔드 포트 충돌
-```bash
-# 다른 포트 사용
-npm run dev -- -p 3001
-```
+- **REFACTOR_PLAN.md**: 전체 리팩토링 계획 (8단계 Phase)
+- **QUICK_REFACTOR_GUIDE.md**: 빠른 시작 가이드
+- **CLAUDE.md**: Claude Code 사용 가이드
+- **Phase 요약**: `PHASE1_SUMMARY.md` ~ `PHASE7_SUMMARY.md`
 
-더 자세한 문제 해결은 `TROUBLESHOOTING.md` 참고
+### Phase별 요약
 
-## 📚 문서
+- **Phase 1**: 디렉토리 구조 + 데이터 모델 (15개 Pydantic 모델)
+- **Phase 2**: AI 프롬프트 + Gemini API wrapper + Planner
+- **Phase 3**: Pexels/Pixabay API + Asset Manager + TTS
+- **Phase 4**: MoviePy 영상 편집 + 자막 + 트랜지션
+- **Phase 5**: YouTube API v3 + OAuth 2.0 + SEO 최적화 + 재시도
+- **Phase 6**: 파이프라인 State Machine + 작업 큐 + 진행 추적 + 로깅
+- **Phase 7**: GitHub Actions + 로컬 스케줄러 + CLI 스크립트
 
-- **빠른 시작**: `QUICK_START.md`
-- **웹 UI 가이드**: `WEB_UI_REMIX_GUIDE.md`
-- **리믹스 아키텍처**: `REMIX_ARCHITECTURE.md`
-- **프로젝트 상태**: `PROJECT_STATUS.md`
-- **트러블슈팅**: `TROUBLESHOOTING.md`
-- **개발자 가이드**: `CLAUDE.md`
+## 🔒 법적 고려사항
+
+### ✅ 100% 합법적 사용
+
+1. **AI 생성 스크립트**: 완전히 독창적
+2. **스톡 영상**: Pexels/Pixabay (상업적 이용 허가)
+3. **AI 음성**: gTTS/ElevenLabs (ToS 준수)
+4. **YouTube 정책**: 중복 콘텐츠 없음
+
+### ⚠️ 주의사항
+
+- **출처 표시 불필요**: Pexels/Pixabay는 크레딧 불필요 (하지만 권장)
+- **상업적 이용 가능**: 수익 창출 활성화 가능
+- **재배포 금지**: 생성된 영상을 스톡 영상으로 재판매 불가
 
 ## 🤝 기여
 
 이슈 및 PR 환영합니다!
-- GitHub Issues: https://github.com/codefatal/youtube-ai/issues
-- 버그 리포트, 기능 제안, 문서 개선 모두 환영
+
+- **GitHub**: https://github.com/codefatal/youtube-ai
+- **Issues**: 버그 리포트, 기능 제안
+- **Pull Requests**: 코드 개선, 문서 업데이트
+
+### 기여 방법
+
+1. Fork the repository
+2. Create your feature branch (`git checkout -b feature/AmazingFeature`)
+3. Commit your changes (`git commit -m 'Add some AmazingFeature'`)
+4. Push to the branch (`git push origin feature/AmazingFeature`)
+5. Open a Pull Request
 
 ## 📄 라이선스
 
 MIT License
 
-## ⚡ 효율적 사용 팁
+Copyright (c) 2025 YouTube AI Project
 
-### 1. Creative Commons 필터 활성화
-```python
-# trending_searcher.py 기본값 수정
-video_license='creativeCommon'  # 기본값으로 설정
-```
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
 
-### 2. 배치 자동화 활용
-- 웹 UI `/batch` 페이지에서 한 번에 여러 영상 처리
-- 시간대별 자동 실행 (cron/Task Scheduler)
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
 
-### 3. 하드코딩 자막은 필요시에만
-- OCR은 시간이 오래 걸리므로 SRT 자막이 없는 경우만 사용
-- 샘플링 간격 조정으로 속도↑ 정확도↓ 트레이드오프
+## 🎯 로드맵
 
-### 4. YouTube API 할당량 관리
-- 하루 10,000 유닛 제한 (검색 1회 = 100 유닛)
-- `max_results` 를 적절히 조절 (기본 10개)
+### Phase 8 (진행 중)
 
-### 5. 메타데이터 활용
-- 모든 영상의 출처가 자동 기록됨
-- `metadata/videos.json` 에서 확인 가능
-- 업로드 시 설명란에 자동 추가
+- [ ] 통합 테스트 작성
+- [ ] 성능 벤치마크
+- [ ] 에러 케이스 처리 강화
+- [ ] 최종 문서화
+
+### 향후 계획
+
+- [ ] 웹 UI 개선 (React 대시보드)
+- [ ] 다국어 지원 (영어, 일본어)
+- [ ] 고급 AI 기능 (음성 클로닝, 이미지 생성)
+- [ ] 멀티 플랫폼 업로드 (TikTok, Instagram)
+- [ ] CMS 통합 (Google Sheets, Notion)
+
+## ⚡ 성능
+
+### 벤치마크 (예상)
+
+- **Shorts (60초)**: 5-10분 (AI 생성 + 영상 편집)
+- **Landscape (300초)**: 15-20분
+- **동시 작업**: 최대 3개 (메모리 제한)
+
+### 최적화 팁
+
+1. **캐싱 활용**: 다운로드한 영상은 `data/cache/`에 저장
+2. **배치 처리**: 여러 영상을 한 번에 생성
+3. **GitHub Actions**: 서버에서 자동 실행 (로컬 리소스 절약)
+
+## 🙋 FAQ
+
+### Q: 완전히 무료인가요?
+
+A: 네! Gemini API (무료), Pexels/Pixabay (무료), gTTS (무료) 조합이면 0원입니다.
+
+### Q: YouTube 업로드가 안 돼요.
+
+A: `client_secrets.json` 파일이 필요합니다. [YouTube API 설정 가이드](https://developers.google.com/youtube/v3/quickstart/python) 참고.
+
+### Q: 영상 품질이 낮아요.
+
+A: ElevenLabs TTS (유료)를 사용하면 음성 품질이 크게 향상됩니다. `.env`에서 `ELEVENLABS_API_KEY` 설정.
+
+### Q: 저작권 문제 없나요?
+
+A: 100% 안전합니다. AI 생성 스크립트 + 상업적 이용 가능한 스톡 영상만 사용합니다.
+
+### Q: 수익 창출 가능한가요?
+
+A: 네! YouTube 파트너 프로그램 조건 충족 시 광고 수익 가능합니다.
 
 ---
 
 **Made with ❤️ for YouTube Creators**
 
-**⚠️ 주의**: 이 도구는 교육 및 개인 프로젝트 목적입니다. 상업적 사용 시 반드시 원 제작자의 허락을 받으세요.
+**GitHub**: https://github.com/codefatal/youtube-ai
+
+**문의**: Issues 페이지로 문의주세요!
