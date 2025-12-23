@@ -93,6 +93,16 @@
         "group": "fullstack",
         "order": 1
       }
+    },
+    {
+      "name": "🌐 Full Stack (Tasks Only)",
+      "configurations": [],
+      "preLaunchTask": "Start Full Stack",
+      "presentation": {
+        "hidden": false,
+        "group": "fullstack",
+        "order": 2
+      }
     }
   ]
 }

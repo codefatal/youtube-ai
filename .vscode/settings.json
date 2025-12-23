@@ -71,5 +71,10 @@
 
   // 자동 저장
   "files.autoSave": "afterDelay",
-  "files.autoSaveDelay": 1000
+  "files.autoSaveDelay": 1000,
+
+  // 태스크 설정
+  "task.problemMatchers.neverPrompt": true,
+  "task.autoDetect": "on",
+  "debug.onTaskErrors": "debugAnyway"
 }

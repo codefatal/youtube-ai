@@ -78,6 +78,22 @@
         "showReuseMessage": true,
         "clear": false
       }
+    },
+    {
+      "label": "Start Backend Server",
+      "type": "shell",
+      "command": "python backend/main.py",
+      "problemMatcher": [],
+      "presentation": {
+        "echo": true,
+        "reveal": "always",
+        "focus": false,
+        "panel": "dedicated",
+        "showReuseMessage": false,
+        "clear": false,
+        "group": "backend"
+      },
+      "isBackground": true
     }
   ]
 }
