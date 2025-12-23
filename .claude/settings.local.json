@@ -31,7 +31,8 @@
       "Bash(../venv/Scripts/python.exe:*)",
       "Bash(venv\\Scripts\\pip.exe install:*)",
       "Bash(./venv/Scripts/pip.exe:*)",
-      "Bash(git fetch:*)"
+      "Bash(git fetch:*)",
+      "Bash(git rm:*)"
     ],
     "deny": [],
     "ask": []
