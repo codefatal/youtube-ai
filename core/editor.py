@@ -248,7 +248,7 @@ class VideoEditor:
 
             # 3. 트랜지션 효과 (첫 클립 제외)
             if i > 0 and self.config.enable_transitions:
-                clip = clip.crossfadein(0.5)
+                clip = clip.fadein(0.5)
 
             processed_clips.append(clip)
 
@@ -361,7 +361,7 @@ class VideoEditor:
 
                 # 페이드 효과
                 if self.config.enable_subtitle_animation:
-                    txt_clip = txt_clip.crossfadein(0.3).crossfadeout(0.3)
+                    txt_clip = txt_clip.fadein(0.3).fadeout(0.3)
 
                 subtitle_clips.append(txt_clip)
 
