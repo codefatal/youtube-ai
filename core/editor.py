@@ -104,7 +104,7 @@ class VideoEditor:
 
         # 5. 오디오 추가
         if audio_clip:
-            final_video = final_video.with_audio(audio_clip)
+            final_video = final_video.set_audio(audio_clip)
 
         # 6. 자막 추가
         if content_plan.segments:
@@ -237,11 +237,11 @@ class VideoEditor:
             # 1. 길이 조정
             if clip.duration > clip_duration:
                 # 클립이 더 길면 잘라내기
-                clip = clip.with_subclip(0, clip_duration)
+                clip = clip.subclipped(0, clip_duration)
             else:
                 # 클립이 더 짧으면 루프 (최대 clip_duration까지)
                 loops_needed = int(clip_duration / clip.duration) + 1
-                clip = clip.loop(n=loops_needed).with_subclip(0, clip_duration)
+                clip = clip.loop(n=loops_needed).subclipped(0, clip_duration)
 
             # 2. 해상도 조정 (crop & resize)
             clip = self._resize_and_crop(clip, width, height)
@@ -354,10 +354,10 @@ class VideoEditor:
                 )
 
                 # 위치 설정 (하단 중앙)
-                txt_clip = txt_clip.with_position(('center', 'bottom')).margin(bottom=50)
+                txt_clip = txt_clip.set_position(('center', 'bottom')).margin(bottom=50)
 
                 # 시간 설정
-                txt_clip = txt_clip.with_start(start_time).with_duration(segment_duration)
+                txt_clip = txt_clip.set_start(start_time).set_duration(segment_duration)
 
                 # 페이드 효과
                 if self.config.enable_subtitle_animation:
