@@ -131,9 +131,7 @@ class VideoEditor:
                 codec='libx264',
                 audio_codec='aac',
                 temp_audiofile='temp-audio.m4a',
-                remove_temp=True,
-                verbose=False,
-                logger=None
+                remove_temp=True
             )
 
             print(f"[SUCCESS] 영상 생성 완료: {output_path}")
