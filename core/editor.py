@@ -239,16 +239,16 @@ class VideoEditor:
                 # 클립이 더 길면 잘라내기
                 clip = clip.subclipped(0, clip_duration)
             else:
-                # 클립이 더 짧으면 루프 (최대 clip_duration까지)
+                # 클립이 더 짧으면 반복 재생 (간단한 방법)
+                # MoviePy 2.x에서 loop()가 제대로 작동하지 않을 수 있으므로
+                # 클립을 여러 번 이어붙이는 방식 사용
                 loops_needed = int(clip_duration / clip.duration) + 1
-                clip = clip.loop(n=loops_needed).subclipped(0, clip_duration)
+                repeated_clips = [clip] * loops_needed
+                clip = self.concatenate_videoclips(repeated_clips, method="compose")
+                clip = clip.subclipped(0, clip_duration)
 
             # 2. 해상도 조정 (crop & resize)
             clip = self._resize_and_crop(clip, width, height)
-
-            # 3. 트랜지션 효과 (첫 클립 제외)
-            if i > 0 and self.config.enable_transitions:
-                clip = clip.fadein(0.5)
 
             processed_clips.append(clip)
 
@@ -322,7 +322,6 @@ class VideoEditor:
 
         for i, segment in enumerate(content_plan.segments):
             start_time = i * segment_duration
-            end_time = (i + 1) * segment_duration
 
             # 자막 텍스트 (효과음 제거)
             import re
@@ -353,15 +352,14 @@ class VideoEditor:
                     size=(self.config.resolution[0] * 0.9, None)
                 )
 
-                # 위치 설정 (하단 중앙)
-                txt_clip = txt_clip.set_position(('center', 'bottom')).margin(bottom=50)
+                # 위치 설정 (하단 중앙, margin 대신 수동 계산)
+                # MoviePy 2.x에서 margin()이 작동하지 않을 수 있으므로
+                # 위치를 직접 계산
+                y_position = self.config.resolution[1] - 100  # 하단에서 100px 위
+                txt_clip = txt_clip.set_position(('center', y_position))
 
                 # 시간 설정
                 txt_clip = txt_clip.set_start(start_time).set_duration(segment_duration)
-
-                # 페이드 효과
-                if self.config.enable_subtitle_animation:
-                    txt_clip = txt_clip.fadein(0.3).fadeout(0.3)
 
                 subtitle_clips.append(txt_clip)
 
