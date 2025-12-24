@@ -338,10 +338,19 @@ class VideoEditor:
                 fontsize = 40
 
             try:
+                # 폰트 경로 설정 (Windows 호환)
+                import platform
+                if platform.system() == 'Windows':
+                    # Windows: 맑은 고딕 (한글 지원)
+                    font_path = 'C:\\Windows\\Fonts\\malgun.ttf'
+                else:
+                    # Linux/Mac: DejaVu Sans
+                    font_path = '/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf'
+
                 # TextClip 생성
                 txt_clip = self.TextClip(
                     text=text,
-                    font='Arial',
+                    font=font_path,
                     font_size=fontsize,
                     color='white',
                     stroke_color='black',
