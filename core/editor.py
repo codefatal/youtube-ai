@@ -104,7 +104,7 @@ class VideoEditor:
 
         # 5. 오디오 추가
         if audio_clip:
-            final_video = final_video.set_audio(audio_clip)
+            final_video = final_video.with_audio(audio_clip)
 
         # 6. 자막 추가
         if content_plan.segments:
@@ -356,10 +356,10 @@ class VideoEditor:
                 # MoviePy 2.x에서 margin()이 작동하지 않을 수 있으므로
                 # 위치를 직접 계산
                 y_position = self.config.resolution[1] - 100  # 하단에서 100px 위
-                txt_clip = txt_clip.set_position(('center', y_position))
+                txt_clip = txt_clip.with_position(('center', y_position))
 
                 # 시간 설정
-                txt_clip = txt_clip.set_start(start_time).set_duration(segment_duration)
+                txt_clip = txt_clip.with_start(start_time).with_duration(segment_duration)
 
                 subtitle_clips.append(txt_clip)
 
