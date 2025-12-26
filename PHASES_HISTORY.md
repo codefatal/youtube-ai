@@ -393,6 +393,54 @@ python scripts/setup_bgm.py --stats
 
 ---
 
+## Phase 5: 프론트엔드 UI/UX 전면 개편
+
+**완료 일시**: 2025-12-26
+
+### 완료된 작업
+
+#### 1. `frontend/components/AccountSidebar.tsx` 신규 생성
+-   멀티 계정 관리를 위한 사이드바 컴포넌트 구현.
+-   백엔드 API에서 계정 목록을 불러와 표시하고, 활성 계정을 시각적으로 구분하며, 각 계정 상세 페이지로 이동하는 링크 제공.
+
+#### 2. `frontend/app/layout.tsx` 수정
+-   `AccountSidebar` 컴포넌트 통합.
+-   애플리케이션 메타데이터 업데이트.
+-   레이아웃 구조를 변경하여 사이드바와 메인 콘텐츠 영역 분리 및 다크 모드 스타일링 적용.
+
+#### 3. `frontend/components/TTSSettings.tsx` 신규 생성
+-   ElevenLabs TTS 상세 설정(provider, voice ID, stability, similarity boost, style)을 제어할 수 있는 재사용 가능한 컴포넌트 구현.
+-   미리듣기 기능 포함.
+
+#### 4. `frontend/app/create/page.tsx` 수정
+-   영상 생성 페이지 개선.
+-   새로운 `TTSSettings` 컴포넌트 통합.
+-   주제, 영상 길이, 템플릿 설정을 위한 UI 개선 및 영상 생성 API 호출 시 TTS 설정 전송하도록 업데이트.
+-   전반적인 스타일링을 다크 모드에 맞춰 변경.
+
+#### 5. `frontend/app/accounts/page.tsx` 신규 생성
+-   계정 목록 관리 페이지 구현.
+-   백엔드 API에서 계정 목록을 불러와 표시하고, 계정 생성 링크 및 삭제 기능 제공.
+
+#### 6. `frontend/app/globals.css` 수정
+-   다크 모드 디자인을 위한 컬러 팔레트와 전역 CSS 스타일 추가.
+-   스크롤바 스타일링 등 UI/UX 개선을 위한 디자인 시스템 적용.
+
+### 성과
+
+**코드 변경**:
+-   신규 파일: 3개 (`frontend/components/AccountSidebar.tsx`, `frontend/components/TTSSettings.tsx`, `frontend/app/accounts/page.tsx`)
+-   수정 파일: 3개 (`frontend/app/layout.tsx`, `frontend/app/create/page.tsx`, `frontend/app/globals.css`)
+
+**기능 개선**:
+-   멀티 계정 관리를 위한 직관적인 사이드바 UI 도입.
+-   다크 모드 디자인 적용으로 시각적 편안함 증대.
+-   영상 생성 페이지에서 ElevenLabs TTS 상세 설정 및 미리듣기 기능 제공.
+-   계정 목록 조회 및 관리 기능 웹 UI 제공.
+-   애플리케이션 전반의 UI/UX 개선 및 반응형 디자인 지원.
+
+---
+
 ## 📊 전체 통계
 
 ### 리팩토링 프로젝트 (Phase 1~8)
@@ -401,10 +449,10 @@ python scripts/setup_bgm.py --stats
 - **핵심 모듈**: 5개 (Planner, AssetManager, Editor, Uploader, Orchestrator)
 - **Provider**: 5개 (Gemini, Pexels, Pixabay, gTTS, ElevenLabs)
 
-### 업그레이드 프로젝트 (Phase 1~4)
+### 업그레이드 프로젝트 (Phase 1~5)
 - **기간**: 1일 (2025-12-26)
-- **완료**: 4개 Phase
-- **신규 기능**: 데이터베이스, BGM, 템플릿, 수동 업로드, ElevenLabs TTS 고도화, 스케줄링 및 자동화 시스템
+- **완료**: 5개 Phase
+- **신규 기능**: 데이터베이스, BGM, 템플릿, 수동 업로드, ElevenLabs TTS 고도화, 스케줄링 및 자동화 시스템, 프론트엔드 UI/UX 전면 개편
 - **API**: 11개 엔드포인트 추가 (Accounts 4개, TTS 3개, Scheduler 4개)
 
 ---
@@ -413,8 +461,7 @@ python scripts/setup_bgm.py --stats
 
 ### v4.0 업그레이드 Phase 3~6 (예정)
 
-- **Phase 5**: 모니터링 & 통계
-- **Phase 6**: Frontend 통합
+- **Phase 6**: 통합 테스트, README 업데이트, 배포 준비
 
 ---
 
