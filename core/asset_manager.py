@@ -209,6 +209,8 @@ class AssetManager:
         # TTS 제공자별 처리
         if self.tts_provider == "gtts":
             filepath = self._generate_gtts(full_text)
+        elif self.tts_provider == "elevenlabs":
+            filepath = self._generate_elevenlabs(full_text)
         else:
             print(f"[WARNING] {self.tts_provider}는 아직 구현되지 않았습니다. gTTS를 사용합니다.")
             filepath = self._generate_gtts(full_text)
@@ -258,6 +260,67 @@ class AssetManager:
         except Exception as e:
             print(f"[ERROR] TTS 생성 실패: {e}")
             return None
+
+    def _generate_elevenlabs(self, text: str) -> Optional[str]:
+        """
+        ElevenLabs TTS로 음성 생성
+
+        Args:
+            text: 변환할 텍스트
+
+        Returns:
+            저장된 파일 경로 또는 None
+        """
+        try:
+            from elevenlabs.client import ElevenLabs
+            import os
+
+            # API 키 확인 (환경변수에서 자동 로드)
+            api_key = os.getenv("ELEVENLABS_API_KEY")
+            if not api_key:
+                print("[ERROR] ELEVENLABS_API_KEY 환경변수가 설정되지 않았습니다.")
+                print("[INFO] gTTS로 폴백합니다.")
+                return self._generate_gtts(text)
+
+            # 파일명 생성 (텍스트 해시)
+            text_hash = hashlib.md5(text.encode()).hexdigest()[:10]
+            filename = f"tts_elevenlabs_{text_hash}.mp3"
+            filepath = self.audio_dir / filename
+
+            # 이미 생성된 경우
+            if filepath.exists():
+                print(f"[TTS] 이미 생성됨: {filename}")
+                return str(filepath)
+
+            # ElevenLabs 클라이언트 생성
+            client = ElevenLabs(api_key=api_key)
+
+            # TTS 생성 (한국어 지원 모델 사용)
+            print(f"[ElevenLabs] 음성 생성 중... (모델: eleven_multilingual_v2)")
+            audio_generator = client.text_to_speech.convert(
+                text=text,
+                voice_id="pNInz6obpgDQGcFmaJgB",  # Adam (기본 남성 목소리)
+                model_id="eleven_multilingual_v2",  # 한국어 지원 모델
+                output_format="mp3_44100_128"
+            )
+
+            # 오디오 저장
+            with open(filepath, 'wb') as f:
+                for chunk in audio_generator:
+                    if isinstance(chunk, bytes):
+                        f.write(chunk)
+
+            print(f"[SUCCESS] ElevenLabs TTS 생성 완료: {filepath}")
+            return str(filepath)
+
+        except ImportError:
+            print("[ERROR] elevenlabs 패키지가 설치되지 않았습니다. pip install elevenlabs")
+            print("[INFO] gTTS로 폴백합니다.")
+            return self._generate_gtts(text)
+        except Exception as e:
+            print(f"[ERROR] ElevenLabs TTS 생성 실패: {e}")
+            print("[INFO] gTTS로 폴백합니다.")
+            return self._generate_gtts(text)
 
     def _get_cached_video(self, keyword: str) -> Optional[StockVideoAsset]:
         """
