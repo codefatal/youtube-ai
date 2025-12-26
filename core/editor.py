@@ -3,7 +3,8 @@ Editor Module
 MoviePy 기반 영상 편집 및 합성
 """
 import os
-from typing import List, Optional, Tuple
+import json
+from typing import List, Optional, Tuple, Dict, Any
 from pathlib import Path
 
 from core.models import (
@@ -11,19 +12,22 @@ from core.models import (
     AssetBundle,
     EditConfig,
     SubtitleSegment,
-    VideoFormat
+    VideoFormat,
+    TemplateConfig
 )
+from core.bgm_manager import BGMManager
 
 
 class VideoEditor:
     """MoviePy 기반 영상 편집기"""
 
-    def __init__(self, config: Optional[EditConfig] = None):
+    def __init__(self, config: Optional[EditConfig] = None, template_name: Optional[str] = None):
         """
         VideoEditor 초기화
 
         Args:
             config: 편집 설정 (None이면 기본값 사용)
+            template_name: 템플릿 이름 (Phase 2: basic, documentary, entertainment)
         """
         self.config = config or EditConfig()
 
@@ -55,6 +59,14 @@ class VideoEditor:
         # 출력 디렉토리 생성
         os.makedirs(self.config.output_dir, exist_ok=True)
 
+        # Phase 2: 템플릿 로드
+        self.template = self._load_template(template_name) if template_name else None
+        if self.template:
+            print(f"[Editor] 템플릿 로드 완료: {self.template.name}")
+
+        # Phase 2: BGM 매니저
+        self.bgm_manager = BGMManager()
+
     def create_video(
         self,
         content_plan: ContentPlan,
@@ -80,8 +92,8 @@ class VideoEditor:
             print("[ERROR] 사용 가능한 비디오 클립이 없습니다")
             return None
 
-        # 2. 오디오 로드
-        audio_clip = self._load_audio(asset_bundle)
+        # 2. 오디오 로드 (Phase 2: BGM 믹싱 포함)
+        audio_clip = self._load_audio_with_bgm(asset_bundle, content_plan.target_duration)
 
         # 3. 영상 길이 계산 (오디오 길이 기준)
         if audio_clip:
@@ -202,6 +214,58 @@ class VideoEditor:
         except Exception as e:
             print(f"[ERROR] 오디오 로드 실패: {e}")
             return None
+
+    def _load_audio_with_bgm(self, asset_bundle: AssetBundle, target_duration: float):
+        """
+        Phase 2: TTS 오디오와 BGM 믹싱
+
+        Args:
+            asset_bundle: AssetBundle 객체
+            target_duration: 목표 길이 (초)
+
+        Returns:
+            믹싱된 AudioFileClip 또는 TTS만, 또는 None
+        """
+        # 1. TTS 오디오 로드
+        tts_audio = self._load_audio(asset_bundle)
+
+        # 2. BGM이 없으면 TTS만 반환
+        if not asset_bundle.bgm or (self.template and not self.template.bgm_enabled):
+            return tts_audio
+
+        # 3. BGM 처리
+        try:
+            bgm_asset = asset_bundle.bgm
+
+            # BGM 볼륨 설정 (템플릿 우선, 없으면 AssetBundle 기본값)
+            bgm_volume = self.template.bgm_volume if self.template else bgm_asset.volume
+
+            # BGM 처리 (길이 조정, 페이드)
+            processed_bgm_path = self.bgm_manager.process_bgm(
+                bgm=bgm_asset,
+                target_duration=target_duration,
+                fade_in=1.0,
+                fade_out=2.0,
+                volume=bgm_volume
+            )
+
+            # BGM 오디오 로드
+            bgm_audio = self.AudioFileClip(processed_bgm_path)
+            print(f"[Editor] BGM 로드: {bgm_audio.duration:.2f}초, 볼륨: {bgm_volume}")
+
+            # 4. TTS가 있으면 믹싱, 없으면 BGM만
+            if tts_audio:
+                # CompositeAudioClip으로 믹싱
+                mixed_audio = self.CompositeAudioClip([tts_audio, bgm_audio])
+                print(f"[Editor] TTS + BGM 믹싱 완료")
+                return mixed_audio
+            else:
+                return bgm_audio
+
+        except Exception as e:
+            print(f"[ERROR] BGM 처리 실패: {e}")
+            # 폴백: TTS만 반환
+            return tts_audio
 
     def _compose_video_clips(
         self,
@@ -328,23 +392,39 @@ class VideoEditor:
             if not text:
                 continue
 
-            # 텍스트 길이에 따라 폰트 크기 조정
-            text_len = len(text)
-            if text_len > 50:
-                fontsize = 32
-            elif text_len > 30:
-                fontsize = 36
+            # Phase 2: 템플릿 설정 적용
+            if self.template:
+                fontsize = self.template.subtitle_fontsize
+                color = self.template.subtitle_color
+                stroke_color = self.template.subtitle_stroke_color
+                stroke_width = self.template.subtitle_stroke_width
+                font_file = self.template.subtitle_font
+                y_offset = self.template.subtitle_y_offset
+                position = self.template.subtitle_position
             else:
-                fontsize = 40
+                # 텍스트 길이에 따라 폰트 크기 조정 (기본 동작)
+                text_len = len(text)
+                if text_len > 50:
+                    fontsize = 32
+                elif text_len > 30:
+                    fontsize = 36
+                else:
+                    fontsize = 40
+                color = 'white'
+                stroke_color = 'black'
+                stroke_width = 2
+                font_file = 'malgun.ttf'
+                y_offset = 100
+                position = 'bottom'
 
             try:
                 # 폰트 경로 설정 (Windows 호환)
                 import platform
                 if platform.system() == 'Windows':
-                    # Windows: 맑은 고딕 (한글 지원)
-                    font_path = 'C:\\Windows\\Fonts\\malgun.ttf'
+                    # Windows: 폰트 파일명 → 전체 경로
+                    font_path = f'C:\\Windows\\Fonts\\{font_file}'
                 else:
-                    # Linux/Mac: DejaVu Sans
+                    # Linux/Mac: DejaVu Sans (fallback)
                     font_path = '/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf'
 
                 # TextClip 생성
@@ -352,18 +432,25 @@ class VideoEditor:
                     text=text,
                     font=font_path,
                     font_size=fontsize,
-                    color='white',
-                    stroke_color='black',
-                    stroke_width=2,
+                    color=color,
+                    stroke_color=stroke_color,
+                    stroke_width=stroke_width,
                     method='caption',
                     size=(int(self.config.resolution[0] * 0.9), None)
                 )
 
-                # 위치 설정 (하단 중앙, margin 대신 수동 계산)
-                # MoviePy 2.x에서 margin()이 작동하지 않을 수 있으므로
-                # 위치를 직접 계산
-                y_position = int(self.config.resolution[1] - 100)  # 하단에서 100px 위 (정수 변환)
-                txt_clip = txt_clip.with_position(('center', y_position))
+                # 위치 설정 (템플릿 기반)
+                if position == 'bottom':
+                    y_position = int(self.config.resolution[1] - y_offset)
+                    txt_clip = txt_clip.with_position(('center', y_position))
+                elif position == 'center':
+                    txt_clip = txt_clip.with_position('center')
+                elif position == 'top':
+                    txt_clip = txt_clip.with_position(('center', y_offset))
+                else:
+                    # 기본값: 하단
+                    y_position = int(self.config.resolution[1] - 100)
+                    txt_clip = txt_clip.with_position(('center', y_position))
 
                 # 시간 설정
                 txt_clip = txt_clip.with_start(start_time).with_duration(segment_duration)
@@ -379,6 +466,30 @@ class VideoEditor:
             print(f"[Editor] 자막 {len(subtitle_clips)}개 추가 완료")
 
         return video_clip
+
+    def _load_template(self, template_name: str) -> Optional[TemplateConfig]:
+        """
+        Phase 2: 템플릿 JSON 파일 로드
+
+        Args:
+            template_name: 템플릿 이름 (basic, documentary, entertainment)
+
+        Returns:
+            TemplateConfig 객체 또는 None
+        """
+        template_path = Path(__file__).parent.parent / "templates" / f"{template_name}.json"
+
+        if not template_path.exists():
+            print(f"[WARNING] 템플릿 파일 없음: {template_path}")
+            return None
+
+        try:
+            with open(template_path, 'r', encoding='utf-8') as f:
+                data = json.load(f)
+                return TemplateConfig(**data)
+        except Exception as e:
+            print(f"[ERROR] 템플릿 로드 실패: {e}")
+            return None
 
     def __repr__(self):
         return f"VideoEditor(resolution={self.config.resolution}, fps={self.config.fps})"
