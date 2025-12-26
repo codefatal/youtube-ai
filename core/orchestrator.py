@@ -115,7 +115,8 @@ class ContentOrchestrator:
         """Planner 모듈 가져오기 (lazy loading)"""
         if not self._planner:
             self._planner = ContentPlanner(
-                ai_provider=self.config.ai_provider.value
+                ai_provider=self.config.ai_provider.value,
+                model=self.config.gemini_model if self.config.ai_provider.value == "gemini" else None
             )
         return self._planner
 
