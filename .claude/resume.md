@@ -197,8 +197,11 @@ backend/
   ├── database.py        # DB 세션 (Phase 1)
   ├── models.py          # ORM 모델 (Phase 1)
   ├── schemas.py         # Pydantic 스키마 (Phase 1)
+  ├── scheduler.py       # 스케줄러 (Phase 4)
+  ├── workers.py         # 백그라운드 워커 (Phase 4)
   └── routers/
-      └── accounts.py    # Account CRUD API (Phase 1)
+      ├── accounts.py    # Account CRUD API (Phase 1)
+      └── tts.py         # TTS 미리듣기 API (Phase 3)
 
 scripts/
   ├── manual_upload.py   # 수동 업로드 (Phase 2)

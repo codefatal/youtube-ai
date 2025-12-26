@@ -429,7 +429,7 @@ python scripts/setup_bgm.py --stats
 ### 성과
 
 **코드 변경**:
--   신규 파일: 3개 (`frontend/components/AccountSidebar.tsx`, `frontend/components/TTSSettings.tsx`, `frontend/app/accounts/page.tsx`)
+-   신규 파일: 8개 (`frontend/components/AccountSidebar.tsx`, `frontend/components/TTSSettings.tsx`, `frontend/app/accounts/page.tsx`, `frontend/app/accounts/[id]/page.tsx`, `frontend/app/accounts/new/page.tsx`, `frontend/components/JobMonitor.tsx`, `frontend/components/ScheduleEditor.tsx`, `frontend/components/TemplateSelector.tsx`)
 -   수정 파일: 3개 (`frontend/app/layout.tsx`, `frontend/app/create/page.tsx`, `frontend/app/globals.css`)
 
 **기능 개선**:
