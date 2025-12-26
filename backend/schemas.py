@@ -38,13 +38,12 @@ class AccountUpdate(BaseModel):
 class AccountResponse(AccountBase):
     """Account 응답"""
     id: int
-    channel_id: Optional[str] = None
+    channel_id: Optional[str]
     created_at: datetime
     updated_at: datetime
 
-    model_config = {
-        "from_attributes": True
-    }
+    class Config:
+        from_attributes = True  # Pydantic v2
 
 
 # ============================================================================
@@ -76,9 +75,8 @@ class AccountSettingsResponse(AccountSettingsBase):
     created_at: datetime
     updated_at: datetime
 
-    model_config = {
-        "from_attributes": True
-    }
+    class Config:
+        from_attributes = True
 
 
 # ============================================================================
@@ -89,21 +87,20 @@ class JobHistoryResponse(BaseModel):
     """JobHistory 응답"""
     id: int
     job_id: str
-    account_id: Optional[int] = None
+    account_id: Optional[int]
     topic: str
     status: JobStatus
     format: str
     duration: int
-    output_video_path: Optional[str] = None
-    youtube_url: Optional[str] = None
-    youtube_video_id: Optional[str] = None
-    error_message: Optional[str] = None
+    output_video_path: Optional[str]
+    youtube_url: Optional[str]
+    youtube_video_id: Optional[str]
+    error_message: Optional[str]
     started_at: datetime
-    completed_at: Optional[datetime] = None
+    completed_at: Optional[datetime]
 
-    model_config = {
-        "from_attributes": True
-    }
+    class Config:
+        from_attributes = True
 
 
 # ============================================================================

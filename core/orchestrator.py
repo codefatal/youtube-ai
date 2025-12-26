@@ -8,17 +8,15 @@ import logging
 from typing import Optional, Callable, Dict, Any, List
 from datetime import datetime
 from pathlib import Path
-from queue import Queue
-from threading import Lock
 
+from sqlalchemy.orm import Session
+from backend.database import SessionLocal
+from backend.models import JobHistory as DBJobHistory, JobStatus
 from core.models import (
-    ContentJob,
     ContentPlan,
-    ContentStatus,
     VideoFormat,
     AssetBundle,
     UploadResult,
-    JobHistory,
     SystemConfig
 )
 from core.planner import ContentPlanner
@@ -50,16 +48,8 @@ class ContentOrchestrator:
         # 로깅 설정
         self._setup_logging(log_file)
 
-        # 작업 큐
-        self.job_queue: Queue[ContentJob] = Queue()
-        self.job_lock = Lock()
-
-        # 작업 히스토리
-        self.history = JobHistory()
-        self.history_file = Path("data/job_history.json")
-
-        # 히스토리 파일 로드
-        self._load_history()
+        # DB 세션
+        self.db: Session = SessionLocal()
 
         # 모듈 초기화 (lazy loading)
         self._planner: Optional[ContentPlanner] = None
@@ -67,7 +57,7 @@ class ContentOrchestrator:
         self._editor: Optional[VideoEditor] = None
         self._uploader: Optional[YouTubeUploader] = None
 
-        self.logger.info("Orchestrator 초기화 완료")
+        self.logger.info("Orchestrator 초기화 완료 (DB 모드)")
 
     def _setup_logging(self, log_file: Optional[str]):
         """
@@ -80,7 +70,8 @@ class ContentOrchestrator:
         self.logger.setLevel(logging.INFO)
 
         # 기존 핸들러 제거
-        self.logger.handlers.clear()
+        if self.logger.hasHandlers():
+            self.logger.handlers.clear()
 
         # 포맷터
         formatter = logging.Formatter(
@@ -103,28 +94,6 @@ class ContentOrchestrator:
             file_handler.setLevel(logging.DEBUG)
             file_handler.setFormatter(formatter)
             self.logger.addHandler(file_handler)
-
-    def _load_history(self):
-        """작업 히스토리 파일 로드"""
-        if self.history_file.exists():
-            try:
-                with open(self.history_file, 'r', encoding='utf-8') as f:
-                    data = json.load(f)
-                    self.history = JobHistory(**data)
-                self.logger.info(f"히스토리 로드 완료: {len(self.history.jobs)}개 작업")
-            except Exception as e:
-                self.logger.warning(f"히스토리 로드 실패: {e}")
-
-    def _save_history(self):
-        """작업 히스토리 파일 저장"""
-        try:
-            self.history_file.parent.mkdir(parents=True, exist_ok=True)
-            with open(self.history_file, 'w', encoding='utf-8') as f:
-                # Pydantic 모델을 JSON으로 변환
-                json.dump(self.history.model_dump(), f, indent=2, ensure_ascii=False, default=str)
-            self.logger.debug("히스토리 저장 완료")
-        except Exception as e:
-            self.logger.error(f"히스토리 저장 실패: {e}")
 
     def _update_progress(self, message: str, progress: int):
         """
@@ -182,11 +151,11 @@ class ContentOrchestrator:
         upload: bool = False,
         job_id: Optional[str] = None,
         account_id: Optional[int] = None,
-        template: Optional[str] = None,            # ✨ NEW
-        tts_settings: Optional[Dict[str, Any]] = None  # ✨ NEW
-    ) -> ContentJob:
+        template: Optional[str] = None,
+        tts_settings: Optional[Dict[str, Any]] = None
+    ) -> DBJobHistory:
         """
-        전체 콘텐츠 생성 파이프라인 실행
+        전체 콘텐츠 생성 파이프라인 실행 (DB 기반)
 
         Args:
             topic: 주제
@@ -199,252 +168,130 @@ class ContentOrchestrator:
             tts_settings: TTS 설정 오버라이드
 
         Returns:
-            ContentJob 객체
+            JobHistory ORM 객체
         """
         # 작업 ID 생성
         if not job_id:
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
             job_id = f"job_{timestamp}"
 
-        # ContentJob 생성
-        job = ContentJob(
-            job_id=job_id,
-            status=ContentStatus.PLANNING
-        )
-
-        # 히스토리에 추가
-        with self.job_lock:
-            self.history.jobs.append(job)
-            self.history.total_jobs += 1
-            self._save_history()
-
         self.logger.info(f"작업 시작: {job_id} (주제: {topic})")
         self._update_progress(f"작업 시작: {topic}", 0)
 
+        # DB에 작업 기록 생성
+        db_job = DBJobHistory(
+            job_id=job_id,
+            account_id=account_id,
+            topic=topic or "AI 생성 주제",
+            status=JobStatus.PENDING,
+            format=video_format.value,
+            duration=target_duration
+        )
+        self.db.add(db_job)
+        self.db.commit()
+        self.db.refresh(db_job)
+
         try:
             # 1. Planner: 스크립트 생성
-            self._update_job_status(job, ContentStatus.SCRIPTING)
-            self._update_progress("스크립트 생성 중...", 10)
-
+            self._update_job_status(db_job, JobStatus.PLANNING, "스크립트 생성 중...")
             planner = self._get_planner()
             content_plan = planner.create_script(
                 topic=topic,
                 format=video_format,
                 target_duration=target_duration
             )
-
             if not content_plan:
                 raise Exception("스크립트 생성 실패")
-
-            job.plan = content_plan
             self.logger.info(f"스크립트 생성 완료: {content_plan.title}")
-            self._update_progress(f"스크립트 완료: {content_plan.title}", 25)
 
             # 2. Asset Manager: 에셋 수집
-            self._update_job_status(job, ContentStatus.ASSET_GATHERING)
-            self._update_progress("에셋 수집 중 (영상 + 음성)...", 30)
-
+            self._update_job_status(db_job, JobStatus.COLLECTING_ASSETS, "에셋 수집 중 (영상 + 음성)...")
             asset_manager = self._get_asset_manager()
             asset_bundle = asset_manager.collect_assets(
                 content_plan,
                 download_videos=True,
                 generate_tts=True,
                 account_id=account_id,
-                tts_settings_override=tts_settings  # ✨ NEW
+                tts_settings_override=tts_settings
             )
-
             if not asset_bundle:
                 raise Exception("에셋 수집 실패")
-
-            job.assets = asset_bundle
             self.logger.info(f"에셋 수집 완료: 영상 {len(asset_bundle.videos)}개")
-            self._update_progress(f"에셋 완료: 영상 {len(asset_bundle.videos)}개", 50)
 
             # 3. Editor: 영상 편집
-            self._update_job_status(job, ContentStatus.EDITING)
-            self._update_progress("영상 편집 중...", 55)
-
+            self._update_job_status(db_job, JobStatus.EDITING, "영상 편집 중...")
             editor = self._get_editor()
             output_filename = f"{job_id}.mp4"
             video_path = editor.create_video(
                 content_plan=content_plan,
                 asset_bundle=asset_bundle,
                 output_filename=output_filename,
-                template_name=template  # ✨ NEW
+                template_name=template
             )
-
             if not video_path:
                 raise Exception("영상 편집 실패")
-
-            job.output_video_path = video_path
+            db_job.output_video_path = str(video_path)
             self.logger.info(f"영상 편집 완료: {video_path}")
-            self._update_progress(f"영상 완료: {video_path}", 75)
 
             # 4. Uploader: YouTube 업로드 (옵션)
             if upload or self.config.auto_upload:
-                self._update_job_status(job, ContentStatus.UPLOADING)
-                self._update_progress("YouTube 업로드 중...", 80)
-
+                self._update_job_status(db_job, JobStatus.UPLOADING, "YouTube 업로드 중...")
                 uploader = self._get_uploader()
-
-                # 메타데이터 생성
                 metadata = uploader.generate_metadata(content_plan, optimize_seo=True)
-
-                # 인증 (최초 1회만)
                 if not uploader.youtube:
-                    uploader.authenticate()
+                    uploader.authenticate(account_id=account_id) # 계정별 인증
 
-                # 업로드
                 upload_result = uploader.upload_video(
-                    video_path=video_path,
+                    video_path=str(video_path),
                     metadata=metadata,
                     max_retries=3
                 )
-
-                job.upload_result = upload_result
-
                 if upload_result.success:
+                    db_job.youtube_url = upload_result.url
+                    db_job.youtube_video_id = upload_result.video_id
                     self.logger.info(f"YouTube 업로드 완료: {upload_result.url}")
-                    self._update_progress(f"업로드 완료: {upload_result.url}", 95)
                 else:
                     raise Exception(f"업로드 실패: {upload_result.error}")
 
             # 5. 완료
-            self._update_job_status(job, ContentStatus.COMPLETED)
-            self._update_progress("모든 작업 완료!", 100)
-
-            # 완료 작업 수 증가
-            with self.job_lock:
-                self.history.completed_jobs += 1
-                self._save_history()
-
+            self._update_job_status(db_job, JobStatus.COMPLETED, "모든 작업 완료!", 100)
+            db_job.completed_at = datetime.utcnow()
+            self.db.commit()
             self.logger.info(f"작업 완료: {job_id}")
-            return job
+            return db_job
 
         except Exception as e:
-            # 에러 처리
             import traceback
             error_message = str(e)
-            # 인코딩 오류 방지
-            cleaned_message = error_message.encode('utf-8', 'ignore').decode('utf-8')
-            
-            self.logger.error(f"작업 실패 ({job_id}): {cleaned_message}")
-            job.error_log.append(f"[{datetime.now()}] {cleaned_message}")
-            self._update_job_status(job, ContentStatus.FAILED)
-
-            # 실패 작업 수 증가
-            with self.job_lock:
-                self.history.failed_jobs += 1
-                self._save_history()
-
+            self.logger.error(f"작업 실패 ({job_id}): {error_message}")
             traceback.print_exc()
 
-            return job
+            db_job.status = JobStatus.FAILED
+            db_job.error_message = error_message
+            db_job.completed_at = datetime.utcnow()
+            self.db.commit()
+            return db_job
 
-    def _update_job_status(self, job: ContentJob, status: ContentStatus):
+    def _update_job_status(self, db_job: DBJobHistory, status: JobStatus, message: str, progress: Optional[int] = None):
         """
-        작업 상태 업데이트
-
-        Args:
-            job: ContentJob 객체
-            status: 새로운 상태
+        DB 기반 작업 상태 업데이트
         """
-        job.status = status
-        job.updated_at = datetime.now()
-
-        with self.job_lock:
-            self._save_history()
-
-    def add_to_queue(self, job: ContentJob):
-        """
-        작업 큐에 추가
-
-        Args:
-            job: ContentJob 객체
-        """
-        self.job_queue.put(job)
-        self.logger.info(f"작업 큐 추가: {job.job_id} (큐 크기: {self.job_queue.qsize()})")
-
-    def process_queue(self, max_jobs: Optional[int] = None):
-        """
-        작업 큐 처리 (순차 실행)
-
-        Args:
-            max_jobs: 최대 처리 작업 수 (None이면 전체)
-        """
-        processed = 0
-
-        while not self.job_queue.empty():
-            if max_jobs and processed >= max_jobs:
-                break
-
-            job = self.job_queue.get()
-
-            self.logger.info(f"큐에서 작업 처리 시작: {job.job_id}")
-
-            # 작업 실행 (기존 job 객체 사용)
-            if job.plan:
-                self.create_content(
-                    topic=job.plan.title,
-                    video_format=job.plan.format,
-                    target_duration=job.plan.target_duration,
-                    upload=self.config.auto_upload,
-                    job_id=job.job_id
-                )
-
-            processed += 1
-            self.job_queue.task_done()
-
-        self.logger.info(f"큐 처리 완료: {processed}개 작업")
-
-    def get_job(self, job_id: str) -> Optional[ContentJob]:
-        """
-        작업 ID로 작업 조회
-
-        Args:
-            job_id: 작업 ID
-
-        Returns:
-            ContentJob 또는 None
-        """
-        for job in self.history.jobs:
-            if job.job_id == job_id:
-                return job
-        return None
-
-    def get_recent_jobs(self, limit: int = 10) -> List[ContentJob]:
-        """
-        최근 작업 목록 조회
-
-        Args:
-            limit: 조회 개수
-
-        Returns:
-            ContentJob 리스트
-        """
-        return sorted(
-            self.history.jobs,
-            key=lambda j: j.created_at,
-            reverse=True
-        )[:limit]
-
-    def get_statistics(self) -> Dict[str, Any]:
-        """
-        통계 정보 조회
-
-        Returns:
-            통계 딕셔너리
-        """
-        return {
-            "total_jobs": self.history.total_jobs,
-            "completed_jobs": self.history.completed_jobs,
-            "failed_jobs": self.history.failed_jobs,
-            "success_rate": (
-                self.history.completed_jobs / self.history.total_jobs * 100
-                if self.history.total_jobs > 0 else 0
-            ),
-            "queue_size": self.job_queue.qsize()
-        }
+        db_job.status = status
+        self.db.commit()
+        
+        # 진행률 계산 (대략적)
+        if progress is None:
+            progress_map = {
+                JobStatus.PLANNING: 10,
+                JobStatus.COLLECTING_ASSETS: 30,
+                JobStatus.EDITING: 55,
+                JobStatus.UPLOADING: 80,
+                JobStatus.COMPLETED: 100,
+                JobStatus.FAILED: 100,
+            }
+            progress = progress_map.get(status, 0)
+            
+        self._update_progress(message, progress)
 
     def __repr__(self):
-        return f"ContentOrchestrator(total_jobs={self.history.total_jobs}, queue_size={self.job_queue.qsize()})"
+        return f"ContentOrchestrator(mode=db)"
