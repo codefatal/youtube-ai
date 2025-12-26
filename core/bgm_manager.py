@@ -48,9 +48,16 @@ class BGMManager:
         """
         self.music_dir = Path(music_dir)
         self.music_dir.mkdir(parents=True, exist_ok=True)
+
+        # ffmpeg 경로 찾기 (Windows Chocolatey 경로 포함)
         self.ffmpeg_cmd = shutil.which("ffmpeg")
         if not self.ffmpeg_cmd:
-            raise FileNotFoundError("ffmpeg를 찾을 수 없습니다. ffmpeg이 설치되어 있고 PATH에 추가되었는지 확인하세요.")
+            # Chocolatey 설치 경로 확인
+            choco_ffmpeg = Path("C:/ProgramData/chocolatey/bin/ffmpeg.exe")
+            if choco_ffmpeg.exists():
+                self.ffmpeg_cmd = str(choco_ffmpeg)
+            else:
+                raise FileNotFoundError("ffmpeg를 찾을 수 없습니다. ffmpeg이 설치되어 있고 PATH에 추가되었는지 확인하세요.")
 
         # BGM 카탈로그 (mood별 분류)
         self.catalog: Dict[MoodType, List[BGMAsset]] = {

@@ -3,6 +3,7 @@ Asset Manager Module
 스톡 영상, TTS 음성 등 에셋 수집 및 관리
 """
 import os
+import json
 import hashlib
 from pathlib import Path
 from typing import List, Optional, Dict, Any
