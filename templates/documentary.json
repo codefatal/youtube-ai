@@ -3,12 +3,12 @@
   "description": "정보 전달 중심의 다큐멘터리 스타일",
 
   "subtitle_font": "malgun.ttf",
-  "subtitle_fontsize": 42,
+  "subtitle_fontsize": 65,
   "subtitle_color": "#FFFFFF",
   "subtitle_stroke_color": "#1A1A1A",
   "subtitle_stroke_width": 3,
   "subtitle_position": "bottom",
-  "subtitle_y_offset": 120,
+  "subtitle_y_offset": 150,
   "subtitle_animation": "slide",
 
   "transition_effect": "crossfade",

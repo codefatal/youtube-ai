@@ -3,12 +3,12 @@
   "description": "심플하고 깔끔한 기본 템플릿",
 
   "subtitle_font": "malgun.ttf",
-  "subtitle_fontsize": 40,
+  "subtitle_fontsize": 70,
   "subtitle_color": "white",
   "subtitle_stroke_color": "black",
-  "subtitle_stroke_width": 2,
+  "subtitle_stroke_width": 3,
   "subtitle_position": "bottom",
-  "subtitle_y_offset": 100,
+  "subtitle_y_offset": 150,
   "subtitle_animation": "fade",
 
   "transition_effect": "fade",

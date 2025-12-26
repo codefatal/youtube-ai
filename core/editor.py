@@ -366,6 +366,44 @@ class VideoEditor:
 
         return clip
 
+    def _wrap_text(self, text: str, max_chars: int = 18) -> str:
+        """
+        자막 텍스트를 단어 단위로 줄바꿈 (Phase 1)
+
+        Args:
+            text: 원본 텍스트
+            max_chars: 한 줄 최대 글자 수 (기본 18자)
+
+        Returns:
+            줄바꿈이 적용된 텍스트
+        """
+        if len(text) <= max_chars:
+            return text
+
+        # 단어 단위로 분리 (공백 기준)
+        words = text.split()
+        lines = []
+        current_line = ""
+
+        for word in words:
+            # 현재 줄에 단어를 추가했을 때 길이 체크
+            test_line = current_line + (" " if current_line else "") + word
+
+            if len(test_line) <= max_chars:
+                current_line = test_line
+            else:
+                # 현재 줄이 비어있지 않으면 저장
+                if current_line:
+                    lines.append(current_line)
+                # 새로운 줄 시작
+                current_line = word
+
+        # 마지막 줄 추가
+        if current_line:
+            lines.append(current_line)
+
+        return '\n'.join(lines)
+
     def _add_subtitles(
         self,
         video_clip,
@@ -401,6 +439,9 @@ class VideoEditor:
             if not text:
                 continue
 
+            # Phase 1: 텍스트 줄바꿈 적용 (18자 기준)
+            text = self._wrap_text(text, max_chars=18)
+
             # Phase 2: 템플릿 설정 적용
             if self.template:
                 fontsize = self.template.subtitle_fontsize
@@ -411,19 +452,19 @@ class VideoEditor:
                 y_offset = self.template.subtitle_y_offset
                 position = self.template.subtitle_position
             else:
-                # 텍스트 길이에 따라 폰트 크기 조정 (기본 동작)
-                text_len = len(text)
+                # Phase 1: 기본 폰트 크기 증가 (60-70)
+                text_len = len(text.replace('\n', ''))  # 줄바꿈 제외한 글자 수
                 if text_len > 50:
-                    fontsize = 32
+                    fontsize = 60
                 elif text_len > 30:
-                    fontsize = 36
+                    fontsize = 65
                 else:
-                    fontsize = 40
+                    fontsize = 70
                 color = 'white'
                 stroke_color = 'black'
-                stroke_width = 2
+                stroke_width = 3  # 외곽선 두께 증가
                 font_file = 'malgun.ttf'
-                y_offset = 100
+                y_offset = 150  # 하단 여백 증가
                 position = 'bottom'
 
             try:
