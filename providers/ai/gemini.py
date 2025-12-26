@@ -18,13 +18,13 @@ class GeminiProvider:
 
         Args:
             api_key: Gemini API 키 (None이면 환경변수에서 가져옴)
-            model: 사용할 모델 (기본값: gemini-2.0-flash-exp)
+            model: 사용할 모델 (기본값: gemini-2.5-flash)
         """
         self.api_key = api_key or os.getenv('GEMINI_API_KEY')
         if not self.api_key:
             raise ValueError("GEMINI_API_KEY가 설정되지 않았습니다")
 
-        self.model = model or os.getenv('GEMINI_MODEL', 'gemini-2.0-flash-exp')
+        self.model = model or os.getenv('GEMINI_MODEL', 'gemini-2.5-flash')
         self.usage_log = []
 
         # Google GenAI 클라이언트 초기화
