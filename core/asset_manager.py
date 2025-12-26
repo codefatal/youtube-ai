@@ -4,6 +4,7 @@ Asset Manager Module
 """
 import os
 import hashlib
+from pathlib import Path
 from typing import List, Optional, Dict, Any
 
 from backend.database import SessionLocal  # Phase 3
