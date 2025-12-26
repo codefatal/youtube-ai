@@ -59,10 +59,8 @@ class VideoEditor:
         # 출력 디렉토리 생성
         os.makedirs(self.config.output_dir, exist_ok=True)
 
-        # Phase 2: 템플릿 로드
-        self.template = self._load_template(template_name) if template_name else None
-        if self.template:
-            print(f"[Editor] 템플릿 로드 완료: {self.template.name}")
+        # Phase 2: 템플릿 로드 (create_video에서 동적으로 처리)
+        self.template: Optional[TemplateConfig] = None
 
         # Phase 2: BGM 매니저
         self.bgm_manager = BGMManager()
@@ -71,7 +69,8 @@ class VideoEditor:
         self,
         content_plan: ContentPlan,
         asset_bundle: AssetBundle,
-        output_filename: Optional[str] = None
+        output_filename: Optional[str] = None,
+        template_name: Optional[str] = None  # ✨ NEW
     ) -> Optional[str]:
         """
         ContentPlan과 AssetBundle로 최종 영상 생성
@@ -80,11 +79,21 @@ class VideoEditor:
             content_plan: ContentPlan 객체
             asset_bundle: AssetBundle 객체 (영상 + 음성)
             output_filename: 출력 파일명 (None이면 자동 생성)
+            template_name: 사용할 템플릿 이름 (✨ NEW)
 
         Returns:
             저장된 영상 경로 또는 None
         """
         print(f"\n[Editor] 영상 편집 시작: {content_plan.title}")
+
+        # ✨ NEW: 템플릿 동적 로드
+        if template_name:
+            self.template = self._load_template(template_name)
+            if self.template:
+                print(f"[Editor] 템플릿 로드 완료: {self.template.name}")
+        else:
+            self.template = None
+
 
         # 1. 비디오 클립 로드
         video_clips = self._load_video_clips(asset_bundle)

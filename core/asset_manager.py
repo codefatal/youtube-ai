@@ -83,7 +83,9 @@ class AssetManager:
         content_plan: ContentPlan,
         download_videos: bool = True,
         generate_tts: bool = True,
-        select_bgm: bool = True
+        select_bgm: bool = True,
+        account_id: Optional[int] = None, # ✨ NEW
+        tts_settings_override: Optional[Dict[str, Any]] = None # ✨ NEW
     ) -> Optional[AssetBundle]:
         """
         ContentPlan을 기반으로 모든 에셋 수집
@@ -92,7 +94,9 @@ class AssetManager:
             content_plan: ContentPlan 객체
             download_videos: 영상 다운로드 여부
             generate_tts: TTS 생성 여부
-            select_bgm: BGM 선택 여부 (Phase 2)
+            select_bgm: BGM 선택 여부
+            account_id: 계정 ID (DB 설정 조회용)
+            tts_settings_override: TTS 설정 오버라이드 (프론트엔드 직접 설정용)
 
         Returns:
             AssetBundle 객체 또는 None
@@ -107,7 +111,7 @@ class AssetManager:
         # 2. TTS 음성 생성
         audio_asset = None
         if generate_tts:
-            audio_asset = self._generate_tts(content_plan)
+            audio_asset = self._generate_tts(content_plan, account_id, tts_settings_override)
 
         # 3. Phase 2: BGM 선택
         bgm_asset = None
@@ -211,40 +215,54 @@ class AssetManager:
 
         return provider.download_video(asset, output_dir=str(self.video_dir))
 
-    def _generate_tts(self, content_plan: ContentPlan, account_id: Optional[int] = None) -> Optional[AudioAsset]:
+    def _generate_tts(self, content_plan: ContentPlan, account_id: Optional[int] = None, tts_settings_override: Optional[Dict[str, Any]] = None) -> Optional[AudioAsset]:
         """
-        TTS 음성 생성 (AccountSettings 연동)
+        TTS 음성 생성 (AccountSettings 및 오버라이드 지원)
 
         Args:
             content_plan: ContentPlan 객체
-            account_id: 계정 ID (Phase 1 DB 연동)
+            account_id: 계정 ID (DB 설정 조회용)
+            tts_settings_override: TTS 설정 오버라이드 (프론트엔드 직접 설정용)
 
         Returns:
             AudioAsset 객체 또는 None
         """
         full_text = " ".join([seg.text for seg in content_plan.segments])
 
-        # ✨ AccountSettings에서 TTS 설정 가져오기
+        # 1. DB에서 계정 설정 가져오기
         if account_id:
             settings = self._get_account_tts_settings(account_id)
         else:
-            # 기본값
             settings = {
-                "tts_provider": self.tts_provider,
-                "tts_voice_id": "pNInz6obpgDQGcFmaJgB",
-                "tts_stability": 0.5,
-                "tts_similarity_boost": 0.75,
-                "tts_style": 0.0
+                "provider": self.tts_provider,
+                "voice_id": "pNInz6obpgDQGcFmaJgB",
+                "stability": 0.5,
+                "similarity_boost": 0.75,
+                "style": 0.0
             }
 
-        # TTS 생성 (설정 반영)
-        if settings["tts_provider"] == "elevenlabs":
+        # 2. ✨ 프론트엔드 오버라이드 설정 적용
+        if tts_settings_override:
+            # provider는 tts_provider로 키 이름이 다름
+            if 'provider' in tts_settings_override:
+                settings['tts_provider'] = tts_settings_override.pop('provider')
+            
+            # voiceId는 tts_voice_id로 키 이름이 다름
+            if 'voiceId' in tts_settings_override:
+                settings['tts_voice_id'] = tts_settings_override.pop('voiceId')
+            
+            settings.update(tts_settings_override)
+            print(f"[AssetManager] TTS 설정을 오버라이드합니다: {settings}")
+
+        # 3. TTS 생성 (설정 반영)
+        provider = settings.get("tts_provider", "gtts")
+        if provider == "elevenlabs":
             filepath = self._generate_elevenlabs(
                 text=full_text,
-                voice_id=settings["tts_voice_id"],
-                stability=settings["tts_stability"],
-                similarity_boost=settings["tts_similarity_boost"],
-                style=settings["tts_style"]
+                voice_id=settings.get("tts_voice_id"),
+                stability=settings.get("tts_stability"),
+                similarity_boost=settings.get("tts_similarity_boost"),
+                style=settings.get("tts_style")
             )
         else:
             filepath = self._generate_gtts(full_text)
@@ -252,7 +270,7 @@ class AssetManager:
         if filepath:
             return AudioAsset(
                 text=full_text,
-                provider=TTSProvider(settings["tts_provider"]),
+                provider=TTSProvider(provider),
                 local_path=filepath
             )
 
@@ -261,12 +279,6 @@ class AssetManager:
     def _get_account_tts_settings(self, account_id: int) -> dict:
         """
         AccountSettings에서 TTS 설정 가져오기
-
-        Args:
-            account_id: 계정 ID
-
-        Returns:
-            설정 딕셔너리
         """
         db = SessionLocal()
         try:

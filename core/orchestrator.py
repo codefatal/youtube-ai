@@ -181,7 +181,9 @@ class ContentOrchestrator:
         target_duration: int = 60,
         upload: bool = False,
         job_id: Optional[str] = None,
-        account_id: Optional[int] = None  # ✨ NEW
+        account_id: Optional[int] = None,
+        template: Optional[str] = None,            # ✨ NEW
+        tts_settings: Optional[Dict[str, Any]] = None  # ✨ NEW
     ) -> ContentJob:
         """
         전체 콘텐츠 생성 파이프라인 실행
@@ -192,7 +194,9 @@ class ContentOrchestrator:
             target_duration: 목표 길이(초)
             upload: YouTube 업로드 여부
             job_id: 작업 ID (None이면 자동 생성)
-            account_id: 계정 ID (Phase 3 TTS 연동)
+            account_id: 계정 ID (DB 설정 조회용)
+            template: 사용할 템플릿 이름
+            tts_settings: TTS 설정 오버라이드
 
         Returns:
             ContentJob 객체
@@ -245,7 +249,8 @@ class ContentOrchestrator:
                 content_plan,
                 download_videos=True,
                 generate_tts=True,
-                account_id=account_id  # Phase 3에서 구현한 기능 사용
+                account_id=account_id,
+                tts_settings_override=tts_settings  # ✨ NEW
             )
 
             if not asset_bundle:
@@ -264,7 +269,8 @@ class ContentOrchestrator:
             video_path = editor.create_video(
                 content_plan=content_plan,
                 asset_bundle=asset_bundle,
-                output_filename=output_filename
+                output_filename=output_filename,
+                template_name=template  # ✨ NEW
             )
 
             if not video_path:

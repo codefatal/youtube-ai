@@ -32,7 +32,14 @@
       "Bash(venv\\Scripts\\pip.exe install:*)",
       "Bash(./venv/Scripts/pip.exe:*)",
       "Bash(git fetch:*)",
-      "Bash(git rm:*)"
+      "Bash(python tests/test_uploader.py:*)",
+      "Bash(git pull:*)",
+      "WebFetch(domain:elevenlabs.io)",
+      "WebSearch",
+      "Bash(venv/Scripts/pip.exe install:*)",
+      "Bash(alembic init:*)",
+      "Bash(venv/Scripts/alembic.exe init:*)",
+      "Bash(venv/Scripts/alembic.exe revision:*)"
     ],
     "deny": [],
     "ask": []

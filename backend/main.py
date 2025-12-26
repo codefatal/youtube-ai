@@ -108,8 +108,10 @@ class CreateVideoRequest(BaseModel):
     format: str = "shorts"
     duration: int = 60
     upload: bool = False
+    template: Optional[str] = None  # ✨ NEW: 템플릿 필드
     ai_provider: Optional[str] = None  # gemini, claude, openai
     tts_provider: Optional[str] = None  # gtts, elevenlabs, google_cloud
+    tts_settings: Optional[Dict[str, Any]] = None # ✨ NEW: TTS 상세 설정
 
 
 class GetJobStatusRequest(BaseModel):
@@ -238,7 +240,9 @@ async def create_video(request: CreateVideoRequest, background_tasks: Background
             topic=topic,
             video_format=video_format,
             target_duration=request.duration,
-            upload=request.upload
+            upload=request.upload,
+            template=request.template,  # ✨ NEW
+            tts_settings=request.tts_settings  # ✨ NEW
         )
 
         return {
