@@ -37,6 +37,7 @@ class VideoEditor:
                 VideoFileClip,
                 AudioFileClip,
                 ImageClip,
+                ColorClip,
                 TextClip,
                 CompositeVideoClip,
                 CompositeAudioClip,
@@ -45,6 +46,7 @@ class VideoEditor:
             self.VideoFileClip = VideoFileClip
             self.AudioFileClip = AudioFileClip
             self.ImageClip = ImageClip
+            self.ColorClip = ColorClip
             self.TextClip = TextClip
             self.CompositeVideoClip = CompositeVideoClip
             self.CompositeAudioClip = CompositeAudioClip
@@ -122,6 +124,14 @@ class VideoEditor:
         if not final_video:
             print("[ERROR] 영상 합성 실패")
             return None
+
+        # 4-1. Phase 2: 쇼츠 레이아웃 적용 (SHORTS 포맷인 경우)
+        if content_plan.format == VideoFormat.SHORTS:
+            final_video = self._create_shorts_layout(
+                final_video,
+                content_plan.title,
+                target_duration
+            )
 
         # 5. 오디오 추가
         if audio_clip:
@@ -366,6 +376,90 @@ class VideoEditor:
 
         return clip
 
+    def _create_shorts_layout(self, video_clip, title: str, duration: float):
+        """
+        Phase 2: 쇼츠 레이아웃 생성 (상단 1/4 + 중앙 1/2 + 하단 1/4)
+
+        Args:
+            video_clip: 원본 비디오 클립 (1080x1920)
+            title: 영상 제목
+            duration: 영상 길이
+
+        Returns:
+            레이아웃이 적용된 CompositeVideoClip
+        """
+        width = 1080
+        height = 1920
+
+        # 섹션 높이 계산
+        top_height = height // 4      # 480px
+        middle_height = height // 2   # 960px
+        bottom_height = height // 4   # 480px
+
+        try:
+            # 1. 상단 검은 배경 (480px)
+            top_bg = self.ColorClip(
+                size=(width, top_height),
+                color=(0, 0, 0)
+            ).with_duration(duration).with_position((0, 0))
+
+            # 2. 상단 제목 텍스트
+            import platform
+            font_path = 'C:\\Windows\\Fonts\\malgunbd.ttf' if platform.system() == 'Windows' else '/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf'
+
+            # 제목 줄바꿈 (15자 기준)
+            wrapped_title = self._wrap_text(title, max_chars=15)
+
+            title_clip = self.TextClip(
+                text=wrapped_title,
+                font=font_path,
+                font_size=65,
+                color='white',
+                stroke_color='black',
+                stroke_width=2,
+                method='caption',
+                size=(int(width * 0.85), None)
+            ).with_duration(duration).with_position(('center', 'center'))
+
+            # 제목을 상단 섹션 중앙에 배치
+            title_y = top_height // 2
+            title_clip = title_clip.with_position(('center', title_y))
+
+            # 3. 중앙 비디오 (960px) - 원본 비디오를 중앙 섹션에 맞게 조정
+            # 비디오 크기 확인
+            video_width, video_height = video_clip.size
+
+            # 중앙 섹션 비율에 맞게 crop & resize
+            middle_video = self._resize_and_crop(video_clip, width, middle_height)
+            middle_video = middle_video.with_position((0, top_height))
+
+            # 4. 하단 검은 배경 (480px)
+            bottom_bg = self.ColorClip(
+                size=(width, bottom_height),
+                color=(0, 0, 0)
+            ).with_duration(duration).with_position((0, top_height + middle_height))
+
+            # 5. 모든 레이어 합성
+            composite = self.CompositeVideoClip(
+                [
+                    top_bg,
+                    title_clip,
+                    middle_video,
+                    bottom_bg
+                ],
+                size=(width, height)
+            )
+
+            print(f"[Editor] 쇼츠 레이아웃 적용 완료 (상단: {top_height}px, 중앙: {middle_height}px, 하단: {bottom_height}px)")
+            return composite
+
+        except Exception as e:
+            print(f"[ERROR] 쇼츠 레이아웃 생성 실패: {e}")
+            import traceback
+            traceback.print_exc()
+            # 폴백: 원본 비디오 반환
+            return video_clip
+
     def _wrap_text(self, text: str, max_chars: int = 18) -> str:
         """
         자막 텍스트를 단어 단위로 줄바꿈 (Phase 1)
@@ -489,8 +583,13 @@ class VideoEditor:
                     size=(int(self.config.resolution[0] * 0.9), None)
                 )
 
-                # 위치 설정 (템플릿 기반)
-                if position == 'bottom':
+                # Phase 2: 쇼츠 레이아웃 적용 시 자막 위치 조정
+                if content_plan.format == VideoFormat.SHORTS:
+                    # 쇼츠 레이아웃: 하단 검은 배경 영역에 자막 배치
+                    # 하단 섹션 중앙 (y: 1440 + 240 = 1680)
+                    y_position = 1440 + (480 // 2)  # 하단 섹션 시작 + 절반
+                    txt_clip = txt_clip.with_position(('center', y_position))
+                elif position == 'bottom':
                     y_position = int(self.config.resolution[1] - y_offset)
                     txt_clip = txt_clip.with_position(('center', y_position))
                 elif position == 'center':
