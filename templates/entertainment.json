@@ -1,0 +1,20 @@
+{
+  "name": "entertainment",
+  "description": "화려하고 역동적인 엔터테인먼트 스타일",
+
+  "subtitle_font": "malgun.ttf",
+  "subtitle_fontsize": 48,
+  "subtitle_color": "#FFEB3B",
+  "subtitle_stroke_color": "#000000",
+  "subtitle_stroke_width": 4,
+  "subtitle_position": "center",
+  "subtitle_y_offset": 0,
+  "subtitle_animation": "pop",
+
+  "transition_effect": "crossfade",
+  "color_grading": "warm",
+
+  "bgm_enabled": true,
+  "bgm_mood": "energetic",
+  "bgm_volume": 0.35
+}

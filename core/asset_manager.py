@@ -13,9 +13,12 @@ from core.models import (
     StockVideoAsset,
     AudioAsset,
     AssetBundle,
-    TTSProvider
+    BGMAsset,
+    TTSProvider,
+    MoodType
 )
 from providers.stock import PexelsProvider, PixabayProvider
+from core.bgm_manager import BGMManager
 
 
 class AssetManager:
@@ -26,7 +29,8 @@ class AssetManager:
         stock_providers: List[str] = None,
         tts_provider: str = "gtts",
         cache_enabled: bool = True,
-        download_dir: str = "./downloads"
+        download_dir: str = "./downloads",
+        bgm_enabled: bool = False
     ):
         """
         AssetManager 초기화
@@ -36,11 +40,13 @@ class AssetManager:
             tts_provider: TTS 제공자 (gtts, elevenlabs, google_cloud)
             cache_enabled: 캐시 사용 여부
             download_dir: 다운로드 디렉토리
+            bgm_enabled: BGM 사용 여부 (Phase 2)
         """
         self.stock_providers = stock_providers or ['pexels', 'pixabay']
         self.tts_provider = tts_provider
         self.cache_enabled = cache_enabled
         self.download_dir = Path(download_dir)
+        self.bgm_enabled = bgm_enabled
 
         # 디렉토리 생성
         self.video_dir = self.download_dir / "stock_videos"
@@ -53,6 +59,11 @@ class AssetManager:
         # 스톡 영상 제공자 초기화
         self.providers = {}
         self._init_providers()
+
+        # Phase 2: BGM 매니저 초기화
+        self.bgm_manager = BGMManager() if bgm_enabled else None
+        if self.bgm_enabled:
+            print(f"[AssetManager] BGM 매니저 초기화 완료")
 
     def _init_providers(self):
         """스톡 영상 제공자 초기화"""
@@ -70,7 +81,8 @@ class AssetManager:
         self,
         content_plan: ContentPlan,
         download_videos: bool = True,
-        generate_tts: bool = True
+        generate_tts: bool = True,
+        select_bgm: bool = True
     ) -> Optional[AssetBundle]:
         """
         ContentPlan을 기반으로 모든 에셋 수집
@@ -79,6 +91,7 @@ class AssetManager:
             content_plan: ContentPlan 객체
             download_videos: 영상 다운로드 여부
             generate_tts: TTS 생성 여부
+            select_bgm: BGM 선택 여부 (Phase 2)
 
         Returns:
             AssetBundle 객체 또는 None
@@ -95,13 +108,20 @@ class AssetManager:
         if generate_tts:
             audio_asset = self._generate_tts(content_plan)
 
-        # 3. AssetBundle 생성
+        # 3. Phase 2: BGM 선택
+        bgm_asset = None
+        if select_bgm and self.bgm_enabled and self.bgm_manager:
+            bgm_asset = self._select_bgm(content_plan)
+
+        # 4. AssetBundle 생성
         bundle = AssetBundle(
             videos=video_assets,
-            audio=audio_asset
+            audio=audio_asset,
+            bgm=bgm_asset
         )
 
-        print(f"[SUCCESS] 에셋 수집 완료: 영상 {len(video_assets)}개, 음성 {1 if audio_asset else 0}개")
+        bgm_msg = f", BGM {1 if bgm_asset else 0}개" if self.bgm_enabled else ""
+        print(f"[SUCCESS] 에셋 수집 완료: 영상 {len(video_assets)}개, 음성 {1 if audio_asset else 0}개{bgm_msg}")
         return bundle
 
     def _collect_stock_videos(self, content_plan: ContentPlan) -> List[StockVideoAsset]:
@@ -383,3 +403,45 @@ class AssetManager:
             shutil.rmtree(self.cache_dir)
             self.cache_dir.mkdir()
             print("[Cache] 캐시 삭제 완료")
+
+    def _select_bgm(self, content_plan: ContentPlan) -> Optional[BGMAsset]:
+        """
+        Phase 2: 콘텐츠에 맞는 BGM 선택
+
+        Args:
+            content_plan: ContentPlan 객체
+
+        Returns:
+            선택된 BGMAsset 또는 None
+        """
+        if not self.bgm_manager:
+            return None
+
+        try:
+            # 주제와 톤에서 분위기 자동 추론
+            topic = content_plan.title
+            tone = getattr(content_plan, 'tone', '정보성')  # 기본값: 정보성
+
+            mood = self.bgm_manager.auto_select_mood(topic, tone)
+            print(f"[BGM] 추론된 분위기: {mood.value} (주제: {topic})")
+
+            # 분위기에 맞는 BGM 선택 (최소 길이: target_duration)
+            bgm_asset = self.bgm_manager.get_bgm_by_mood(
+                mood=mood,
+                min_duration=content_plan.target_duration
+            )
+
+            if bgm_asset:
+                print(f"[BGM] 선택 완료: {bgm_asset.name}")
+            else:
+                print(f"[BGM] {mood.value} 분위기의 BGM이 없습니다. 랜덤 선택 시도...")
+                # 폴백: 랜덤 BGM 선택
+                bgm_asset = self.bgm_manager.get_random_bgm(
+                    min_duration=content_plan.target_duration
+                )
+
+            return bgm_asset
+
+        except Exception as e:
+            print(f"[ERROR] BGM 선택 실패: {e}")
+            return None

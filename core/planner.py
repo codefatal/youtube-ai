@@ -151,6 +151,9 @@ class ContentPlanner:
                 ai_provider=AIProvider(self.ai_provider)
             )
 
+            # Phase 2: 시간 제약 검증 및 조정
+            content_plan = self._validate_and_adjust_duration(content_plan)
+
             print(f"[SUCCESS] 스크립트 생성 완료: {content_plan.title}")
             print(f"[INFO] 세그먼트 수: {len(content_plan.segments)}")
 
@@ -252,6 +255,60 @@ class ContentPlanner:
         except FileNotFoundError:
             print(f"[ERROR] 템플릿 파일을 찾을 수 없습니다: {template_path}")
             return None
+
+    def _validate_and_adjust_duration(self, content_plan: ContentPlan) -> ContentPlan:
+        """
+        세그먼트 시간 검증 및 조정 (Phase 2)
+
+        Args:
+            content_plan: 검증할 ContentPlan
+
+        Returns:
+            조정된 ContentPlan
+        """
+        target_duration = content_plan.target_duration
+        segments = content_plan.segments
+
+        # 1. 각 세그먼트에 duration이 없으면 자동 계산
+        for segment in segments:
+            if segment.duration is None or segment.duration == 0:
+                # TTS 읽기 속도 기준: 평균 3글자/초 (한국어)
+                estimated_duration = len(segment.text) / 3.0
+                segment.duration = round(estimated_duration, 1)
+
+        # 2. 총 시간 계산
+        total_duration = sum(seg.duration for seg in segments if seg.duration)
+
+        print(f"[Planner] 총 세그먼트 시간: {total_duration:.1f}초 / 목표: {target_duration}초")
+
+        # 3. 목표 시간과 차이가 5초 이상이면 조정
+        duration_diff = abs(total_duration - target_duration)
+
+        if duration_diff > 5.0:
+            print(f"[Planner] 시간 차이 {duration_diff:.1f}초 감지. 세그먼트 조정 중...")
+
+            # 비율 조정 (proportional scaling)
+            scale_factor = target_duration / total_duration if total_duration > 0 else 1.0
+
+            for segment in segments:
+                if segment.duration:
+                    segment.duration = round(segment.duration * scale_factor, 1)
+
+            # 재계산
+            total_duration = sum(seg.duration for seg in segments if seg.duration)
+            print(f"[Planner] 조정 후 총 시간: {total_duration:.1f}초")
+
+        # 4. 미세 조정 (±2초 이내로 맞추기)
+        final_diff = target_duration - total_duration
+
+        if abs(final_diff) > 0.5 and segments:
+            # 마지막 세그먼트에 차이 추가/제거
+            last_segment = segments[-1]
+            if last_segment.duration:
+                last_segment.duration = max(0.5, last_segment.duration + final_diff)
+                print(f"[Planner] 마지막 세그먼트 미세 조정: {last_segment.duration:.1f}초")
+
+        return content_plan
 
     def save_plan(self, content_plan: ContentPlan, output_dir: str = "./output/plans"):
         """

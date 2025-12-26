@@ -26,6 +26,9 @@ output/
 temp/
 music/
 cache/
+downloads/
+logs/
+data/
 
 # IDE
 .idea/

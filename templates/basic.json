@@ -1,0 +1,20 @@
+{
+  "name": "basic",
+  "description": "심플하고 깔끔한 기본 템플릿",
+
+  "subtitle_font": "malgun.ttf",
+  "subtitle_fontsize": 40,
+  "subtitle_color": "white",
+  "subtitle_stroke_color": "black",
+  "subtitle_stroke_width": 2,
+  "subtitle_position": "bottom",
+  "subtitle_y_offset": 100,
+  "subtitle_animation": "fade",
+
+  "transition_effect": "fade",
+  "color_grading": "none",
+
+  "bgm_enabled": true,
+  "bgm_mood": "calm",
+  "bgm_volume": 0.25
+}

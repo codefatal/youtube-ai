@@ -46,6 +46,16 @@ class TTSProvider(str, Enum):
     GTTS = "gtts"
 
 
+class MoodType(str, Enum):
+    """BGM 분위기 타입"""
+    HAPPY = "happy"           # 밝고 즐거운
+    SAD = "sad"               # 슬프고 감성적인
+    ENERGETIC = "energetic"   # 활기차고 신나는
+    CALM = "calm"             # 차분하고 평온한
+    TENSE = "tense"           # 긴장감 있는
+    MYSTERIOUS = "mysterious" # 신비로운
+
+
 # ============================================================
 # Planner Models
 # ============================================================
@@ -121,11 +131,49 @@ class AudioAsset(BaseModel):
     duration: Optional[float] = Field(None, description="오디오 길이(초)")
 
 
+class BGMAsset(BaseModel):
+    """배경음악 에셋"""
+    name: str = Field(..., description="음악 파일명")
+    local_path: str = Field(..., description="로컬 파일 경로")
+    mood: MoodType = Field(..., description="분위기")
+    duration: float = Field(..., description="길이 (초)")
+    volume: float = Field(default=0.3, description="볼륨 (0.0 ~ 1.0)")
+    artist: Optional[str] = Field(None, description="아티스트")
+    license: Optional[str] = Field(None, description="라이선스")
+
+
+class TemplateConfig(BaseModel):
+    """쇼츠 템플릿 설정"""
+    name: str = Field(..., description="템플릿 이름")
+    description: str = Field(..., description="설명")
+
+    # 자막 설정
+    subtitle_font: str = Field(default="malgun.ttf", description="폰트 파일명")
+    subtitle_fontsize: int = Field(default=40, description="폰트 크기")
+    subtitle_color: str = Field(default="white", description="자막 색상")
+    subtitle_stroke_color: str = Field(default="black", description="외곽선 색상")
+    subtitle_stroke_width: int = Field(default=2, description="외곽선 두께")
+    subtitle_position: str = Field(default="bottom", description="위치 (top, center, bottom)")
+    subtitle_y_offset: int = Field(default=100, description="하단 여백")
+
+    # 자막 애니메이션
+    subtitle_animation: Optional[str] = Field(None, description="애니메이션 (pop, slide, fade, karaoke)")
+
+    # 영상 효과
+    transition_effect: Optional[str] = Field(None, description="트랜지션 (fade, crossfade, none)")
+    color_grading: Optional[str] = Field(None, description="색 보정 (warm, cool, bw, none)")
+
+    # BGM 설정
+    bgm_enabled: bool = Field(default=True, description="BGM 활성화")
+    bgm_mood: Optional[MoodType] = Field(default=MoodType.ENERGETIC, description="BGM 분위기")
+
+
 class AssetBundle(BaseModel):
     """에셋 번들"""
     videos: List[StockVideoAsset] = Field(default_factory=list, description="영상 에셋")
     audio: Optional[AudioAsset] = Field(None, description="오디오 에셋")
-    background_music: Optional[str] = Field(None, description="배경 음악 경로")
+    bgm: Optional[BGMAsset] = Field(None, description="배경음악 에셋")  # Phase 2 추가
+    background_music: Optional[str] = Field(None, description="배경 음악 경로 (하위 호환)")
 
 
 # ============================================================
