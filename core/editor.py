@@ -356,7 +356,7 @@ class VideoEditor:
                     stroke_color='black',
                     stroke_width=2,
                     method='caption',
-                    size=(self.config.resolution[0] * 0.9, None)
+                    size=(int(self.config.resolution[0] * 0.9), None)
                 )
 
                 # 위치 설정 (하단 중앙, margin 대신 수동 계산)
