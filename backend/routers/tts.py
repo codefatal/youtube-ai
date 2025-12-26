@@ -104,35 +104,93 @@ async def preview_tts(request: TTSPreviewRequest):
 @router.get("/voices")
 async def list_voices():
     """
-    사용 가능한 ElevenLabs Voice 목록
+    Phase 4: 사용 가능한 ElevenLabs Voice 목록 (10개 이상)
 
     실제 API 호출 대신 미리 정의된 목록 반환 (비용 절감)
+    한국어 지원 Voice 우선 배치
     """
-    # 추천 한국어 지원 Voice ID
+    # Phase 4: 10개 이상의 Voice 제공
     voices = [
+        # 한국어 지원 (Multilingual) - 우선 추천
         VoiceInfo(
             voice_id="pNInz6obpgDQGcFmaJgB",
-            name="Adam (Male)",
+            name="Adam (남성)",
             language="Multilingual",
-            description="밝고 친근한 남성 목소리 (한국어 지원)"
+            description="밝고 친근한 남성 목소리 (한국어 지원) ⭐"
         ),
         VoiceInfo(
             voice_id="EXAVITQu4vr4xnSDxMaL",
-            name="Bella (Female)",
+            name="Bella (여성)",
             language="Multilingual",
-            description="부드럽고 차분한 여성 목소리 (한국어 지원)"
+            description="부드럽고 차분한 여성 목소리 (한국어 지원) ⭐"
         ),
         VoiceInfo(
             voice_id="FGY2WhTYpPnrIDTdsKH5",
-            name="Laura (Female)",
+            name="Laura (여성)",
             language="Multilingual",
-            description="활기차고 명랑한 여성 목소리 (한국어 지원)"
+            description="활기차고 명랑한 여성 목소리 (한국어 지원) ⭐"
+        ),
+        VoiceInfo(
+            voice_id="ErXwobaYiN019PkySvjV",
+            name="Antoni (남성)",
+            language="Multilingual",
+            description="부드럽고 신뢰감 있는 남성 목소리 (한국어 지원) ⭐"
+        ),
+        VoiceInfo(
+            voice_id="MF3mGyEYCl7XYWbV9V6O",
+            name="Elli (여성)",
+            language="Multilingual",
+            description="차분하고 우아한 여성 목소리 (한국어 지원) ⭐"
+        ),
+        VoiceInfo(
+            voice_id="flq6f7yk4E4fJM5XTYuZ",
+            name="Michael (남성)",
+            language="Multilingual",
+            description="깊고 권위 있는 남성 목소리 (한국어 지원) ⭐"
+        ),
+
+        # 영어 전용 - 추가 옵션
+        VoiceInfo(
+            voice_id="21m00Tcm4TlvDq8ikWAM",
+            name="Rachel (여성)",
+            language="English",
+            description="차분하고 전문적인 여성 목소리 (영어 전용)"
+        ),
+        VoiceInfo(
+            voice_id="AZnzlk1XvdvUeBnXmlld",
+            name="Domi (여성)",
+            language="English",
+            description="활기차고 에너제틱한 여성 목소리 (영어 전용)"
+        ),
+        VoiceInfo(
+            voice_id="TxGEqnHWrfWFTfGW9XjX",
+            name="Josh (남성)",
+            language="English",
+            description="밝고 활기찬 젊은 남성 목소리 (영어 전용)"
+        ),
+        VoiceInfo(
+            voice_id="VR6AewLTigWG4xSOukaG",
+            name="Arnold (남성)",
+            language="English",
+            description="강하고 자신감 있는 남성 목소리 (영어 전용)"
+        ),
+        VoiceInfo(
+            voice_id="pqHfZKP75CvOlQylNhV4",
+            name="Bill (남성)",
+            language="English",
+            description="따뜻하고 친근한 중년 남성 목소리 (영어 전용)"
+        ),
+        VoiceInfo(
+            voice_id="yoZ06aMxZJJ28mfd3POQ",
+            name="Sam (남성)",
+            language="English",
+            description="신뢰감 있는 내레이터 남성 목소리 (영어 전용)"
         ),
         VoiceInfo(
             voice_id="JBFqnCBsd6RMkjVDRZzb",
-            name="George (Male)",
+            name="George (남성)",
             language="English",
-            description="권위 있는 남성 목소리 (영어 전용)"
+            description="권위 있는 성숙한 남성 목소리 (영어 전용)"
         )
     ]
 

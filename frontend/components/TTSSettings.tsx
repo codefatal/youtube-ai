@@ -1,6 +1,13 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+
+interface Voice {
+  voice_id: string;
+  name: string;
+  language: string;
+  description: string;
+}
 
 interface TTSSettingsProps {
   settings: {
@@ -15,6 +22,28 @@ interface TTSSettingsProps {
 
 export default function TTSSettings({ settings, onChange }: TTSSettingsProps) {
   const [previewLoading, setPreviewLoading] = useState(false);
+  const [voices, setVoices] = useState<Voice[]>([]);
+  const [voicesLoading, setVoicesLoading] = useState(false);
+
+  // Phase 4: Voice 목록 가져오기
+  useEffect(() => {
+    if (settings.provider === 'elevenlabs') {
+      fetchVoices();
+    }
+  }, [settings.provider]);
+
+  const fetchVoices = async () => {
+    setVoicesLoading(true);
+    try {
+      const res = await fetch('http://localhost:8000/api/tts/voices');
+      const data = await res.json();
+      setVoices(data.voices || []);
+    } catch (error) {
+      console.error('Voice 목록 가져오기 실패:', error);
+    } finally {
+      setVoicesLoading(false);
+    }
+  };
 
   const handlePreview = async () => {
     setPreviewLoading(true);
@@ -64,20 +93,32 @@ export default function TTSSettings({ settings, onChange }: TTSSettingsProps) {
       {/* ElevenLabs 설정 */}
       {settings.provider === 'elevenlabs' && (
         <>
-          {/* Voice ID */}
+          {/* Phase 4: Voice ID 동적 선택 */}
           <div>
             <label className="block text-sm font-medium text-gray-300 mb-2">
-              Voice ID
+              음성 선택 {voicesLoading && <span className="text-xs">(로딩 중...)</span>}
             </label>
             <select
               value={settings.voiceId}
               onChange={(e) => onChange({ ...settings, voiceId: e.target.value })}
-              className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white"
+              className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white text-sm"
+              disabled={voicesLoading}
             >
-              <option value="pNInz6obpgDQGcFmaJgB">Adam (Male)</option>
-              <option value="EXAVITQu4vr4xnSDxMaL">Bella (Female)</option>
-              <option value="FGY2WhTYpPnrIDTdsKH5">Laura (Female)</option>
+              {voices.length === 0 ? (
+                <option value="pNInz6obpgDQGcFmaJgB">Adam (남성) - 기본값</option>
+              ) : (
+                voices.map((voice) => (
+                  <option key={voice.voice_id} value={voice.voice_id}>
+                    {voice.name} - {voice.description}
+                  </option>
+                ))
+              )}
             </select>
+            {voices.length > 0 && (
+              <p className="text-xs text-gray-400 mt-1">
+                ⭐ = 한국어 지원 | 총 {voices.length}개 음성 사용 가능
+              </p>
+            )}
           </div>
 
           {/* Stability */}
