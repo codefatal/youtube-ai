@@ -362,7 +362,7 @@ class VideoEditor:
                 # 위치 설정 (하단 중앙, margin 대신 수동 계산)
                 # MoviePy 2.x에서 margin()이 작동하지 않을 수 있으므로
                 # 위치를 직접 계산
-                y_position = self.config.resolution[1] - 100  # 하단에서 100px 위
+                y_position = int(self.config.resolution[1] - 100)  # 하단에서 100px 위 (정수 변환)
                 txt_clip = txt_clip.with_position(('center', y_position))
 
                 # 시간 설정
