@@ -54,8 +54,10 @@ pydantic>=2.0.0  # 데이터 모델
 schedule>=1.2.0  # 스케줄링
 psutil>=6.0.0  # 시스템 리소스 모니터링 (벤치마크용)
 
-# ===== 데이터베이스 =====
-sqlalchemy>=2.0.0
+# ===== 데이터베이스 (Phase 1) =====
+sqlalchemy>=2.0.23
+alembic>=1.13.1
+pydantic-settings>=2.1.0
 
 # ===== 서버 (선택) =====
 fastapi>=0.115.0
