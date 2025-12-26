@@ -33,7 +33,11 @@ export default function CreatePage() {
       });
 
       const data = await res.json();
-      alert(`영상 생성 시작! Job ID: ${data.job_id}`);
+      if (data.success) {
+        alert(`영상 생성 시작! Job ID: ${data.data.job_id}`);
+      } else {
+        alert(`오류: ${data.detail || '알 수 없는 오류'}`);
+      }
     } catch (error) {
       console.error('영상 생성 실패:', error);
     } finally {

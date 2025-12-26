@@ -472,6 +472,7 @@ python scripts/setup_bgm.py --stats
     -   **백엔드 의존성 문제 해결**: `apscheduler` 및 `pytz` 패키지 누락으로 인한 `ModuleNotFoundError`를 해결했습니다. 시스템 전역이 아닌 가상환경(`venv`)에 패키지가 올바르게 설치되도록 수정하고, `backend/requirements.txt`에 의존성을 명시했습니다.
     -   **프론트엔드 빌드 오류 해결**: `frontend/app/layout.tsx`에서 존재하지 않는 경로(`@/styles/globals.css`)의 CSS 파일을 import 하던 문제를 올바른 상대 경로(`'./globals.css'`)로 수정하여 빌드 오류를 해결했습니다.
     -   **영상 생성 기능 정상화**: 프론트엔드 '영상 생성' 페이지에서 보내는 `template`, `tts_settings` 데이터를 백엔드 API가 처리하지 못해 버튼이 동작하지 않던 문제를 해결했습니다. 이를 위해 API 모델(`CreateVideoRequest`)부터 `Orchestrator`, `AssetManager`, `Editor`에 이르기까지 데이터 흐름을 전부 수정하여, 프론트엔드에서 설정한 값이 실제 영상 생성에 올바르게 반영되도록 파이프라인을 개선했습니다.
+    -   **Job ID 표시 오류 해결**: 영상 생성 시작 시 `Job ID`가 `undefined`로 표시되던 문제를 수정했습니다. 백엔드 API의 응답 구조(`{ data: { job_id: ... } }`)와 프론트엔드의 데이터 접근 방식(`data.data.job_id`)을 일치시키고, 오류 발생 시 사용자에게 알림을 표시하도록 개선했습니다.
 -   **`ModuleNotFoundError` 해결**:
     -   백엔드 시작 시 `apscheduler` 모듈을 찾지 못하는 오류 수정.
     -   `backend/requirements.txt`에 `APScheduler>=3.10.0` 의존성 추가.
