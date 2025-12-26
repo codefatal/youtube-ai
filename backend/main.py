@@ -300,12 +300,28 @@ async def get_job_status(request: GetJobStatusRequest):
 
 
 @app.get("/api/jobs/recent")
-async def get_recent_jobs(limit: int = 10):
-    """최근 작업 목록 조회"""
+async def get_recent_jobs(page: int = 1, limit: int = 10):
+    """
+    Phase 6: 최근 작업 목록 조회 (페이징 지원)
+
+    Args:
+        page: 페이지 번호 (1부터 시작)
+        limit: 페이지당 항목 수 (기본 10개)
+    """
     try:
         db = SessionLocal()
         try:
-            jobs = db.query(DBJobHistory).order_by(DBJobHistory.started_at.desc()).limit(limit).all()
+            # 페이징 계산
+            offset = (page - 1) * limit
+
+            # 전체 개수 조회
+            total = db.query(func.count(DBJobHistory.id)).scalar()
+
+            # 페이징된 데이터 조회
+            jobs = db.query(DBJobHistory).order_by(DBJobHistory.started_at.desc()).offset(offset).limit(limit).all()
+
+            # 전체 페이지 수 계산
+            total_pages = (total + limit - 1) // limit if total > 0 else 1
 
             return {
                 "success": True,
@@ -317,10 +333,17 @@ async def get_recent_jobs(limit: int = 10):
                             "topic": job.topic,
                             "format": job.format,
                             "created_at": job.started_at.isoformat() if job.started_at else None,
-                            "completed_at": job.completed_at.isoformat() if job.completed_at else None
+                            "completed_at": job.completed_at.isoformat() if job.completed_at else None,
+                            "output_video_path": job.output_video_path,
+                            "youtube_url": job.youtube_url,
+                            "error_log": job.error_log
                         }
                         for job in jobs
                     ],
+                    "total": total,
+                    "page": page,
+                    "limit": limit,
+                    "total_pages": total_pages,
                     "count": len(jobs)
                 }
             }
