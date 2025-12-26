@@ -32,6 +32,10 @@ from core.models import (
     ContentStatus
 )
 
+# Phase 1: Database and API Routers
+from backend.database import init_db
+from backend.routers import accounts
+
 app = FastAPI(
     title="YouTube AI v3.0 API",
     description="AI-Powered Original Content Creation System",
@@ -49,6 +53,21 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+# ==================== Startup/Shutdown 이벤트 ====================
+
+@app.on_event("startup")
+def startup_event():
+    """앱 시작 시 DB 초기화"""
+    init_db()
+    print("[FastAPI] 데이터베이스 초기화 완료")
+
+
+# ==================== 라우터 등록 (Phase 1) ====================
+
+app.include_router(accounts.router)
+
 
 # 전역 Orchestrator (싱글톤 패턴)
 _orchestrator = None
