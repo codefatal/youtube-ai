@@ -465,5 +465,15 @@ python scripts/setup_bgm.py --stats
 
 ---
 
+## 🐛 버그 수정 및 유지보수
+
+### 2025-12-26
+-   **`ModuleNotFoundError` 해결**:
+    -   백엔드 시작 시 `apscheduler` 모듈을 찾지 못하는 오류 수정.
+    -   `backend/requirements.txt`에 `APScheduler>=3.10.0` 의존성 추가.
+    -   `pip install -r backend/requirements.txt`를 통해 패키지 설치 완료.
+
+---
+
 **마지막 업데이트**: 2025-12-26
 **문서 버전**: 1.0

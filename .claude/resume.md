@@ -54,6 +54,11 @@
   - 모바일 반응형
   - 완료 문서: `PHASE5_COMPLETE.md` (새로 생성 예정)
 
+### 🐛 버그 수정
+
+- **`ModuleNotFoundError` 해결** (2025-12-26)
+  - `backend/requirements.txt`에 `apscheduler` 추가하여 백엔드 서버 시작 오류 해결.
+
 ### 🔄 다음 Phase
 
 - **Phase 6: 통합 테스트, README 업데이트, 배포 준비**
