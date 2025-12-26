@@ -35,17 +35,25 @@
   - 해시 기반 스마트 캐싱 강화
   - AccountSettings 연동
   - 비용 절감 (API 호출 50% 감소)
-  - 완료 문서: `PHASE3_COMPLETE.md` (새로 생성 예정)
+  - 완료 문서: `PHASE3_COMPLETE.md`
+
+- **Phase 4: 스케줄링 및 자동화 시스템** (완료일: 2025-12-26)
+  - APScheduler 도입 (백그라운드 작업)
+  - 계정별 스케줄 관리 (Cron 포맷)
+  - 자동 생성 및 업로드 Worker
+  - 작업 이력 DB 저장 (JobHistory 테이블)
+  - 스케줄 모니터링 API
+  - 완료 문서: `PHASE4_COMPLETE.md` (새로 생성 예정)
 
 ### 🔄 다음 Phase
 
-- **Phase 4: 스케줄링 시스템**
-  - 계획 문서: `UPGRADE_PHASE4.md`
+- **Phase 5: 모니터링 & 통계**
+  - 계획 문서: `UPGRADE_PHASE5.md`
   - 예상 작업량: 중간
   - 주요 작업:
-    1. Orchestrator 스케줄링 기능 추가
-    2. 계정별 스케줄 설정
-    3. Cron 작업 연동
+    1. 실시간 작업 진행 상황 모니터링
+    2. 시스템 통계 API
+    3. 에러 알림 시스템
 
 ---
 

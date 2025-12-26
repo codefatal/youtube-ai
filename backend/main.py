@@ -34,7 +34,8 @@ from core.models import (
 
 # Phase 1: Database and API Routers
 from backend.database import init_db
-from backend.routers import accounts, tts
+from backend.routers import accounts, tts, scheduler
+from backend.scheduler import scheduler_instance  # ✨ NEW
 
 app = FastAPI(
     title="YouTube AI v3.0 API",
@@ -59,15 +60,31 @@ app.add_middleware(
 
 @app.on_event("startup")
 def startup_event():
-    """앱 시작 시 DB 초기화"""
+    """앱 시작 시 실행"""
+    # DB 초기화
     init_db()
     print("[FastAPI] 데이터베이스 초기화 완료")
+
+    # ✨ 스케줄러 시작
+    scheduler_instance.start()
+    scheduler_instance.load_account_schedules()
+    print("[FastAPI] 스케줄러 시작 완료")
+
+
+@app.on_event("shutdown")
+def shutdown_event():
+    """앱 종료 시 실행"""
+    # ✨ 스케줄러 종료
+    scheduler_instance.shutdown()
+    print("[FastAPI] 스케줄러 종료됨")
+
 
 
 # ==================== 라우터 등록 (Phase 1) ====================
 
 app.include_router(accounts.router)
-app.include_router(tts.router)  # ✨ NEW
+app.include_router(tts.router)
+app.include_router(scheduler.router)  # ✨ NEW
 
 
 # 전역 Orchestrator (싱글톤 패턴)

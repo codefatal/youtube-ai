@@ -180,7 +180,8 @@ class ContentOrchestrator:
         video_format: VideoFormat = VideoFormat.SHORTS,
         target_duration: int = 60,
         upload: bool = False,
-        job_id: Optional[str] = None
+        job_id: Optional[str] = None,
+        account_id: Optional[int] = None  # ✨ NEW
     ) -> ContentJob:
         """
         전체 콘텐츠 생성 파이프라인 실행
@@ -191,6 +192,7 @@ class ContentOrchestrator:
             target_duration: 목표 길이(초)
             upload: YouTube 업로드 여부
             job_id: 작업 ID (None이면 자동 생성)
+            account_id: 계정 ID (Phase 3 TTS 연동)
 
         Returns:
             ContentJob 객체
@@ -242,7 +244,8 @@ class ContentOrchestrator:
             asset_bundle = asset_manager.collect_assets(
                 content_plan,
                 download_videos=True,
-                generate_tts=True
+                generate_tts=True,
+                account_id=account_id  # Phase 3에서 구현한 기능 사용
             )
 
             if not asset_bundle:

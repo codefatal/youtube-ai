@@ -339,6 +339,60 @@ python scripts/setup_bgm.py --stats
 
 ---
 
+## Phase 4: 스케줄링 및 자동화 시스템
+
+**완료 일시**: 2025-12-26
+
+### 완료된 작업
+
+#### 1. 필수 패키지 설치
+-   `apscheduler`, `pytz` 설치.
+
+#### 2. `backend/scheduler.py` 신규 생성
+-   APScheduler 기반의 `AutomationScheduler` 클래스 구현.
+-   DB(`Account` 테이블)에서 활성화된 계정의 스케줄을 로드하고 등록하는 기능 (`load_account_schedules`, `add_account_schedule`).
+-   스케줄러 시작/종료 (`start`, `shutdown`) 및 Job 조회 (`get_all_jobs`).
+
+#### 3. `backend/workers.py` 신규 생성
+-   `auto_generate_and_upload` Worker 함수 구현.
+-   스케줄러에 의해 백그라운드에서 실행되며, 계정 정보를 바탕으로 콘텐츠 생성부터 YouTube 업로드까지의 전체 파이프라인을 실행.
+-   JobHistory에 작업 이력과 상태를 기록.
+
+#### 4. `backend/main.py` 수정
+-   `backend.scheduler`에서 `scheduler_instance` 임포트.
+-   FastAPI `startup_event`에서 스케줄러 시작 및 계정 스케줄 로드.
+-   FastAPI `shutdown_event`에서 스케줄러 종료.
+-   `backend.routers.scheduler` 임포트 및 라우터 등록.
+
+#### 5. `backend/routers/scheduler.py` 신규 생성
+-   스케줄 관리 API 구현:
+    *   `GET /api/scheduler/jobs`: 현재 등록된 모든 스케줄 조회.
+    *   `POST /api/scheduler/reload`: DB에서 스케줄을 다시 로드.
+    *   `POST /api/scheduler/trigger/{account_id}`: 특정 계정의 작업을 즉시 실행.
+    *   `DELETE /api/scheduler/jobs/{job_id}`: 특정 Job 제거.
+
+#### 6. `core/orchestrator.py` 수정
+-   `create_content` 메서드에 `account_id` 파라미터 추가.
+-   `asset_manager.collect_assets` 호출 시 `account_id` 전달하여 계정별 설정 적용 가능.
+
+#### 7. `tests/test_scheduler.py` 신규 생성
+-   스케줄러 기능 테스트 스크립트 추가 (테스트 계정 생성, 스케줄 등록, JobHistory 확인).
+
+### 성과
+
+**코드 변경**:
+-   신규 파일: 4개 (`backend/scheduler.py`, `backend/workers.py`, `backend/routers/scheduler.py`, `tests/test_scheduler.py`)
+-   수정 파일: 2개 (`backend/main.py`, `core/orchestrator.py`)
+
+**기능 개선**:
+-   APScheduler를 이용한 강력한 백그라운드 스케줄링 시스템 구축.
+-   계정별로 설정된 스케줄(`cron` 포맷)에 따라 자동으로 콘텐츠 생성 및 YouTube 업로드 가능.
+-   JobHistory 테이블에 모든 자동화 작업의 이력 및 상태 기록.
+-   스케줄 관리 및 모니터링을 위한 RESTful API 제공.
+-   `ContentOrchestrator`가 계정 ID를 인지하여 계정별 설정(`TTS 설정 등`)을 반영하도록 확장.
+
+---
+
 ## 📊 전체 통계
 
 ### 리팩토링 프로젝트 (Phase 1~8)
@@ -347,11 +401,11 @@ python scripts/setup_bgm.py --stats
 - **핵심 모듈**: 5개 (Planner, AssetManager, Editor, Uploader, Orchestrator)
 - **Provider**: 5개 (Gemini, Pexels, Pixabay, gTTS, ElevenLabs)
 
-### 업그레이드 프로젝트 (Phase 1~3)
+### 업그레이드 프로젝트 (Phase 1~4)
 - **기간**: 1일 (2025-12-26)
-- **완료**: 3개 Phase
-- **신규 기능**: 데이터베이스, BGM, 템플릿, 수동 업로드, ElevenLabs TTS 고도화
-- **API**: 7개 엔드포인트 추가 (Accounts 4개, TTS 3개)
+- **완료**: 4개 Phase
+- **신규 기능**: 데이터베이스, BGM, 템플릿, 수동 업로드, ElevenLabs TTS 고도화, 스케줄링 및 자동화 시스템
+- **API**: 11개 엔드포인트 추가 (Accounts 4개, TTS 3개, Scheduler 4개)
 
 ---
 
@@ -359,7 +413,6 @@ python scripts/setup_bgm.py --stats
 
 ### v4.0 업그레이드 Phase 3~6 (예정)
 
-- **Phase 4**: 스케줄링 시스템
 - **Phase 5**: 모니터링 & 통계
 - **Phase 6**: Frontend 통합
 
