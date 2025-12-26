@@ -323,8 +323,13 @@ class ContentOrchestrator:
 
         except Exception as e:
             # 에러 처리
-            self.logger.error(f"작업 실패 ({job_id}): {e}")
-            job.error_log.append(f"[{datetime.now()}] {str(e)}")
+            import traceback
+            error_message = str(e)
+            # 인코딩 오류 방지
+            cleaned_message = error_message.encode('utf-8', 'ignore').decode('utf-8')
+            
+            self.logger.error(f"작업 실패 ({job_id}): {cleaned_message}")
+            job.error_log.append(f"[{datetime.now()}] {cleaned_message}")
             self._update_job_status(job, ContentStatus.FAILED)
 
             # 실패 작업 수 증가
@@ -332,7 +337,6 @@ class ContentOrchestrator:
                 self.history.failed_jobs += 1
                 self._save_history()
 
-            import traceback
             traceback.print_exc()
 
             return job
