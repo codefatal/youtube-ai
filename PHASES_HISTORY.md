@@ -300,6 +300,45 @@ python scripts/setup_bgm.py --stats
 
 ---
 
+## Phase 3: ElevenLabs TTS 고도화
+
+**완료 일시**: 2025-12-26
+
+### 완료된 작업
+
+#### 1. `core/asset_manager.py` 수정
+-   **ElevenLabs 파라미터 추가**: `_generate_elevenlabs` 메서드에 `stability`, `similarity_boost`, `style`, `use_speaker_boost` 파라미터 추가.
+-   **스마트 캐싱 강화**: 위 파라미터들을 파일명 해시 생성에 포함하여, 동일 텍스트라도 음성 설정이 다르면 다른 캐시 파일 생성.
+-   **계정 설정 연동**: `_generate_tts` 메서드가 `account_id`를 받아 `AccountSettings`에서 ElevenLabs TTS 설정을 불러와 적용하도록 수정.
+-   **계정 TTS 설정 조회 메서드 추가**: `_get_account_tts_settings` 메서드를 추가하여 DB에서 계정별 TTS 설정을 조회.
+
+#### 2. `backend/routers/tts.py` 파일 신규 생성
+-   **TTS 미리듣기 API 구현**: `/api/tts/preview` 엔드포인트 추가 (ElevenLabs 파라미터 지원, 스마트 캐싱 적용).
+-   **Voice 목록 조회 API**: `/api/tts/voices` 엔드포인트 추가 (미리 정의된 ElevenLabs Voice 목록 반환).
+-   **캐시 삭제 API**: `/api/tts/cache` 엔드포인트 추가.
+
+#### 3. `backend/main.py` 수정
+-   **TTS 라우터 등록**: `tts` 라우터를 FastAPI 애플리케이션에 포함시켜 새 API 엔드포인트 활성화.
+
+#### 4. 테스트 스크립트 추가
+-   `tests/test_tts_advanced.py`: ElevenLabs 파라미터 제어 테스트 스크립트 추가.
+-   `tests/test_tts_caching.py`: 캐싱 효율성 테스트 스크립트 추가.
+
+### 성과
+
+**코드 변경**:
+-   신규 파일: 3개 (`backend/routers/tts.py`, `tests/test_tts_advanced.py`, `tests/test_tts_caching.py`)
+-   수정 파일: 2개 (`core/asset_manager.py`, `backend/main.py`)
+
+**기능 개선**:
+-   ElevenLabs TTS 음성 생성 시 `stability`, `similarity_boost`, `style` 등 상세 파라미터 제어 가능.
+-   해시 기반 스마트 캐싱을 통한 TTS 생성 시간 단축 및 API 호출 비용 절감.
+-   프론트엔드에서 실시간으로 음성 설정을 테스트할 수 있는 미리듣기 API 제공.
+-   계정별로 다른 TTS 설정 적용 가능 (AccountSettings 연동).
+-   사용 가능한 ElevenLabs Voice 목록 제공.
+
+---
+
 ## 📊 전체 통계
 
 ### 리팩토링 프로젝트 (Phase 1~8)
@@ -308,11 +347,11 @@ python scripts/setup_bgm.py --stats
 - **핵심 모듈**: 5개 (Planner, AssetManager, Editor, Uploader, Orchestrator)
 - **Provider**: 5개 (Gemini, Pexels, Pixabay, gTTS, ElevenLabs)
 
-### 업그레이드 프로젝트 (Phase 1~2)
+### 업그레이드 프로젝트 (Phase 1~3)
 - **기간**: 1일 (2025-12-26)
-- **완료**: 2개 Phase
-- **신규 기능**: 데이터베이스, BGM, 템플릿, 수동 업로드
-- **API**: 4개 엔드포인트 추가
+- **완료**: 3개 Phase
+- **신규 기능**: 데이터베이스, BGM, 템플릿, 수동 업로드, ElevenLabs TTS 고도화
+- **API**: 7개 엔드포인트 추가 (Accounts 4개, TTS 3개)
 
 ---
 
@@ -320,7 +359,6 @@ python scripts/setup_bgm.py --stats
 
 ### v4.0 업그레이드 Phase 3~6 (예정)
 
-- **Phase 3**: 멀티 계정 관리 고도화
 - **Phase 4**: 스케줄링 시스템
 - **Phase 5**: 모니터링 & 통계
 - **Phase 6**: Frontend 통합

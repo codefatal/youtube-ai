@@ -34,7 +34,7 @@ from core.models import (
 
 # Phase 1: Database and API Routers
 from backend.database import init_db
-from backend.routers import accounts
+from backend.routers import accounts, tts
 
 app = FastAPI(
     title="YouTube AI v3.0 API",
@@ -67,6 +67,7 @@ def startup_event():
 # ==================== 라우터 등록 (Phase 1) ====================
 
 app.include_router(accounts.router)
+app.include_router(tts.router)  # ✨ NEW
 
 
 # 전역 Orchestrator (싱글톤 패턴)

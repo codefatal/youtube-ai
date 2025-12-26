@@ -3,10 +3,11 @@ Asset Manager Module
 스톡 영상, TTS 음성 등 에셋 수집 및 관리
 """
 import os
-import json
 import hashlib
 from typing import List, Optional, Dict, Any
-from pathlib import Path
+
+from backend.database import SessionLocal  # Phase 3
+from backend.models import AccountSettings  # Phase 3
 
 from core.models import (
     ContentPlan,
@@ -210,39 +211,89 @@ class AssetManager:
 
         return provider.download_video(asset, output_dir=str(self.video_dir))
 
-    def _generate_tts(self, content_plan: ContentPlan) -> Optional[AudioAsset]:
+    def _generate_tts(self, content_plan: ContentPlan, account_id: Optional[int] = None) -> Optional[AudioAsset]:
         """
-        TTS 음성 생성
+        TTS 음성 생성 (AccountSettings 연동)
 
         Args:
             content_plan: ContentPlan 객체
+            account_id: 계정 ID (Phase 1 DB 연동)
 
         Returns:
             AudioAsset 객체 또는 None
         """
-        # 전체 스크립트 결합
         full_text = " ".join([seg.text for seg in content_plan.segments])
 
-        print(f"\n[TTS] 음성 생성 시작 ({self.tts_provider})")
-        print(f"[TTS] 텍스트: {full_text[:100]}...")
-
-        # TTS 제공자별 처리
-        if self.tts_provider == "gtts":
-            filepath = self._generate_gtts(full_text)
-        elif self.tts_provider == "elevenlabs":
-            filepath = self._generate_elevenlabs(full_text)
+        # ✨ AccountSettings에서 TTS 설정 가져오기
+        if account_id:
+            settings = self._get_account_tts_settings(account_id)
         else:
-            print(f"[WARNING] {self.tts_provider}는 아직 구현되지 않았습니다. gTTS를 사용합니다.")
+            # 기본값
+            settings = {
+                "tts_provider": self.tts_provider,
+                "tts_voice_id": "pNInz6obpgDQGcFmaJgB",
+                "tts_stability": 0.5,
+                "tts_similarity_boost": 0.75,
+                "tts_style": 0.0
+            }
+
+        # TTS 생성 (설정 반영)
+        if settings["tts_provider"] == "elevenlabs":
+            filepath = self._generate_elevenlabs(
+                text=full_text,
+                voice_id=settings["tts_voice_id"],
+                stability=settings["tts_stability"],
+                similarity_boost=settings["tts_similarity_boost"],
+                style=settings["tts_style"]
+            )
+        else:
             filepath = self._generate_gtts(full_text)
 
         if filepath:
             return AudioAsset(
                 text=full_text,
-                provider=TTSProvider(self.tts_provider),
+                provider=TTSProvider(settings["tts_provider"]),
                 local_path=filepath
             )
 
         return None
+
+    def _get_account_tts_settings(self, account_id: int) -> dict:
+        """
+        AccountSettings에서 TTS 설정 가져오기
+
+        Args:
+            account_id: 계정 ID
+
+        Returns:
+            설정 딕셔너리
+        """
+        db = SessionLocal()
+        try:
+            settings = db.query(AccountSettings).filter(
+                AccountSettings.account_id == account_id
+            ).first()
+
+            if settings:
+                return {
+                    "tts_provider": settings.tts_provider,
+                    "tts_voice_id": settings.tts_voice_id or "pNInz6obpgDQGcFmaJgB",
+                    "tts_stability": settings.tts_stability,
+                    "tts_similarity_boost": settings.tts_similarity_boost,
+                    "tts_style": settings.tts_style
+                }
+        finally:
+            db.close()
+
+        # 기본값 반환
+        return {
+            "tts_provider": "gtts",
+            "tts_voice_id": "pNInz6obpgDQGcFmaJgB",
+            "tts_stability": 0.5,
+            "tts_similarity_boost": 0.75,
+            "tts_style": 0.0
+        }
+
 
     def _generate_gtts(self, text: str) -> Optional[str]:
         """
@@ -281,12 +332,25 @@ class AssetManager:
             print(f"[ERROR] TTS 생성 실패: {e}")
             return None
 
-    def _generate_elevenlabs(self, text: str) -> Optional[str]:
+    def _generate_elevenlabs(
+        self,
+        text: str,
+        voice_id: str = "pNInz6obpgDQGcFmaJgB",  # Adam
+        stability: float = 0.5,      # ✨ NEW: 0.0 ~ 1.0
+        similarity_boost: float = 0.75,  # ✨ NEW: 0.0 ~ 1.0
+        style: float = 0.0,          # ✨ NEW: 0.0 ~ 1.0 (과장 정도)
+        use_speaker_boost: bool = True  # ✨ NEW: 목소리 강화
+    ) -> Optional[str]:
         """
-        ElevenLabs TTS로 음성 생성
+        ElevenLabs TTS 고도화 버전
 
         Args:
             text: 변환할 텍스트
+            voice_id: ElevenLabs Voice ID
+            stability: 음성 안정성 (낮을수록 감정 표현 풍부, 높을수록 일관성 유지)
+            similarity_boost: 원본 목소리와의 유사도 (높을수록 원본에 가까움)
+            style: 스타일 과장 정도 (0.0 = 자연스러움, 1.0 = 과장됨)
+            use_speaker_boost: 목소리 강화 (True 권장)
 
         Returns:
             저장된 파일 경로 또는 None
@@ -295,33 +359,49 @@ class AssetManager:
             from elevenlabs.client import ElevenLabs
             import os
 
-            # API 키 확인 (환경변수에서 자동 로드)
+            # API 키 확인
             api_key = os.getenv("ELEVENLABS_API_KEY")
             if not api_key:
                 print("[ERROR] ELEVENLABS_API_KEY 환경변수가 설정되지 않았습니다.")
-                print("[INFO] gTTS로 폴백합니다.")
                 return self._generate_gtts(text)
 
-            # 파일명 생성 (텍스트 해시)
-            text_hash = hashlib.md5(text.encode()).hexdigest()[:10]
-            filename = f"tts_elevenlabs_{text_hash}.mp3"
+            # ✨ 파일명 생성 (설정값 포함 해시)
+            # 같은 텍스트라도 파라미터가 다르면 다른 파일로 저장
+            settings_str = f"{voice_id}_{stability}_{similarity_boost}_{style}"
+            combined_hash = hashlib.md5(
+                f"{text}_{settings_str}".encode()
+            ).hexdigest()[:10]
+
+            filename = f"tts_elevenlabs_{combined_hash}.mp3"
             filepath = self.audio_dir / filename
 
-            # 이미 생성된 경우
+            # 이미 생성된 경우 (스마트 캐싱)
             if filepath.exists():
-                print(f"[TTS] 이미 생성됨: {filename}")
+                print(f"[TTS] 캐시에서 로드: {filename}")
                 return str(filepath)
 
             # ElevenLabs 클라이언트 생성
             client = ElevenLabs(api_key=api_key)
 
-            # TTS 생성 (한국어 지원 모델 사용)
-            print(f"[ElevenLabs] 음성 생성 중... (모델: eleven_multilingual_v2)")
+            # ✨ 상세 설정으로 TTS 생성
+            print(f"[ElevenLabs] 음성 생성 중...")
+            print(f"  - Voice: {voice_id}")
+            print(f"  - Stability: {stability}")
+            print(f"  - Similarity Boost: {similarity_boost}")
+            print(f"  - Style: {style}")
+
             audio_generator = client.text_to_speech.convert(
                 text=text,
-                voice_id="pNInz6obpgDQGcFmaJgB",  # Adam (기본 남성 목소리)
-                model_id="eleven_multilingual_v2",  # 한국어 지원 모델
-                output_format="mp3_44100_128"
+                voice_id=voice_id,
+                model_id="eleven_multilingual_v2",
+                output_format="mp3_44100_128",
+                # ✨ Voice Settings 추가
+                voice_settings={
+                    "stability": stability,
+                    "similarity_boost": similarity_boost,
+                    "style": style,
+                    "use_speaker_boost": use_speaker_boost
+                }
             )
 
             # 오디오 저장
@@ -334,12 +414,10 @@ class AssetManager:
             return str(filepath)
 
         except ImportError:
-            print("[ERROR] elevenlabs 패키지가 설치되지 않았습니다. pip install elevenlabs")
-            print("[INFO] gTTS로 폴백합니다.")
+            print("[ERROR] elevenlabs 패키지가 설치되지 않았습니다.")
             return self._generate_gtts(text)
         except Exception as e:
             print(f"[ERROR] ElevenLabs TTS 생성 실패: {e}")
-            print("[INFO] gTTS로 폴백합니다.")
             return self._generate_gtts(text)
 
     def _get_cached_video(self, keyword: str) -> Optional[StockVideoAsset]:

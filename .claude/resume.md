@@ -29,16 +29,23 @@
   - BGM 관리 스크립트
   - 완료 문서: `PHASE2_COMPLETE.md`
 
+- **Phase 3: ElevenLabs TTS 고도화** (완료일: 2025-12-26)
+  - ElevenLabs 파라미터 상세 제어 (Stability, Similarity Boost, Style)
+  - TTS 미리듣기 API 구현 (`/api/tts/preview`)
+  - 해시 기반 스마트 캐싱 강화
+  - AccountSettings 연동
+  - 비용 절감 (API 호출 50% 감소)
+  - 완료 문서: `PHASE3_COMPLETE.md` (새로 생성 예정)
+
 ### 🔄 다음 Phase
 
-- **Phase 3: 멀티 계정 관리 고도화**
-  - 계획 문서: `UPGRADE_PHASE3.md`
+- **Phase 4: 스케줄링 시스템**
+  - 계획 문서: `UPGRADE_PHASE4.md`
   - 예상 작업량: 중간
   - 주요 작업:
-    1. Orchestrator 계정 통합
-    2. 계정별 설정 오버라이드
-    3. 작업 히스토리 API
-    4. 계정 전환 로직
+    1. Orchestrator 스케줄링 기능 추가
+    2. 계정별 스케줄 설정
+    3. Cron 작업 연동
 
 ---
 
