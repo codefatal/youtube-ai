@@ -36,7 +36,7 @@ from core.models import (
 # Phase 1: Database and API Routers
 from backend.database import init_db, SessionLocal
 from backend.models import JobHistory as DBJobHistory, JobStatus
-from backend.routers import accounts, tts, scheduler
+from backend.routers import accounts, tts, scheduler, bgm  # Phase 5: BGM 라우터 추가
 from backend.scheduler import scheduler_instance  # ✨ NEW
 from sqlalchemy import func
 
@@ -78,6 +78,7 @@ app.add_middleware(
 app.include_router(accounts.router)
 app.include_router(tts.router)
 app.include_router(scheduler.router)
+app.include_router(bgm.router)  # Phase 5: BGM API
 
 
 # 전역 Orchestrator (싱글톤 패턴)
@@ -113,7 +114,8 @@ class CreateVideoRequest(BaseModel):
     template: Optional[str] = None  # ✨ NEW: 템플릿 필드
     ai_provider: Optional[str] = None  # gemini, claude, openai
     tts_provider: Optional[str] = None  # gtts, elevenlabs, google_cloud
-    tts_settings: Optional[Dict[str, Any]] = None # ✨ NEW: TTS 상세 설정
+    tts_settings: Optional[Dict[str, Any]] = None  # ✨ NEW: TTS 상세 설정
+    bgm_settings: Optional[Dict[str, Any]] = None  # Phase 5: BGM 설정 (enabled, mood, volume)
 
 
 class GetJobStatusRequest(BaseModel):

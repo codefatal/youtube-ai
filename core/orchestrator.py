@@ -126,7 +126,8 @@ class ContentOrchestrator:
             self._asset_manager = AssetManager(
                 stock_providers=['pexels', 'pixabay'],
                 tts_provider=self.config.tts_provider.value,
-                cache_enabled=True
+                cache_enabled=True,
+                bgm_enabled=True  # Phase 5: BGM 자동 선택 활성화
             )
         return self._asset_manager
 
