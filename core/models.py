@@ -276,7 +276,7 @@ class SystemConfig(BaseModel):
     """시스템 설정"""
     # AI 설정
     ai_provider: AIProvider = Field(AIProvider.GEMINI, description="AI 제공자")
-    gemini_model: str = Field("gemini-1.5-pro-latest", description="Gemini 모델")
+    gemini_model: str = Field("gemini-1.5-flash", description="Gemini 모델")
 
     # TTS 설정
     tts_provider: TTSProvider = Field(TTSProvider.ELEVENLABS, description="TTS 제공자")
