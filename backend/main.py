@@ -34,9 +34,11 @@ from core.models import (
 )
 
 # Phase 1: Database and API Routers
-from backend.database import init_db
+from backend.database import init_db, SessionLocal
+from backend.models import JobHistory as DBJobHistory, JobStatus
 from backend.routers import accounts, tts, scheduler
 from backend.scheduler import scheduler_instance  # ✨ NEW
+from sqlalchemy import func
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -266,28 +268,29 @@ async def create_video(request: CreateVideoRequest, background_tasks: Background
 async def get_job_status(request: GetJobStatusRequest):
     """작업 상태 조회"""
     try:
-        orchestrator = get_orchestrator()
+        db = SessionLocal()
+        try:
+            job = db.query(DBJobHistory).filter(DBJobHistory.job_id == request.job_id).first()
 
-        # 작업 히스토리에서 조회
-        job = orchestrator.get_job(request.job_id)
+            if not job:
+                raise HTTPException(status_code=404, detail="작업을 찾을 수 없습니다")
 
-        if not job:
-            raise HTTPException(status_code=404, detail="작업을 찾을 수 없습니다")
-
-        return {
-            "success": True,
-            "data": {
-                "job_id": job.job_id,
-                "status": job.status.value,
-                "topic": job.plan.title if job.plan else "",
-                "format": job.plan.format.value if job.plan else "",
-                "output_video_path": job.output_video_path,
-                "youtube_url": job.upload_result.url if job.upload_result else None,
-                "error_log": job.error_log,
-                "created_at": job.created_at.isoformat() if job.created_at else None,
-                "completed_at": job.updated_at.isoformat() if job.updated_at else None
+            return {
+                "success": True,
+                "data": {
+                    "job_id": job.job_id,
+                    "status": job.status.value,
+                    "topic": job.topic,
+                    "format": job.format,
+                    "output_video_path": job.output_video_path,
+                    "youtube_url": job.youtube_url,
+                    "error_log": job.error_message or "",
+                    "created_at": job.started_at.isoformat() if job.started_at else None,
+                    "completed_at": job.completed_at.isoformat() if job.completed_at else None
+                }
             }
-        }
+        finally:
+            db.close()
     except HTTPException:
         raise
     except Exception as e:
@@ -298,27 +301,29 @@ async def get_job_status(request: GetJobStatusRequest):
 async def get_recent_jobs(limit: int = 10):
     """최근 작업 목록 조회"""
     try:
-        orchestrator = get_orchestrator()
+        db = SessionLocal()
+        try:
+            jobs = db.query(DBJobHistory).order_by(DBJobHistory.started_at.desc()).limit(limit).all()
 
-        recent_jobs = orchestrator.get_recent_jobs(limit=limit)
-
-        return {
-            "success": True,
-            "data": {
-                "jobs": [
-                    {
-                        "job_id": job.job_id,
-                        "status": job.status.value,
-                        "topic": job.plan.title if job.plan else "",
-                        "format": job.plan.format.value if job.plan else "",
-                        "created_at": job.created_at.isoformat() if job.created_at else None,
-                        "completed_at": job.updated_at.isoformat() if job.updated_at else None
-                    }
-                    for job in recent_jobs
-                ],
-                "count": len(recent_jobs)
+            return {
+                "success": True,
+                "data": {
+                    "jobs": [
+                        {
+                            "job_id": job.job_id,
+                            "status": job.status.value,
+                            "topic": job.topic,
+                            "format": job.format,
+                            "created_at": job.started_at.isoformat() if job.started_at else None,
+                            "completed_at": job.completed_at.isoformat() if job.completed_at else None
+                        }
+                        for job in jobs
+                    ],
+                    "count": len(jobs)
+                }
             }
-        }
+        finally:
+            db.close()
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"작업 목록 조회 실패: {str(e)}")
 
@@ -327,14 +332,30 @@ async def get_recent_jobs(limit: int = 10):
 async def get_statistics():
     """통계 조회"""
     try:
-        orchestrator = get_orchestrator()
+        db = SessionLocal()
+        try:
+            total_jobs = db.query(func.count(DBJobHistory.id)).scalar() or 0
+            completed_jobs = db.query(func.count(DBJobHistory.id)).filter(
+                DBJobHistory.status == JobStatus.COMPLETED
+            ).scalar() or 0
+            failed_jobs = db.query(func.count(DBJobHistory.id)).filter(
+                DBJobHistory.status == JobStatus.FAILED
+            ).scalar() or 0
 
-        stats = orchestrator.get_statistics()
+            success_rate = (completed_jobs / total_jobs * 100) if total_jobs > 0 else 0.0
 
-        return {
-            "success": True,
-            "data": stats
-        }
+            return {
+                "success": True,
+                "data": {
+                    "total_jobs": total_jobs,
+                    "completed_jobs": completed_jobs,
+                    "failed_jobs": failed_jobs,
+                    "success_rate": round(success_rate, 2),
+                    "queue_size": 0  # DB 모드에서는 큐 사이즈 없음
+                }
+            }
+        finally:
+            db.close()
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"통계 조회 실패: {str(e)}")
 
