@@ -270,10 +270,14 @@ class AssetManager:
             filepath = self._generate_gtts(full_text)
 
         if filepath:
+            # Phase 3: 실제 TTS 파일 길이 측정
+            duration = self._get_audio_duration(filepath)
+
             return AudioAsset(
                 text=full_text,
                 provider=TTSProvider(provider),
-                local_path=filepath
+                local_path=filepath,
+                duration=duration
             )
 
         return None
@@ -536,4 +540,30 @@ class AssetManager:
 
         except Exception as e:
             print(f"[ERROR] BGM 선택 실패: {e}")
+            return None
+
+    def _get_audio_duration(self, audio_path: str) -> Optional[float]:
+        """
+        Phase 3: 실제 오디오 파일 길이 측정 (pydub 사용)
+
+        Args:
+            audio_path: 오디오 파일 경로
+
+        Returns:
+            오디오 길이 (초) 또는 None
+        """
+        try:
+            from pydub import AudioSegment
+
+            audio = AudioSegment.from_file(audio_path)
+            duration_seconds = len(audio) / 1000.0  # 밀리초 → 초
+
+            print(f"[AssetManager] 실제 TTS 길이: {duration_seconds:.2f}초")
+            return duration_seconds
+
+        except ImportError:
+            print("[WARNING] pydub 패키지가 설치되지 않았습니다. 예상 길이를 사용합니다.")
+            return None
+        except Exception as e:
+            print(f"[ERROR] 오디오 길이 측정 실패: {e}")
             return None

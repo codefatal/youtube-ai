@@ -258,7 +258,7 @@ class ContentPlanner:
 
     def _validate_and_adjust_duration(self, content_plan: ContentPlan) -> ContentPlan:
         """
-        세그먼트 시간 검증 및 조정 (Phase 2)
+        세그먼트 시간 검증 및 조정 (Phase 3 - ±1초 정확도)
 
         Args:
             content_plan: 검증할 ContentPlan
@@ -272,19 +272,32 @@ class ContentPlanner:
         # 1. 각 세그먼트에 duration이 없으면 자동 계산
         for segment in segments:
             if segment.duration is None or segment.duration == 0:
-                # TTS 읽기 속도 기준: 평균 3글자/초 (한국어)
-                estimated_duration = len(segment.text) / 3.0
-                segment.duration = round(estimated_duration, 1)
+                # Phase 3: TTS 읽기 속도 개선
+                # 한글: 약 0.15초/글자 (gTTS 기준)
+                # 영문/숫자: 약 0.1초/글자
+                text = segment.text.strip()
+
+                # 효과음 제거 (예: (박수 소리))
+                text_clean = re.sub(r'\([^)]*\)', '', text).strip()
+
+                # 글자 수 계산
+                char_count = len(text_clean)
+
+                # 예상 TTS 시간 (한글 기준)
+                estimated_duration = char_count * 0.15
+
+                # 최소 0.5초 보장
+                segment.duration = max(0.5, round(estimated_duration, 1))
 
         # 2. 총 시간 계산
         total_duration = sum(seg.duration for seg in segments if seg.duration)
 
         print(f"[Planner] 총 세그먼트 시간: {total_duration:.1f}초 / 목표: {target_duration}초")
 
-        # 3. 목표 시간과 차이가 5초 이상이면 조정
-        duration_diff = abs(total_duration - target_duration)
+        # 3. Phase 3: ±1초 이내 강제 조정
+        duration_diff = total_duration - target_duration
 
-        if duration_diff > 5.0:
+        if abs(duration_diff) > 1.0:
             print(f"[Planner] 시간 차이 {duration_diff:.1f}초 감지. 세그먼트 조정 중...")
 
             # 비율 조정 (proportional scaling)
@@ -298,15 +311,31 @@ class ContentPlanner:
             total_duration = sum(seg.duration for seg in segments if seg.duration)
             print(f"[Planner] 조정 후 총 시간: {total_duration:.1f}초")
 
-        # 4. 미세 조정 (±2초 이내로 맞추기)
+        # 4. Phase 3: 미세 조정 (±1초 이내 강제)
         final_diff = target_duration - total_duration
 
-        if abs(final_diff) > 0.5 and segments:
+        if abs(final_diff) > 0.1 and segments:
             # 마지막 세그먼트에 차이 추가/제거
             last_segment = segments[-1]
             if last_segment.duration:
-                last_segment.duration = max(0.5, last_segment.duration + final_diff)
+                # 최소 0.5초 보장
+                last_segment.duration = max(0.5, round(last_segment.duration + final_diff, 1))
                 print(f"[Planner] 마지막 세그먼트 미세 조정: {last_segment.duration:.1f}초")
+
+        # 5. Phase 3: 최종 검증 (±1초 강제)
+        final_total = sum(seg.duration for seg in segments if seg.duration)
+        final_diff = abs(final_total - target_duration)
+
+        if final_diff > 1.0:
+            print(f"[WARNING] 시간 차이 {final_diff:.1f}초로 목표 ±1초 초과. 추가 조정 필요.")
+            # 강제 조정: 모든 세그먼트 비율 재조정
+            scale_factor = target_duration / final_total
+            for segment in segments:
+                if segment.duration:
+                    segment.duration = max(0.5, round(segment.duration * scale_factor, 1))
+
+            final_total = sum(seg.duration for seg in segments if seg.duration)
+            print(f"[Planner] 강제 조정 후 총 시간: {final_total:.1f}초")
 
         return content_plan
 

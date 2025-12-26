@@ -106,13 +106,19 @@ class VideoEditor:
         # 2. 오디오 로드 (Phase 2: BGM 믹싱 포함)
         audio_clip = self._load_audio_with_bgm(asset_bundle, content_plan.target_duration)
 
-        # 3. 영상 길이 계산 (오디오 길이 기준)
+        # 3. Phase 3: 영상 길이 계산 (오디오 길이 기준 - 정확도 개선)
         if audio_clip:
             target_duration = audio_clip.duration
+            print(f"[Editor] 실제 TTS 오디오 길이 사용: {target_duration:.2f}초")
+        elif asset_bundle.audio and asset_bundle.audio.duration:
+            # TTS duration이 명시적으로 설정된 경우
+            target_duration = asset_bundle.audio.duration
+            print(f"[Editor] TTS AssetBundle 길이 사용: {target_duration:.2f}초")
         else:
             target_duration = content_plan.target_duration
+            print(f"[Editor] ContentPlan 목표 길이 사용: {target_duration:.2f}초")
 
-        print(f"[Editor] 목표 길이: {target_duration:.2f}초")
+        print(f"[Editor] 최종 목표 길이: {target_duration:.2f}초")
 
         # 4. 영상 클립 조정 및 연결
         final_video = self._compose_video_clips(
@@ -309,20 +315,27 @@ class VideoEditor:
         # 해상도 설정
         width, height = self.config.resolution
 
-        # 각 클립의 길이 계산 (균등 분배)
-        clip_duration = target_duration / len(clips)
+        # Phase 3: 각 클립의 길이 계산 (균등 분배 + 미세 조정)
+        base_clip_duration = target_duration / len(clips)
 
         processed_clips = []
 
         for i, clip in enumerate(clips):
+            # Phase 3: 마지막 클립은 남은 시간 정확히 맞춤
+            if i == len(clips) - 1:
+                # 이미 처리된 클립들의 총 시간 계산
+                elapsed_time = sum(c.duration for c in processed_clips)
+                clip_duration = target_duration - elapsed_time
+                print(f"[Editor] 마지막 클립 길이 조정: {clip_duration:.2f}초 (남은 시간)")
+            else:
+                clip_duration = base_clip_duration
+
             # 1. 길이 조정
             if clip.duration > clip_duration:
                 # 클립이 더 길면 잘라내기
                 clip = clip.subclipped(0, clip_duration)
             else:
-                # 클립이 더 짧으면 반복 재생 (간단한 방법)
-                # MoviePy 2.x에서 loop()가 제대로 작동하지 않을 수 있으므로
-                # 클립을 여러 번 이어붙이는 방식 사용
+                # 클립이 더 짧으면 반복 재생
                 loops_needed = int(clip_duration / clip.duration) + 1
                 repeated_clips = [clip] * loops_needed
                 clip = self.concatenate_videoclips(repeated_clips, method="compose")
@@ -336,7 +349,9 @@ class VideoEditor:
         # 클립 연결
         try:
             final_clip = self.concatenate_videoclips(processed_clips, method="compose")
+            final_duration = final_clip.duration
             print(f"[Editor] 클립 {len(processed_clips)}개 연결 완료")
+            print(f"[Editor] 최종 영상 길이: {final_duration:.2f}초 (목표: {target_duration:.2f}초, 차이: {abs(final_duration - target_duration):.2f}초)")
             return final_clip
         except Exception as e:
             print(f"[ERROR] 클립 연결 실패: {e}")
