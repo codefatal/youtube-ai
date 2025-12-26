@@ -42,8 +42,9 @@ class AccountResponse(AccountBase):
     created_at: datetime
     updated_at: datetime
 
-    class Config:
-        from_attributes = True  # Pydantic v2
+    model_config = {
+        "from_attributes": True
+    }
 
 
 # ============================================================================
@@ -75,8 +76,9 @@ class AccountSettingsResponse(AccountSettingsBase):
     created_at: datetime
     updated_at: datetime
 
-    class Config:
-        from_attributes = True
+    model_config = {
+        "from_attributes": True
+    }
 
 
 # ============================================================================
@@ -99,8 +101,9 @@ class JobHistoryResponse(BaseModel):
     started_at: datetime
     completed_at: Optional[datetime] = None
 
-    class Config:
-        from_attributes = True
+    model_config = {
+        "from_attributes": True
+    }
 
 
 # ============================================================================

@@ -16,7 +16,6 @@ pysrt>=1.1.2  # SRT 자막 파싱/편집
 moviepy>=2.0.0  # MoviePy 2.x (최신 API)
 imageio-ffmpeg>=0.5.0  # FFmpeg for MoviePy (필수!)
 ffmpeg-python>=0.2.0
-pydub>=0.25.1
 
 # ===== OCR (하드코딩 자막 추출) =====
 easyocr==1.7.2  # OCR 엔진

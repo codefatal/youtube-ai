@@ -2,6 +2,7 @@
 FastAPI Backend Server for YouTube AI v3.0
 AI-Powered Original Content Creation System
 """
+from contextlib import asynccontextmanager
 from fastapi import FastAPI, HTTPException, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
@@ -37,10 +38,24 @@ from backend.database import init_db
 from backend.routers import accounts, tts, scheduler
 from backend.scheduler import scheduler_instance  # ✨ NEW
 
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # 시작 시 실행
+    init_db()
+    print("[FastAPI] 데이터베이스 초기화 완료")
+    scheduler_instance.start()
+    scheduler_instance.load_account_schedules()
+    print("[FastAPI] 스케줄러 시작 완료")
+    yield
+    # 종료 시 실행
+    scheduler_instance.shutdown()
+    print("[FastAPI] 스케줄러 종료됨")
+
 app = FastAPI(
-    title="YouTube AI v3.0 API",
+    title="YouTube AI v4.0 API",
     description="AI-Powered Original Content Creation System",
-    version="3.0.0"
+    version="4.0.0",
+    lifespan=lifespan
 )
 
 # CORS 설정
@@ -56,35 +71,11 @@ app.add_middleware(
 )
 
 
-# ==================== Startup/Shutdown 이벤트 ====================
-
-@app.on_event("startup")
-def startup_event():
-    """앱 시작 시 실행"""
-    # DB 초기화
-    init_db()
-    print("[FastAPI] 데이터베이스 초기화 완료")
-
-    # ✨ 스케줄러 시작
-    scheduler_instance.start()
-    scheduler_instance.load_account_schedules()
-    print("[FastAPI] 스케줄러 시작 완료")
-
-
-@app.on_event("shutdown")
-def shutdown_event():
-    """앱 종료 시 실행"""
-    # ✨ 스케줄러 종료
-    scheduler_instance.shutdown()
-    print("[FastAPI] 스케줄러 종료됨")
-
-
-
-# ==================== 라우터 등록 (Phase 1) ====================
+# ==================== 라우터 등록 ====================
 
 app.include_router(accounts.router)
 app.include_router(tts.router)
-app.include_router(scheduler.router)  # ✨ NEW
+app.include_router(scheduler.router)
 
 
 # 전역 Orchestrator (싱글톤 패턴)

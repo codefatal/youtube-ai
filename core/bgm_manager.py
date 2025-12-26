@@ -11,10 +11,31 @@ from typing import List, Optional, Dict
 from pathlib import Path
 import json
 import random
-from pydub import AudioSegment
-from pydub.effects import normalize
+import subprocess
+import shutil
 
 from core.models import BGMAsset, MoodType
+
+
+def _get_audio_duration(file_path: str) -> float:
+    """오디오 파일의 길이를 ffprobe를 이용해 초 단위로 반환"""
+    ffprobe_cmd = shutil.which("ffprobe")
+    if not ffprobe_cmd:
+        raise FileNotFoundError("ffprobe를 찾을 수 없습니다. ffmpeg이 설치되어 있고 PATH에 추가되었는지 확인하세요.")
+
+    command = [
+        ffprobe_cmd,
+        "-v", "error",
+        "-show_entries", "format=duration",
+        "-of", "default=noprint_wrappers=1:nokey=1",
+        str(file_path)
+    ]
+    try:
+        result = subprocess.run(command, capture_output=True, text=True, check=True)
+        return float(result.stdout.strip())
+    except (subprocess.CalledProcessError, ValueError) as e:
+        print(f"[BGMManager] 오디오 길이 측정 실패: {file_path} - {e}")
+        return 0.0
 
 
 class BGMManager:
@@ -27,6 +48,9 @@ class BGMManager:
         """
         self.music_dir = Path(music_dir)
         self.music_dir.mkdir(parents=True, exist_ok=True)
+        self.ffmpeg_cmd = shutil.which("ffmpeg")
+        if not self.ffmpeg_cmd:
+            raise FileNotFoundError("ffmpeg를 찾을 수 없습니다. ffmpeg이 설치되어 있고 PATH에 추가되었는지 확인하세요.")
 
         # BGM 카탈로그 (mood별 분류)
         self.catalog: Dict[MoodType, List[BGMAsset]] = {
@@ -111,13 +135,8 @@ class BGMManager:
         if not file_path.exists():
             raise FileNotFoundError(f"BGM 파일 없음: {file_path}")
 
-        # 오디오 길이 측정
-        try:
-            audio = AudioSegment.from_file(str(file_path))
-            duration = len(audio) / 1000.0  # ms → sec
-        except Exception as e:
-            print(f"[BGMManager] 오디오 로드 실패: {e}")
-            duration = 0.0
+        # 오디오 길이 측정 (ffprobe 사용)
+        duration = _get_audio_duration(str(file_path))
 
         # BGMAsset 생성
         asset = BGMAsset(
@@ -217,7 +236,7 @@ class BGMManager:
         volume: Optional[float] = None
     ) -> str:
         """
-        BGM 처리 (길이 조정, 페이드, 볼륨)
+        BGM 처리 (길이 조정, 페이드, 볼륨) - ffmpeg 직접 호출 방식
 
         Args:
             bgm: BGMAsset 객체
@@ -229,46 +248,35 @@ class BGMManager:
         Returns:
             처리된 오디오 파일 경로
         """
+        output_path = self.music_dir / f"processed_{bgm.name}.mp3"
+        final_volume = volume or bgm.volume
+        
+        # ffmpeg 명령어 구성
+        command = [
+            self.ffmpeg_cmd,
+            "-y",  # 덮어쓰기 허용
+            "-i", str(bgm.local_path),
+            "-filter_complex",
+            # 루프 필터: 오디오를 target_duration보다 길게 반복
+            # atrim 필터: 정확한 길이로 자르기
+            # afade 필터: 페이드 인/아웃 효과
+            # volume 필터: 볼륨 조절
+            f"aloop=loop=-1:size=2e+09,atrim=0:{target_duration},afade=t=in:ss=0:d={fade_in},afade=t=out:st={target_duration - fade_out}:d={fade_out},volume={final_volume}",
+            "-c:a", "libmp3lame",
+            "-b:a", "192k",
+            str(output_path)
+        ]
+
         try:
-            # 오디오 로드
-            audio = AudioSegment.from_file(bgm.local_path)
-
-            # 볼륨 조정
-            volume_db = (volume or bgm.volume) * 100 - 100  # 0.0~1.0 → -100~0 dB
-            audio = audio + volume_db
-
-            # 길이 조정 (loop 또는 trim)
-            target_ms = int(target_duration * 1000)
-            audio_ms = len(audio)
-
-            if audio_ms < target_ms:
-                # 루프 (반복)
-                loop_count = (target_ms // audio_ms) + 1
-                audio = audio * loop_count
-
-            # 정확한 길이로 자르기
-            audio = audio[:target_ms]
-
-            # 페이드 효과
-            fade_in_ms = int(fade_in * 1000)
-            fade_out_ms = int(fade_out * 1000)
-
-            audio = audio.fade_in(fade_in_ms).fade_out(fade_out_ms)
-
-            # 정규화 (볼륨 균일화)
-            audio = normalize(audio)
-
-            # 임시 파일로 저장
-            output_path = self.music_dir / f"processed_{bgm.name}.mp3"
-            audio.export(str(output_path), format="mp3", bitrate="192k")
-
+            print(f"[BGMManager] ffmpeg으로 BGM 처리 중: {' '.join(command)}")
+            subprocess.run(command, check=True, capture_output=True, text=True)
             print(f"[BGMManager] BGM 처리 완료: {output_path} ({target_duration:.1f}초)")
-
             return str(output_path)
-
-        except Exception as e:
+        except subprocess.CalledProcessError as e:
             print(f"[BGMManager] BGM 처리 실패: {e}")
+            print(f"  - FFMPEG STDERR: {e.stderr}")
             raise
+
 
     def get_random_bgm(self, min_duration: Optional[float] = None) -> Optional[BGMAsset]:
         """

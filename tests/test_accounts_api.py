@@ -32,7 +32,8 @@ def test_create_account(setup_database):
             "channel_name": "테스트 채널",
             "channel_type": "info",
             "default_prompt_style": "정보성",
-            "is_active": True
+            "is_active": True,
+            "credentials_path": None
         }
     )
 

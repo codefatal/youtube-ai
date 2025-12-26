@@ -66,14 +66,15 @@ class ScriptSegment(BaseModel):
     keyword: str = Field(..., description="영상 검색 키워드")
     duration: Optional[float] = Field(None, description="예상 길이(초)")
 
-    class Config:
-        json_schema_extra = {
+    model_config = {
+        "json_schema_extra": {
             "example": {
                 "text": "강아지는 사람의 가장 좋은 친구입니다.",
                 "keyword": "happy dog playing park",
                 "duration": 3.0
             }
         }
+    }
 
 
 class ContentPlan(BaseModel):
@@ -90,8 +91,8 @@ class ContentPlan(BaseModel):
     ai_provider: AIProvider = Field(AIProvider.GEMINI, description="사용된 AI")
     generated_at: datetime = Field(default_factory=datetime.now, description="생성 시각")
 
-    class Config:
-        json_schema_extra = {
+    model_config = {
+        "json_schema_extra": {
             "example": {
                 "title": "강아지와 함께하는 행복한 하루",
                 "description": "강아지와 함께 공원에서 즐거운 시간을 보내는 모습",
@@ -104,6 +105,7 @@ class ContentPlan(BaseModel):
                 ]
             }
         }
+    }
 
 
 # ============================================================
@@ -247,14 +249,15 @@ class ContentJob(BaseModel):
     updated_at: datetime = Field(default_factory=datetime.now, description="업데이트 시각")
     error_log: List[str] = Field(default_factory=list, description="에러 로그")
 
-    class Config:
-        json_schema_extra = {
+    model_config = {
+        "json_schema_extra": {
             "example": {
                 "job_id": "job_20251222_001",
                 "status": "planning",
                 "created_at": "2025-12-22T16:00:00Z"
             }
         }
+    }
 
 
 class JobHistory(BaseModel):
@@ -273,7 +276,7 @@ class SystemConfig(BaseModel):
     """시스템 설정"""
     # AI 설정
     ai_provider: AIProvider = Field(AIProvider.GEMINI, description="AI 제공자")
-    gemini_model: str = Field("gemini-1.5-flash", description="Gemini 모델")
+    gemini_model: str = Field("gemini-1.5-pro-latest", description="Gemini 모델")
 
     # TTS 설정
     tts_provider: TTSProvider = Field(TTSProvider.ELEVENLABS, description="TTS 제공자")
@@ -287,8 +290,8 @@ class SystemConfig(BaseModel):
     auto_upload: bool = Field(False, description="자동 업로드 여부")
     auto_schedule_interval: int = Field(24, description="자동 생성 간격(시간)")
 
-    class Config:
-        json_schema_extra = {
+    model_config = {
+        "json_schema_extra": {
             "example": {
                 "ai_provider": "gemini",
                 "tts_provider": "elevenlabs",
@@ -296,3 +299,4 @@ class SystemConfig(BaseModel):
                 "auto_upload": False
             }
         }
+    }
