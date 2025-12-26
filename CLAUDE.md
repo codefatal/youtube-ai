@@ -4,13 +4,21 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-**YouTube AI v3.0** - Complete AI-powered original content creation system for YouTube automation.
+**YouTube AI v4.0** - 완전 자동화된 AI 기반 유튜브 쇼츠 제작 시스템
 
-This is a dual-interface system:
-- **Web UI** (Next.js frontend + FastAPI backend) - Primary interface
-- **CLI** (Python Click-based) - Command-line interface
+듀얼 인터페이스 시스템:
+- **Web UI** (Next.js frontend + FastAPI backend) - 주 인터페이스
+- **CLI** (Python 기반) - 커맨드라인 인터페이스
 
-The system uses AI (Gemini/Claude) for content planning, script generation, and metadata creation, combined with TTS, stock videos, and video synthesis to create complete YouTube videos automatically.
+AI(Gemini/Claude), TTS(gTTS/ElevenLabs), 스톡 영상, BGM, 템플릿 시스템을 결합하여 유튜브 영상을 자동으로 기획, 제작, 업로드하는 완전 자동화 시스템입니다.
+
+**v4.0 주요 기능**:
+- 멀티 계정 관리 (SQLAlchemy 기반 DB)
+- BGM 시스템 (6가지 분위기별 자동 선택)
+- 템플릿 시스템 (3종: basic, documentary, entertainment)
+- ElevenLabs TTS 상세 제어 (stability, similarity_boost, style)
+- 스케줄링 자동화 (APScheduler)
+- 프론트엔드 UI/UX 전면 개편
 
 ## Development Commands
 
@@ -36,55 +44,70 @@ npm run dev
 
 **Both servers must run simultaneously** - Backend on port 8000, Frontend on port 3000.
 
-### CLI Usage
+### Database Migration (Alembic)
 
 ```bash
-# Activate virtual environment
+# 가상환경 활성화
 venv\Scripts\activate  # Windows
-source venv/bin/activate  # Linux/Mac
 
-# Auto-create content
-python scripts/auto_create.py --topic "AI 기술 소개" --format shorts --duration 60
+# 마이그레이션 생성
+venv\Scripts\alembic.exe revision --autogenerate -m "설명"
 
-# Full automation with upload
-python scripts/auto_create.py --upload
+# 마이그레이션 적용
+venv\Scripts\alembic.exe upgrade head
 
-# Local scheduler (daily automation)
-python scripts/schedule_local.py
+# 마이그레이션 롤백
+venv\Scripts\alembic.exe downgrade -1
+```
 
-# Run tests
-python tests/test_integration.py
+### CLI 스크립트
 
-# Performance benchmark
-python scripts/benchmark.py
+```bash
+# 수동 영상 업로드
+python scripts/manual_upload.py --video output/video.mp4 --interactive
+
+# BGM 설정
+python scripts/setup_bgm.py --add music.mp3 --mood energetic --name "Track"
+python scripts/setup_bgm.py --stats
+
+# 자동 영상 생성 (Legacy)
+python scripts/auto_create.py --topic "AI 기술" --format shorts --duration 60
 ```
 
 ## Architecture
 
 ### Core Modules (`core/`)
 
-- **planner.py** - AI-based content planning and script generation
-  - `generate_topic_ideas()` - AI topic generation (trending or custom)
-  - `generate_content_plan()` - Full script with segments, keywords, timing
+- **planner.py** - AI 기반 콘텐츠 기획 및 스크립트 생성
+  - `create_script()` - AI 스크립트 생성 (세그먼트별 타이밍 포함)
+  - `_validate_and_adjust_duration()` - **Phase 2**: 시간 제약 검증 및 조정 (±1초 정확도)
+  - Gemini/Claude API 통합
 
-- **asset_manager.py** - Asset collection (stock videos + TTS)
-  - `collect_assets()` - Collect videos and generate TTS audio
-  - Supports Pexels, Pixabay (stock videos)
-  - Supports gTTS, ElevenLabs, Google Cloud TTS
+- **asset_manager.py** - 에셋 수집 (영상, TTS, BGM)
+  - `collect_assets()` - 전체 에셋 수집 (영상 + TTS + BGM)
+  - `_generate_tts()` - **Phase 3**: AccountSettings 연동, ElevenLabs 상세 제어
+  - `_select_bgm()` - **Phase 2**: 주제/톤 기반 BGM 자동 선택
+  - Pexels, Pixabay (영상) / gTTS, ElevenLabs (TTS)
 
-- **editor.py** - MoviePy-based video editing
-  - `create_video()` - Full video composition (clips + subtitles + audio)
-  - Automatic subtitle generation and timing
-  - Resolution: 1080x1920 (Shorts) or 1920x1080 (Landscape)
+- **bgm_manager.py** - **Phase 2 신규**: BGM 관리
+  - `process_bgm()` - ffmpeg 기반 BGM 처리 (루프, 페이드, 볼륨)
+  - `auto_select_mood()` - 주제/톤에서 분위기 자동 추론
+  - 6가지 분위기: HAPPY, SAD, ENERGETIC, CALM, TENSE, MYSTERIOUS
 
-- **uploader.py** - YouTube upload automation
-  - `upload_video()` - OAuth 2.0 based YouTube upload
-  - `generate_metadata()` - AI-generated title, description, tags
+- **editor.py** - MoviePy 기반 영상 편집
+  - `create_video()` - 전체 영상 합성 (클립 + 자막 + TTS + BGM)
+  - `_load_template()` - **Phase 2**: JSON 템플릿 로드 및 적용
+  - `_load_audio_with_bgm()` - **Phase 2**: TTS + BGM CompositeAudioClip 믹싱
+  - 해상도: 1080x1920 (Shorts) or 1920x1080 (Landscape)
 
-- **orchestrator.py** - Pipeline management
-  - `create_content()` - Full pipeline: Plan → Assets → Edit → Upload
-  - Job queue management
-  - Progress tracking and error handling
+- **uploader.py** - YouTube 업로드 자동화
+  - `upload_video()` - OAuth 2.0 기반 업로드
+  - `generate_metadata()` - AI 생성 메타데이터
+
+- **orchestrator.py** - 파이프라인 관리
+  - `create_content()` - 전체 파이프라인: Plan → Assets → Edit → Upload
+  - **Phase 4**: `account_id` 파라미터 추가 (계정별 설정 적용)
+  - Job 진행 상황 추적 및 에러 처리
 
 ### Provider System (`providers/`)
 
@@ -103,16 +126,29 @@ python scripts/benchmark.py
 
 ### Backend API (`backend/main.py`)
 
-**Key Endpoints**:
-- `POST /api/topics/generate` - Generate AI topics
-- `POST /api/scripts/generate` - Generate AI scripts
-- `POST /api/videos/create` - Create video (full pipeline)
-- `POST /api/jobs/status` - Check job status
-- `GET /api/jobs/recent` - Recent jobs list
-- `GET /api/stats` - Statistics (total/completed/failed)
-- `GET /api/config` - Current system configuration
+**Phase 1: Account 관리**:
+- `POST /api/accounts/` - 계정 생성
+- `GET /api/accounts/` - 계정 목록
+- `GET /api/accounts/{id}` - 계정 상세 (설정 + 작업 이력 포함)
+- `PUT /api/accounts/{id}/settings` - 계정 설정 업데이트
 
-**Response Format**:
+**Phase 3: TTS 관리**:
+- `POST /api/tts/preview` - TTS 미리듣기 (ElevenLabs 파라미터 제어)
+- `GET /api/tts/voices` - ElevenLabs Voice 목록
+- `DELETE /api/tts/cache` - TTS 캐시 삭제
+
+**Phase 4: 스케줄러**:
+- `GET /api/scheduler/jobs` - 등록된 스케줄 조회
+- `POST /api/scheduler/reload` - 스케줄 재로드
+- `POST /api/scheduler/trigger/{account_id}` - 즉시 실행
+- `DELETE /api/scheduler/jobs/{job_id}` - 스케줄 삭제
+
+**Legacy Endpoints**:
+- `POST /api/videos/create` - 영상 생성 (전체 파이프라인)
+- `POST /api/jobs/status` - Job 상태 확인
+- `GET /api/jobs/recent` - 최근 작업 목록
+
+**공통 응답 형식**:
 ```json
 {
   "success": true,
@@ -120,20 +156,25 @@ python scripts/benchmark.py
 }
 ```
 
-### Data Models (`core/models.py`)
+### Data Models
 
-**Core Models**:
-- `ContentPlan` - Full content plan with segments
-- `ScriptSegment` - Individual script segment (text, keyword, duration)
-- `AssetBundle` - Collection of videos + audio
-- `ContentJob` - Job tracking (status, progress, output)
-- `SystemConfig` - System configuration (AI provider, TTS provider, format)
+**Pydantic Models** (`core/models.py`):
+- `ContentPlan` - 전체 콘텐츠 기획 (제목, 설명, 태그, 세그먼트)
+- `ScriptSegment` - 스크립트 세그먼트 (텍스트, 키워드, 길이)
+- `AssetBundle` - 에셋 번들 (영상 + TTS + **BGM**)
+- `BGMAsset` - **Phase 2**: BGM 에셋 (name, mood, duration, volume)
+- `TemplateConfig` - **Phase 2**: 템플릿 설정 (자막, 효과, BGM)
 
-**Enums**:
+**SQLAlchemy ORM** (`backend/models.py`):
+- `Account` - 유튜브 계정 정보 (channel_name, channel_type, upload_schedule)
+- `AccountSettings` - 계정별 설정 (TTS provider, voice_id, stability, BGM)
+- `JobHistory` - 작업 이력 (job_id, status, output_video_path, youtube_url)
+
+**주요 Enums**:
 - `VideoFormat` - SHORTS, LANDSCAPE, SQUARE
-- `AIProvider` - GEMINI, CLAUDE, OPENAI
-- `TTSProvider` - GTTS, ELEVENLABS, GOOGLE_CLOUD
+- `MoodType` - **Phase 2**: HAPPY, SAD, ENERGETIC, CALM, TENSE, MYSTERIOUS
 - `ContentStatus` - PLANNING, COLLECTING_ASSETS, EDITING, UPLOADING, COMPLETED, FAILED
+- `ChannelType` - HUMOR, TREND, INFO, REVIEW, NEWS, DAILY
 
 ## Environment Variables
 
@@ -156,95 +197,131 @@ YOUTUBE_API_KEY=...             # For trend analysis (optional)
 
 **YouTube Upload** requires `client_secrets.json` for OAuth 2.0.
 
-## Current Status
+## 프로젝트 상태
 
-### ✅ Fully Implemented
-- Core pipeline (Planner → Asset Manager → Editor → Uploader → Orchestrator)
-- AI providers (Gemini, Claude)
-- Stock video providers (Pexels, Pixabay)
-- TTS providers (gTTS, ElevenLabs, Google Cloud)
-- Video editing (MoviePy with subtitles, audio mixing)
-- YouTube upload (OAuth 2.0)
-- Automation (GitHub Actions, local scheduler)
-- Testing (integration tests, error cases, benchmarks)
-- Backend API (FastAPI with 8 endpoints)
+### ✅ v4.0 완료된 Phase (1~5)
 
-### 🚧 In Progress
-- Frontend UI update (adapting to new backend)
+**Phase 1: 데이터베이스 인프라**
+- SQLAlchemy + Alembic 통합
+- Account, AccountSettings, JobHistory 모델
+- Account CRUD API
 
-### 📊 Project Completion
+**Phase 2: 미디어 엔진 고도화**
+- BGM 시스템 (6가지 분위기, ffmpeg 처리)
+- 템플릿 시스템 (3종 JSON)
+- 시간 제약 강화 (±10초 → ±1초)
+- 수동 업로드 스크립트
 
-```
-✅ Phase 1: Foundation (100%)
-✅ Phase 2: Planner (100%)
-✅ Phase 3: Asset Manager (100%)
-✅ Phase 4: Editor (100%)
-✅ Phase 5: Uploader (100%)
-✅ Phase 6: Orchestrator (100%)
-✅ Phase 7: Automation (100%)
-✅ Phase 8: Testing & Optimization (100%)
-```
+**Phase 3: ElevenLabs TTS 고도화**
+- Stability, Similarity Boost, Style 파라미터 제어
+- TTS 미리듣기 API
+- 해시 기반 스마트 캐싱
+- AccountSettings 연동
 
-**Overall: 100% Complete (8/8 Phases)**
+**Phase 4: 스케줄링 및 자동화**
+- APScheduler 도입
+- 계정별 Cron 스케줄
+- 백그라운드 Worker (자동 생성 + 업로드)
+- JobHistory 작업 이력 기록
 
-## Common Development Patterns
+**Phase 5: 프론트엔드 UI/UX 전면 개편**
+- 멀티 계정 관리 사이드바
+- 영상 생성 페이지 개선 (TTS, 템플릿, BGM 설정)
+- 계정 관리 페이지 (CRUD, 스케줄)
+- 다크 모드 디자인
+- 모바일 반응형
 
-### Creating Content Programmatically
+### 🔄 다음 Phase
+
+**Phase 6: 통합 테스트, README 업데이트, 배포 준비**
+
+## 일반적인 개발 패턴
+
+### 계정별 영상 생성 (v4.0)
 
 ```python
 from core.orchestrator import ContentOrchestrator
 from core.models import VideoFormat
+from backend.database import SessionLocal
+from backend.models import Account
 
-# Create orchestrator
+# DB에서 계정 조회
+db = SessionLocal()
+account = db.query(Account).filter(Account.channel_name == "내 채널").first()
+
+# Orchestrator 생성
 orchestrator = ContentOrchestrator()
 
-# Create video (full pipeline)
+# 계정별 설정을 반영한 영상 생성
 job = orchestrator.create_content(
-    topic="Python 프로그래밍 팁",  # Or None for AI-generated topic
+    topic="Python 프로그래밍 팁",
     video_format=VideoFormat.SHORTS,
     target_duration=60,
-    upload=True  # Upload to YouTube
+    upload=True,
+    account_id=account.id  # AccountSettings 자동 적용
 )
 
-print(f"Video created: {job.output_video_path}")
+print(f"Video: {job.output_video_path}")
 print(f"YouTube URL: {job.youtube_url}")
 ```
 
-### Using Individual Modules
+### BGM 및 템플릿 적용
 
 ```python
-# 1. Generate topics
-from core.planner import Planner
+from core.editor import VideoEditor
+from core.asset_manager import AssetManager
 
-planner = Planner()
-topics = await planner.generate_topic_ideas(count=3, trending=True)
+# BGM 활성화
+asset_manager = AssetManager(bgm_enabled=True)
 
-# 2. Generate script
-plan = await planner.generate_content_plan(
-    topic=topics[0],
-    format=VideoFormat.SHORTS,
-    target_duration=60,
-    style="정보성"
-)
+# 템플릿 적용
+editor = VideoEditor(template_name="entertainment")  # basic, documentary, entertainment
 
-# 3. Collect assets
+# 에셋 수집 시 BGM 자동 선택됨
+bundle = asset_manager.collect_assets(content_plan)
+
+# 영상 생성 시 템플릿 스타일 자동 적용됨
+video_path = editor.create_video(content_plan, bundle)
+```
+
+### ElevenLabs TTS 상세 제어 (Phase 3)
+
+```python
 from core.asset_manager import AssetManager
 
 asset_manager = AssetManager()
-bundle = await asset_manager.collect_assets(plan)
 
-# 4. Create video
-from core.editor import Editor
+# ElevenLabs 파라미터 직접 제어
+audio_path = asset_manager._generate_elevenlabs(
+    text="안녕하세요. 테스트 음성입니다.",
+    voice_id="pNInz6obpgDQGcFmaJgB",  # Adam (남성 목소리)
+    stability=0.5,           # 0.0 (감정 풍부) ~ 1.0 (일관성)
+    similarity_boost=0.75,   # 0.0 ~ 1.0 (원본 목소리 유사도)
+    style=0.0,              # 0.0 (자연스러움) ~ 1.0 (과장)
+    use_speaker_boost=True  # 목소리 강화
+)
+```
 
-editor = Editor()
-video_path = await editor.create_video(plan, bundle)
+### 스케줄링 자동화 (Phase 4)
 
-# 5. Upload to YouTube
-from core.uploader import Uploader
+```python
+from backend.scheduler import scheduler_instance
+from backend.models import Account
+from backend.database import SessionLocal
 
-uploader = Uploader()
-metadata = await uploader.generate_metadata(plan)
-youtube_url = await uploader.upload_video(video_path, metadata)
+db = SessionLocal()
+
+# 계정 스케줄 등록 (매일 오전 10시)
+account = db.query(Account).first()
+account.upload_schedule = "0 10 * * *"  # Cron 포맷
+db.commit()
+
+# 스케줄러 재로드
+scheduler_instance.load_account_schedules()
+
+# 즉시 실행 (테스트용)
+from backend.workers import auto_generate_and_upload
+auto_generate_and_upload(account.id)
 ```
 
 ## Testing Changes
@@ -283,29 +360,35 @@ python scripts/benchmark.py
 - Push directly to main branch
 - Phase summary documents (PHASE1_SUMMARY.md ~ PHASE8_SUMMARY.md) track progress
 
-## Known Issues & Solutions
+## 알려진 이슈 및 해결 방법
 
-1. **ImageMagick Required**: MoviePy needs ImageMagick for text rendering
-   - Windows: Download from https://imagemagick.org/
-   - Set path in `moviepy/config_defaults.py`
+1. **ffmpeg 필수**: BGM 처리에 ffmpeg 필요 (Phase 2)
+   - Windows: https://ffmpeg.org/download.html
+   - PATH 환경변수에 추가 필수
+   - 확인: `ffmpeg -version`
 
-2. **API Keys**: Ensure `.env` file exists with required keys
-   - Minimum: `GEMINI_API_KEY`, `PEXELS_API_KEY` (or `PIXABAY_API_KEY`)
+2. **ImageMagick 필수**: MoviePy 자막 렌더링
+   - Windows: https://imagemagick.org/
+   - `moviepy/config_defaults.py`에 경로 설정
 
-3. **YouTube Upload**: Requires OAuth 2.0 setup
-   - Create project at https://console.cloud.google.com/
-   - Download `client_secrets.json`
-   - Run upload once to authorize
+3. **API 키 설정**: `.env` 파일 필수
+   - 최소 요구: `GEMINI_API_KEY`, `PEXELS_API_KEY`
+   - ElevenLabs: `ELEVENLABS_API_KEY` (Phase 3 TTS용)
 
-4. **Python 3.14 Compatibility**: All dependencies updated for Python 3.14
+4. **YouTube 업로드**: OAuth 2.0 설정
+   - https://console.cloud.google.com/ 에서 프로젝트 생성
+   - `client_secrets.json` 다운로드
+   - 최초 업로드 시 브라우저에서 인증
+
+5. **데이터베이스 초기화**: 최초 실행 시
+   ```bash
+   venv\Scripts\alembic.exe upgrade head
+   ```
+
+6. **Python 3.14 호환성**: 모든 의존성 업데이트됨
    - numpy >= 2.3.0
    - Pillow >= 11.0.0
-
-5. **Performance**: First run is slower due to model downloads
-   - Gemini API: 10-30s
-   - Stock video download: 5-15s per video
-   - TTS generation: 2-5s
-   - Video editing: 30-60s for 60s video
+   - SQLAlchemy >= 2.0.23
 
 ## API Usage Examples
 
@@ -351,15 +434,30 @@ curl -X POST http://localhost:8000/api/jobs/status \
   -d '{"job_id": "job_20251223_123456"}'
 ```
 
-## Related Documentation
+## 관련 문서
 
-- `README.md` - Project overview, installation guide
-- `REFACTOR_PLAN.md` - Refactoring plan and progress
-- `PHASE1_SUMMARY.md` ~ `PHASE8_SUMMARY.md` - Phase completion reports
-- `MUSIC_GUIDE.md` - Background music guide
-- `tests/` - Test files with usage examples
-- `scripts/` - Automation scripts
+**계획 및 진행 상황**:
+- `.claude/resume.md` - **다른 PC에서 작업 재개 시 필독**
+- `PHASES_HISTORY.md` - 전체 Phase 작업 히스토리 (리팩토링 + 업그레이드)
+- `UPGRADE_PLAN.md` - v4.0 업그레이드 전체 계획
 
-## Repository URL
+**Phase별 상세 문서**:
+- `UPGRADE_PHASE1.md` ~ `UPGRADE_PHASE6.md` - 각 Phase 상세 계획서
+
+**가이드**:
+- `README.md` - 프로젝트 개요 및 설치 가이드
+- `MUSIC_GUIDE.md` - BGM 사용 가이드
+
+**테스트 및 스크립트**:
+- `tests/` - 통합 테스트, TTS 테스트, 스케줄러 테스트
+- `scripts/` - 자동화 스크립트 (manual_upload.py, setup_bgm.py)
+
+## 레포지토리 URL
 
 https://github.com/codefatal/youtube-ai
+
+---
+
+**작성일**: 2025-12-26
+**버전**: v4.0
+**최종 업데이트**: Phase 5 완료
