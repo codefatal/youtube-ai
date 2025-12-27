@@ -44,6 +44,7 @@ class TTSProvider(str, Enum):
     ELEVENLABS = "elevenlabs"
     GOOGLE_CLOUD = "google_cloud"
     GTTS = "gtts"
+    TYPECAST = "typecast"  # Phase 5: Typecast TTS 추가
 
 
 class MoodType(str, Enum):
