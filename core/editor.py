@@ -422,18 +422,18 @@ class VideoEditor:
             import platform
             font_path = 'C:\\Windows\\Fonts\\malgunbd.ttf' if platform.system() == 'Windows' else '/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf'
 
-            # 제목 줄바꿈 (10자 기준 - 짧게 제한)
-            wrapped_title = self._wrap_text(title, max_chars=10)
+            # Phase 2: 제목 줄바꿈 (15자 기준 - 가로폭 증가)
+            wrapped_title = self._wrap_text(title, max_chars=15)
 
             title_clip = self.TextClip(
                 text=wrapped_title,
                 font=font_path,
-                font_size=55,  # 크기 줄임
+                font_size=60,  # Phase 2: 55 → 60px
                 color='white',
                 stroke_color='black',
                 stroke_width=2,
                 method='caption',
-                size=(int(width * 0.8), None)  # 폭 줄임
+                size=(int(width * 0.9), None)  # Phase 2: 80% → 90%
             ).with_duration(duration)
 
             # 제목을 상단 섹션 중앙에 정확히 배치
