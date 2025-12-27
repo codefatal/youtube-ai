@@ -6,7 +6,6 @@ import TTSSettings from '@/components/TTSSettings';
 export default function CreatePage() {
   const [topic, setTopic] = useState('');
   const [duration, setDuration] = useState(60);
-  const [template, setTemplate] = useState('basic');
   const [ttsSettings, setTtsSettings] = useState({
     provider: 'gtts',
     voiceId: 'pNInz6obpgDQGcFmaJgB',
@@ -35,7 +34,7 @@ export default function CreatePage() {
           format: 'shorts',
           duration,
           upload: false,
-          template,
+          template: 'basic',  // 템플릿 고정
           tts_settings: ttsSettings,
           bgm_settings: bgmSettings,  // Phase 5: BGM 설정 전송
         }),
@@ -93,22 +92,6 @@ export default function CreatePage() {
               <span>30초</span>
               <span>180초</span>
             </div>
-          </div>
-
-          {/* 템플릿 */}
-          <div className="bg-gray-800 rounded-lg p-6">
-            <label className="block text-sm font-medium text-gray-300 mb-2">
-              템플릿
-            </label>
-            <select
-              value={template}
-              onChange={(e) => setTemplate(e.target.value)}
-              className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white"
-            >
-              <option value="basic">기본형</option>
-              <option value="documentary">다큐형</option>
-              <option value="entertainment">예능형</option>
-            </select>
           </div>
         </div>
 

@@ -35,11 +35,17 @@ export default function TTSSettings({ settings, onChange }: TTSSettingsProps) {
   const fetchVoices = async () => {
     setVoicesLoading(true);
     try {
-      const res = await fetch('http://localhost:8000/api/tts/voices');
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/tts/voices`);
+      if (!res.ok) {
+        throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+      }
       const data = await res.json();
+      console.log('Voices loaded:', data.voices?.length || 0);
       setVoices(data.voices || []);
     } catch (error) {
       console.error('Voice 목록 가져오기 실패:', error);
+      // 에러 발생 시에도 기본 목록 유지
+      setVoices([]);
     } finally {
       setVoicesLoading(false);
     }
@@ -96,7 +102,7 @@ export default function TTSSettings({ settings, onChange }: TTSSettingsProps) {
           {/* Phase 4: Voice ID 동적 선택 */}
           <div>
             <label className="block text-sm font-medium text-gray-300 mb-2">
-              음성 선택 {voicesLoading && <span className="text-xs">(로딩 중...)</span>}
+              음성 선택 {voicesLoading && <span className="text-xs text-blue-400">(로딩 중...)</span>}
             </label>
             <select
               value={settings.voiceId}
@@ -105,7 +111,7 @@ export default function TTSSettings({ settings, onChange }: TTSSettingsProps) {
               disabled={voicesLoading}
             >
               {voices.length === 0 ? (
-                <option value="pNInz6obpgDQGcFmaJgB">Adam (남성) - 기본값</option>
+                <option value="pNInz6obpgDQGcFmaJgB">Adam (남성) - 기본값 (목록 로딩 실패)</option>
               ) : (
                 voices.map((voice) => (
                   <option key={voice.voice_id} value={voice.voice_id}>
@@ -114,11 +120,15 @@ export default function TTSSettings({ settings, onChange }: TTSSettingsProps) {
                 ))
               )}
             </select>
-            {voices.length > 0 && (
+            {voices.length > 0 ? (
               <p className="text-xs text-gray-400 mt-1">
                 ⭐ = 한국어 지원 | 총 {voices.length}개 음성 사용 가능
               </p>
-            )}
+            ) : !voicesLoading ? (
+              <p className="text-xs text-yellow-400 mt-1">
+                ⚠️ 음성 목록을 불러올 수 없습니다. 백엔드 서버를 확인하세요.
+              </p>
+            ) : null}
           </div>
 
           {/* Stability */}
