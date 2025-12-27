@@ -422,22 +422,22 @@ class VideoEditor:
             import platform
             font_path = 'C:\\Windows\\Fonts\\malgunbd.ttf' if platform.system() == 'Windows' else '/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf'
 
-            # 제목 줄바꿈 (15자 기준)
-            wrapped_title = self._wrap_text(title, max_chars=15)
+            # 제목 줄바꿈 (10자 기준 - 짧게 제한)
+            wrapped_title = self._wrap_text(title, max_chars=10)
 
             title_clip = self.TextClip(
                 text=wrapped_title,
                 font=font_path,
-                font_size=65,
+                font_size=55,  # 크기 줄임
                 color='white',
                 stroke_color='black',
                 stroke_width=2,
                 method='caption',
-                size=(int(width * 0.85), None)
-            ).with_duration(duration).with_position(('center', 'center'))
+                size=(int(width * 0.8), None)  # 폭 줄임
+            ).with_duration(duration)
 
-            # 제목을 상단 섹션 중앙에 배치
-            title_y = top_height // 2
+            # 제목을 상단 섹션 중앙에 정확히 배치
+            title_y = (top_height - title_clip.size[1]) // 2
             title_clip = title_clip.with_position(('center', title_y))
 
             # 3. 중앙 비디오 (960px) - 원본 비디오를 중앙 섹션에 맞게 조정
@@ -475,13 +475,13 @@ class VideoEditor:
             # 폴백: 원본 비디오 반환
             return video_clip
 
-    def _wrap_text(self, text: str, max_chars: int = 12) -> str:
+    def _wrap_text(self, text: str, max_chars: int = 18) -> str:
         """
         자막 텍스트를 단어 단위로 줄바꿈 (Phase 1)
 
         Args:
             text: 원본 텍스트
-            max_chars: 한 줄 최대 글자 수 (기본 12자 - 더 짧게)
+            max_chars: 한 줄 최대 글자 수 (기본 18자)
 
         Returns:
             줄바꿈이 적용된 텍스트
@@ -548,8 +548,8 @@ class VideoEditor:
             if not text:
                 continue
 
-            # Phase 1: 텍스트 줄바꿈 적용 (12자 기준 - 더 짧게)
-            text = self._wrap_text(text, max_chars=12)
+            # Phase 1: 텍스트 줄바꿈 적용 (18자 기준)
+            text = self._wrap_text(text, max_chars=18)
 
             # Phase 2: 템플릿 설정 적용
             if self.template:
@@ -561,14 +561,14 @@ class VideoEditor:
                 y_offset = self.template.subtitle_y_offset
                 position = self.template.subtitle_position
             else:
-                # Phase 1: 기본 폰트 크기 (55-65) - 더 짧은 줄에 맞게 조정
+                # Phase 1: 기본 폰트 크기 (60-70)
                 text_len = len(text.replace('\n', ''))  # 줄바꿈 제외한 글자 수
                 if text_len > 50:
-                    fontsize = 55
-                elif text_len > 30:
                     fontsize = 60
-                else:
+                elif text_len > 30:
                     fontsize = 65
+                else:
+                    fontsize = 70
                 color = 'white'
                 stroke_color = 'black'
                 stroke_width = 3  # 외곽선 두께
@@ -595,14 +595,15 @@ class VideoEditor:
                     stroke_color=stroke_color,
                     stroke_width=stroke_width,
                     method='caption',
-                    size=(int(self.config.resolution[0] * 0.85), None)  # 0.9 → 0.85로 줄임
+                    size=(int(self.config.resolution[0] * 0.9), None)  # 폭 복원
                 )
 
                 # Phase 2: 쇼츠 레이아웃 적용 시 자막 위치 조정
                 if content_plan.format == VideoFormat.SHORTS:
-                    # 쇼츠 레이아웃: 영상 영역 하단에 자막 배치 (검은 배경 위쪽)
-                    # 중간 영상 영역 끝 (y=1440)에서 위로 120px
-                    y_position = 1440 - 120
+                    # 쇼츠 레이아웃: 중간 영상 영역 하단에 자막 배치
+                    # 중간 영상 영역: y=480~1440 (960px)
+                    # 하단에서 150px 위 (y=1290)
+                    y_position = 1440 - 150
                     txt_clip = txt_clip.with_position(('center', y_position))
                 elif position == 'bottom':
                     y_position = int(self.config.resolution[1] - y_offset)
