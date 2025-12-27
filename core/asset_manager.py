@@ -219,7 +219,7 @@ class AssetManager:
 
     def _generate_tts(self, content_plan: ContentPlan, account_id: Optional[int] = None, tts_settings_override: Optional[Dict[str, Any]] = None) -> Optional[AudioAsset]:
         """
-        TTS 음성 생성 (AccountSettings 및 오버라이드 지원)
+        TTS 음성 생성 (세그먼트별 개별 생성 → 실제 싱크 맞춤)
 
         Args:
             content_plan: ContentPlan 객체
@@ -229,8 +229,6 @@ class AssetManager:
         Returns:
             AudioAsset 객체 또는 None
         """
-        full_text = " ".join([seg.text for seg in content_plan.segments])
-
         # 1. DB에서 계정 설정 가져오기
         if account_id:
             settings = self._get_account_tts_settings(account_id)
@@ -248,41 +246,76 @@ class AssetManager:
             # provider는 tts_provider로 키 이름이 다름
             if 'provider' in tts_settings_override:
                 settings['tts_provider'] = tts_settings_override.pop('provider')
-            
+
             # voiceId는 tts_voice_id로 키 이름이 다름
             if 'voiceId' in tts_settings_override:
                 settings['tts_voice_id'] = tts_settings_override.pop('voiceId')
-            
+
             settings.update(tts_settings_override)
             print(f"[AssetManager] TTS 설정을 오버라이드합니다: {settings}")
 
-        # 3. TTS 생성 (설정 반영)
+        # 3. ✨ FIX: 세그먼트별 개별 TTS 생성 (싱크 맞추기)
         provider = settings.get("tts_provider", "gtts")
-        if provider == "elevenlabs":
-            filepath = self._generate_elevenlabs(
-                text=full_text,
-                voice_id=settings.get("tts_voice_id"),
-                stability=settings.get("tts_stability"),
-                similarity_boost=settings.get("tts_similarity_boost"),
-                style=settings.get("tts_style")
-            )
-        elif provider == "typecast":  # Phase 5: Typecast TTS 추가
-            filepath = self._generate_typecast(
-                text=full_text,
-                actor_id=settings.get("tts_voice_id", "isaac"),
-                lang=settings.get("tts_lang", "ko-KR")
-            )
-        else:
-            filepath = self._generate_gtts(full_text)
+        segment_audio_files = []
 
-        if filepath:
-            # Phase 3: 실제 TTS 파일 길이 측정
-            duration = self._get_audio_duration(filepath)
+        print(f"[TTS] 세그먼트별 개별 TTS 생성 시작 ({len(content_plan.segments)}개)")
+
+        for i, segment in enumerate(content_plan.segments):
+            # 효과음 제거
+            import re
+            text = re.sub(r'\([^)]*\)', '', segment.text).strip()
+            if not text:
+                continue
+
+            # 세그먼트별 TTS 생성
+            if provider == "elevenlabs":
+                seg_filepath = self._generate_elevenlabs(
+                    text=text,
+                    voice_id=settings.get("tts_voice_id"),
+                    stability=settings.get("tts_stability"),
+                    similarity_boost=settings.get("tts_similarity_boost"),
+                    style=settings.get("tts_style")
+                )
+            elif provider == "typecast":
+                seg_filepath = self._generate_typecast(
+                    text=text,
+                    actor_id=settings.get("tts_voice_id", "isaac"),
+                    lang=settings.get("tts_lang", "ko-KR")
+                )
+            else:
+                seg_filepath = self._generate_gtts(text)
+
+            if seg_filepath:
+                # ✨ 실제 TTS 길이 측정
+                seg_duration = self._get_audio_duration(seg_filepath)
+
+                # ✨ content_plan의 segment.duration 업데이트 (핵심!)
+                content_plan.segments[i].duration = seg_duration
+
+                segment_audio_files.append(seg_filepath)
+                print(f"[TTS {i+1}/{len(content_plan.segments)}] '{text[:30]}...' → {seg_duration:.2f}초")
+            else:
+                print(f"[ERROR] 세그먼트 {i+1} TTS 생성 실패")
+
+        if not segment_audio_files:
+            print("[ERROR] TTS 생성 실패: 모든 세그먼트 실패")
+            return None
+
+        # 4. ✨ 모든 TTS 파일을 하나로 합치기 (concatenate)
+        final_filepath = self._concatenate_audio_files(segment_audio_files)
+
+        if final_filepath:
+            # 최종 길이 측정
+            duration = self._get_audio_duration(final_filepath)
+            full_text = " ".join([seg.text for seg in content_plan.segments])
+
+            print(f"[SUCCESS] TTS 생성 완료: {final_filepath} ({duration:.2f}초)")
+            print(f"[INFO] 세그먼트별 duration 업데이트 완료 → 자막 싱크 정확도 향상")
 
             return AudioAsset(
                 text=full_text,
                 provider=TTSProvider(provider),
-                local_path=filepath,
+                local_path=final_filepath,
                 duration=duration
             )
 
@@ -641,7 +674,6 @@ class AssetManager:
             audio = AudioSegment.from_file(audio_path)
             duration_seconds = len(audio) / 1000.0  # 밀리초 → 초
 
-            print(f"[AssetManager] 실제 TTS 길이: {duration_seconds:.2f}초")
             return duration_seconds
 
         except ImportError:
@@ -649,4 +681,48 @@ class AssetManager:
             return None
         except Exception as e:
             print(f"[ERROR] 오디오 길이 측정 실패: {e}")
+            return None
+
+    def _concatenate_audio_files(self, audio_files: List[str]) -> Optional[str]:
+        """
+        여러 TTS 오디오 파일을 하나로 합치기 (pydub 사용)
+
+        Args:
+            audio_files: 오디오 파일 경로 리스트
+
+        Returns:
+            합쳐진 파일 경로 또는 None
+        """
+        try:
+            from pydub import AudioSegment
+
+            print(f"[TTS] {len(audio_files)}개의 오디오 파일 합치기...")
+
+            # 첫 번째 파일 로드
+            combined = AudioSegment.from_file(audio_files[0])
+
+            # 나머지 파일들을 순서대로 합치기
+            for i, audio_file in enumerate(audio_files[1:], start=2):
+                audio_segment = AudioSegment.from_file(audio_file)
+                combined += audio_segment  # concatenate
+                print(f"[TTS] {i}/{len(audio_files)} 합침...")
+
+            # 합쳐진 파일 저장
+            import hashlib
+            files_hash = hashlib.md5("".join(audio_files).encode()).hexdigest()[:10]
+            output_filename = f"tts_combined_{files_hash}.mp3"
+            output_path = self.audio_dir / output_filename
+
+            combined.export(str(output_path), format="mp3")
+
+            print(f"[SUCCESS] TTS 파일 합치기 완료: {output_path} ({len(combined)/1000:.2f}초)")
+            return str(output_path)
+
+        except ImportError:
+            print("[ERROR] pydub 패키지가 필요합니다. pip install pydub")
+            return None
+        except Exception as e:
+            print(f"[ERROR] 오디오 파일 합치기 실패: {e}")
+            import traceback
+            traceback.print_exc()
             return None
