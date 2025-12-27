@@ -15,18 +15,24 @@ class PexelsProvider:
 
     def __init__(self, api_key: Optional[str] = None):
         """
-        Pexels Provider 초기화
+        Pexels Provider 초기화 (Phase 6: API 키 검증 강화)
 
         Args:
             api_key: Pexels API 키 (None이면 환경변수에서 가져옴)
         """
         self.api_key = api_key or os.getenv('PEXELS_API_KEY')
-        if not self.api_key:
-            raise ValueError("PEXELS_API_KEY가 설정되지 않았습니다")
 
-        self.headers = {
-            'Authorization': self.api_key
-        }
+        # Phase 6: API 키 검증 (기본값 체크)
+        if not self.api_key or self.api_key == 'your_pexels_api_key_here':
+            print("[WARNING] Pexels API 키가 설정되지 않았습니다. Pexels 검색이 비활성화됩니다.")
+            print("[INFO] .env 파일에 PEXELS_API_KEY를 설정하세요.")
+            self.api_key = None  # 명시적으로 None 설정
+            self.headers = {}
+        else:
+            print("[INFO] Pexels API 키 확인 완료")
+            self.headers = {
+                'Authorization': self.api_key
+            }
 
     def search_videos(
         self,
@@ -36,7 +42,7 @@ class PexelsProvider:
         size: str = "medium"
     ) -> List[StockVideoAsset]:
         """
-        키워드로 영상 검색
+        키워드로 영상 검색 (Phase 6: API 키 체크 추가)
 
         Args:
             query: 검색 키워드 (영어)
@@ -47,6 +53,10 @@ class PexelsProvider:
         Returns:
             StockVideoAsset 리스트
         """
+        # Phase 6: API 키가 없으면 빈 리스트 반환
+        if not self.api_key:
+            return []
+
         params = {
             'query': query,
             'per_page': per_page,
@@ -103,7 +113,8 @@ class PexelsProvider:
             selected_file = None
             for file in video_files:
                 quality = file.get('quality', '')
-                if 'hd' in quality.lower():
+                # Phase 6: NoneType 방지 (quality가 None일 수 있음)
+                if quality and 'hd' in quality.lower():
                     selected_file = file
                     break
 
@@ -135,7 +146,7 @@ class PexelsProvider:
         orientation: str = "portrait"
     ) -> List[StockVideoAsset]:
         """
-        인기 영상 가져오기
+        인기 영상 가져오기 (Phase 6: API 키 체크 추가)
 
         Args:
             per_page: 결과 개수
@@ -144,6 +155,10 @@ class PexelsProvider:
         Returns:
             StockVideoAsset 리스트
         """
+        # Phase 6: API 키가 없으면 빈 리스트 반환
+        if not self.api_key:
+            return []
+
         params = {
             'per_page': per_page,
             'orientation': orientation

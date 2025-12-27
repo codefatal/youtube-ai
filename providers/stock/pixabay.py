@@ -15,14 +15,20 @@ class PixabayProvider:
 
     def __init__(self, api_key: Optional[str] = None):
         """
-        Pixabay Provider 초기화
+        Pixabay Provider 초기화 (Phase 6: API 키 검증 강화)
 
         Args:
             api_key: Pixabay API 키 (None이면 환경변수에서 가져옴)
         """
         self.api_key = api_key or os.getenv('PIXABAY_API_KEY')
-        if not self.api_key:
-            raise ValueError("PIXABAY_API_KEY가 설정되지 않았습니다")
+
+        # Phase 6: API 키 검증 (기본값 체크)
+        if not self.api_key or self.api_key == 'your_pixabay_api_key_here':
+            print("[WARNING] Pixabay API 키가 설정되지 않았습니다. Pixabay 검색이 비활성화됩니다.")
+            print("[INFO] .env 파일에 PIXABAY_API_KEY를 설정하세요.")
+            self.api_key = None  # 명시적으로 None 설정
+        else:
+            print("[INFO] Pixabay API 키 확인 완료")
 
     def search_videos(
         self,
@@ -31,7 +37,7 @@ class PixabayProvider:
         video_type: str = "all"
     ) -> List[StockVideoAsset]:
         """
-        키워드로 영상 검색
+        키워드로 영상 검색 (Phase 6: API 키 체크 추가)
 
         Args:
             query: 검색 키워드 (영어)
@@ -41,6 +47,10 @@ class PixabayProvider:
         Returns:
             StockVideoAsset 리스트
         """
+        # Phase 6: API 키가 없으면 빈 리스트 반환
+        if not self.api_key:
+            return []
+
         params = {
             'key': self.api_key,
             'q': query,
