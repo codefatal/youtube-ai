@@ -258,7 +258,7 @@ class ContentPlanner:
 
     def _validate_and_adjust_duration(self, content_plan: ContentPlan) -> ContentPlan:
         """
-        세그먼트 시간 검증 및 조정 (Phase 3 - ±1초 정확도)
+        세그먼트 시간 검증 및 조정 (Phase 4 - 목표 길이 엄격 준수)
 
         Args:
             content_plan: 검증할 ContentPlan
@@ -272,9 +272,9 @@ class ContentPlanner:
         # 1. 각 세그먼트에 duration이 없으면 자동 계산
         for segment in segments:
             if segment.duration is None or segment.duration == 0:
-                # Phase 3: TTS 읽기 속도 개선
-                # 한글: 약 0.15초/글자 (gTTS 기준)
-                # 영문/숫자: 약 0.1초/글자
+                # Phase 4: TTS 읽기 속도 개선 (실제 TTS 엔진 고려)
+                # ElevenLabs: 약 0.17초/글자 (더 느림)
+                # gTTS: 약 0.15초/글자
                 text = segment.text.strip()
 
                 # 효과음 제거 (예: (박수 소리))
@@ -283,8 +283,8 @@ class ContentPlanner:
                 # 글자 수 계산
                 char_count = len(text_clean)
 
-                # 예상 TTS 시간 (한글 기준)
-                estimated_duration = char_count * 0.15
+                # Phase 4: 예상 TTS 시간 (더 보수적으로 계산)
+                estimated_duration = char_count * 0.17  # 0.15 → 0.17
 
                 # 최소 0.5초 보장
                 segment.duration = max(0.5, round(estimated_duration, 1))

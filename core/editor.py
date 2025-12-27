@@ -106,17 +106,22 @@ class VideoEditor:
         # 2. 오디오 로드 (Phase 2: BGM 믹싱 포함)
         audio_clip = self._load_audio_with_bgm(asset_bundle, content_plan.target_duration)
 
-        # 3. Phase 3: 영상 길이 계산 (오디오 길이 기준 - 정확도 개선)
+        # Phase 4: 영상 길이 제어 - 사용자 지정 길이 강제
+        target_duration = content_plan.target_duration
+        print(f"[Editor] 목표 길이: {target_duration:.2f}초 (사용자 지정)")
+
+        # Phase 4: TTS가 목표보다 길면 자르기
         if audio_clip:
-            target_duration = audio_clip.duration
-            print(f"[Editor] 실제 TTS 오디오 길이 사용: {target_duration:.2f}초")
-        elif asset_bundle.audio and asset_bundle.audio.duration:
-            # TTS duration이 명시적으로 설정된 경우
-            target_duration = asset_bundle.audio.duration
-            print(f"[Editor] TTS AssetBundle 길이 사용: {target_duration:.2f}초")
-        else:
-            target_duration = content_plan.target_duration
-            print(f"[Editor] ContentPlan 목표 길이 사용: {target_duration:.2f}초")
+            actual_duration = audio_clip.duration
+            print(f"[Editor] 실제 TTS 길이: {actual_duration:.2f}초")
+
+            if actual_duration > target_duration:
+                print(f"[Editor] TTS가 목표보다 {actual_duration - target_duration:.2f}초 더 김. 자르기...")
+                audio_clip = audio_clip.subclipped(0, target_duration)
+                print(f"[Editor] TTS를 {target_duration:.2f}초로 자름")
+            elif actual_duration < target_duration:
+                print(f"[Editor] TTS가 목표보다 {target_duration - actual_duration:.2f}초 짧음 (그대로 사용)")
+                # 목표보다 짧은 경우는 그대로 사용 (패딩하지 않음)
 
         print(f"[Editor] 최종 목표 길이: {target_duration:.2f}초")
 
