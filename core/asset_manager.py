@@ -20,6 +20,14 @@ from core.models import (
     TTSProvider,
     MoodType
 )
+
+# SHORTS_SPEC.md: Whisper 통합
+try:
+    from core.services.alignment_service import get_alignment_service
+    WHISPER_AVAILABLE = True
+except ImportError:
+    WHISPER_AVAILABLE = False
+    print("[WARNING] Whisper 서비스 사용 불가 (openai-whisper 미설치)")
 from providers.stock import PexelsProvider, PixabayProvider
 from core.bgm_manager import BGMManager
 
@@ -317,8 +325,36 @@ class AssetManager:
             duration = self._get_audio_duration(final_filepath)
             full_text = " ".join([seg.text for seg in content_plan.segments])
 
+            # 5. ✨ SHORTS_SPEC.md: Whisper로 정확한 타임스탬프 추출
+            if WHISPER_AVAILABLE:
+                print(f"[Whisper] 정확한 타임스탬프 추출 중...")
+                try:
+                    alignment_service = get_alignment_service()
+
+                    # 세그먼트를 dict 형식으로 변환
+                    segments_dict = [
+                        {"text": seg.text, "keyword": seg.keyword}
+                        for seg in content_plan.segments
+                    ]
+
+                    # Whisper 정렬
+                    aligned_segments = alignment_service.align_segments_to_audio(
+                        segments_dict,
+                        final_filepath
+                    )
+
+                    # content_plan.segments 업데이트 (Whisper 타임스탬프 적용)
+                    for i, aligned in enumerate(aligned_segments):
+                        if i < len(content_plan.segments):
+                            content_plan.segments[i].duration = aligned['duration']
+
+                    print(f"[SUCCESS] Whisper 타임스탬프 적용 완료 → 자막 싱크 정확도 극대화")
+                except Exception as e:
+                    print(f"[WARNING] Whisper 처리 실패, 기존 duration 유지: {e}")
+            else:
+                print(f"[INFO] Whisper 미사용. 세그먼트별 duration으로 자막 생성")
+
             print(f"[SUCCESS] TTS 생성 완료: {final_filepath} ({duration:.2f}초)")
-            print(f"[INFO] 세그먼트별 duration 업데이트 완료 → 자막 싱크 정확도 향상")
 
             return AudioAsset(
                 text=full_text,

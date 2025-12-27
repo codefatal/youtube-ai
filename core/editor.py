@@ -1,6 +1,6 @@
 """
 Editor Module
-MoviePy 기반 영상 편집 및 합성
+MoviePy 기반 영상 편집 및 합성 (SHORTS_SPEC.md 기준)
 """
 import os
 import json
@@ -16,6 +16,18 @@ from core.models import (
     TemplateConfig
 )
 from core.bgm_manager import BGMManager
+
+# SHORTS_SPEC.md: config.py 상수 사용
+from core.config import (
+    CANVAS_WIDTH, CANVAS_HEIGHT,
+    FONT_TITLE, FONT_SUBTITLE,
+    FONT_SIZE_TITLE, FONT_SIZE_SUBTITLE,
+    SUBTITLE_SAFE_Y_MIN, SUBTITLE_SAFE_Y_MAX,
+    clamp_y_to_safe_zone
+)
+
+# SHORTS_SPEC.md: SubtitleService 사용 (Pillow 기반)
+from core.services.subtitle_service import get_subtitle_service
 
 
 class VideoEditor:
@@ -420,6 +432,7 @@ class VideoEditor:
     def _create_shorts_layout(self, video_clip, title: str, duration: float):
         """
         Phase 2: 쇼츠 레이아웃 생성 (상단 1/4 + 중앙 1/2 + 하단 1/4)
+        SHORTS_SPEC.md: config.py 상수 사용
 
         Args:
             video_clip: 원본 비디오 클립 (1080x1920)
@@ -429,8 +442,8 @@ class VideoEditor:
         Returns:
             레이아웃이 적용된 CompositeVideoClip
         """
-        width = 1080
-        height = 1920
+        width = CANVAS_WIDTH   # 1080
+        height = CANVAS_HEIGHT  # 1920
 
         # 섹션 높이 계산
         top_height = height // 4      # 480px
@@ -444,21 +457,18 @@ class VideoEditor:
                 color=(0, 0, 0)
             ).with_duration(duration).with_position((0, 0))
 
-            # 2. 상단 제목 텍스트 (완전 재설계)
-            import platform
-            font_path = 'C:\\Windows\\Fonts\\malgunbd.ttf' if platform.system() == 'Windows' else '/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf'
-
+            # 2. 상단 제목 텍스트 (SHORTS_SPEC.md: config.py 폰트 사용)
             # FIX: 줄바꿈 기준 증가 (15자 → 20자)
             wrapped_title = self._wrap_text(title, max_chars=20)
 
-            # FIX: 폰트 크기 증가 + 외곽선 강화
+            # SHORTS_SPEC.md: config.py에서 폰트 및 크기 가져옴
             title_text_clip = self.TextClip(
                 text=wrapped_title,
-                font=font_path,
-                font_size=80,  # 60 → 80px (더 크고 임팩트 있게)
+                font=FONT_TITLE,  # config.py에서 관리
+                font_size=FONT_SIZE_TITLE,  # 80px
                 color='white',
                 stroke_color='black',
-                stroke_width=3,  # 2 → 3px (더 두껍게)
+                stroke_width=3,
                 method='label'  # 자동 크기 조정
             ).with_duration(duration)
 
@@ -566,7 +576,7 @@ class VideoEditor:
         total_duration: float
     ):
         """
-        자막 추가 (Phase 1 재설계: TTS 세그먼트별 정확한 싱크)
+        자막 추가 (SHORTS_SPEC.md: SubtitleService + Safe Zone 적용)
 
         Args:
             video_clip: 베이스 비디오 클립
@@ -579,139 +589,69 @@ class VideoEditor:
         if not content_plan.segments:
             return video_clip
 
-        subtitle_clips = []
-        current_time = 0.0  # 누적 시간 추적
+        # SHORTS_SPEC.md: SubtitleService 사용 (Pillow 기반 + Safe Zone)
+        subtitle_service = get_subtitle_service()
 
-        for i, segment in enumerate(content_plan.segments):
-            # 자막 텍스트 (효과음 제거)
-            import re
-            text = re.sub(r'\([^)]*\)', '', segment.text).strip()
+        # 세그먼트를 dict 리스트로 변환 (SubtitleService 인터페이스 맞춤)
+        segments_data = []
+        current_time = 0.0
 
-            if not text:
-                # 텍스트가 없어도 시간은 진행
-                if segment.duration:
-                    current_time += segment.duration
-                continue
+        for seg in content_plan.segments:
+            duration = seg.duration if seg.duration else 3.0
 
-            # FIX: 자막 줄바꿈 개선 (화면 너비 고려)
-            text = text.replace('\n', ' ').strip()
-
-            # 25자 이상이면 자동 줄바꿈 (화면 너비 90% 이내 유지)
-            if len(text) > 25:
-                text = self._wrap_text(text, max_chars=25)
-
-            # Phase 2: 템플릿 설정 적용
-            if self.template:
-                fontsize = self.template.subtitle_fontsize
-                color = self.template.subtitle_color
-                stroke_color = self.template.subtitle_stroke_color
-                stroke_width = self.template.subtitle_stroke_width
-                font_file = self.template.subtitle_font
-                y_offset = self.template.subtitle_y_offset
-                position = self.template.subtitle_position
+            # Whisper로 정렬된 경우 start/end 사용, 아니면 누적 계산
+            if hasattr(seg, 'start') and seg.start is not None:
+                start_time = seg.start
+                end_time = seg.end if hasattr(seg, 'end') else start_time + duration
             else:
-                # FIX: 폰트 크기 자동 조정 (줄 수 + 글자 수 고려)
-                text_len = len(text.replace('\n', ''))  # 줄바꿈 제외한 글자 수
-                line_count = text.count('\n') + 1  # 줄 수
+                start_time = current_time
+                end_time = current_time + duration
 
-                if line_count >= 3:  # 3줄 이상
-                    fontsize = 50
-                elif line_count == 2:  # 2줄
-                    fontsize = 60
-                else:  # 1줄
-                    if text_len > 30:
-                        fontsize = 65
-                    else:
-                        fontsize = 75  # 1줄이고 짧으면 크게
+            segments_data.append({
+                "text": seg.text,
+                "start": start_time,
+                "end": end_time,
+                "duration": duration
+            })
 
-                color = 'white'
-                stroke_color = 'black'
-                stroke_width = 3  # 외곽선 두께
-                font_file = 'malgun.ttf'
-                y_offset = 150  # 하단 여백
-                position = 'bottom'
+            current_time = end_time
 
+        # SubtitleService로 자막 클립 정보 생성 (PIL Image + Safe Zone 적용됨)
+        subtitle_clip_data = subtitle_service.create_subtitle_clips(segments_data, fps=self.config.fps)
+
+        # PIL Image를 MoviePy ImageClip으로 변환
+        subtitle_clips = []
+
+        for i, data in enumerate(subtitle_clip_data):
             try:
-                # 폰트 경로 설정 (Windows 호환)
-                import platform
-                if platform.system() == 'Windows':
-                    # Windows: 폰트 파일명 → 전체 경로
-                    font_path = f'C:\\Windows\\Fonts\\{font_file}'
-                else:
-                    # Linux/Mac: DejaVu Sans (fallback)
-                    font_path = '/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf'
+                pil_image = data["image"]       # PIL.Image
+                start_time = data["start"]      # float
+                duration = data["duration"]     # float
+                y_position = data["y_position"] # int (Safe Zone 적용됨)
 
-                # FIX: TextClip 생성 (자동 크기 조정)
-                txt_text_clip = self.TextClip(
-                    text=text,
-                    font=font_path,
-                    font_size=fontsize,
-                    color=color,
-                    stroke_color=stroke_color,
-                    stroke_width=stroke_width,
-                    method='label',  # caption → label (자동 크기)
-                )
+                # PIL Image를 numpy array로 변환하여 ImageClip 생성
+                import numpy as np
+                img_array = np.array(pil_image)
 
-                # FIX: 검은 반투명 배경 박스 추가
-                text_width, text_height = txt_text_clip.size
-                # 패딩 추가 (좌우 30px, 상하 20px)
-                bg_width = min(text_width + 60, int(self.config.resolution[0] * 0.95))  # 화면의 95% 이내
-                bg_height = text_height + 40
+                # MoviePy ImageClip 생성
+                img_clip = self.ImageClip(img_array).with_duration(duration).with_start(start_time)
 
-                txt_bg = self.ColorClip(
-                    size=(bg_width, bg_height),
-                    color=(0, 0, 0),  # 검은색
-                ).with_opacity(0.6)  # 60% 불투명 (자막이 잘 보이도록)
+                # 위치는 이미 PIL 이미지에 포함되어 있으므로 (0, 0)으로 배치
+                img_clip = img_clip.with_position((0, 0))
 
-                # Phase 2: 쇼츠 레이아웃 적용 시 자막 위치 조정
-                if content_plan.format == VideoFormat.SHORTS:
-                    # 쇼츠 레이아웃: 중간 영상 영역 하단에 자막 배치
-                    # 중간 영상 영역: y=480~1440 (960px)
-                    # 하단에서 150px 위 (y=1290)
-                    y_position = 1440 - 150
-                elif position == 'bottom':
-                    y_position = int(self.config.resolution[1] - y_offset)
-                elif position == 'center':
-                    y_position = int(self.config.resolution[1] / 2)
-                elif position == 'top':
-                    y_position = y_offset
-                else:
-                    # 기본값: 하단
-                    y_position = int(self.config.resolution[1] - 100)
+                subtitle_clips.append(img_clip)
 
-                # 배경 박스 위치 설정 (중앙 정렬)
-                txt_bg = txt_bg.with_position(('center', y_position))
-
-                # 텍스트를 배경 위에 정확히 중앙 배치
-                txt_text_clip = txt_text_clip.with_position(('center', y_position + 20))
-
-                # FIX: 배경 + 텍스트를 하나로 합성
-                txt_composite = self.CompositeVideoClip(
-                    [txt_bg, txt_text_clip],
-                    size=self.config.resolution
-                )
-
-                # Phase 1 수정: 세그먼트별 정확한 시간 설정
-                segment_duration = segment.duration if segment.duration else 3.0
-                txt_composite = txt_composite.with_start(current_time).with_duration(segment_duration)
-
-                subtitle_clips.append(txt_composite)
-
-                # 누적 시간 업데이트
-                current_time += segment_duration
-
-                print(f"[Subtitle {i+1}] '{text[:30]}...' at {current_time-segment_duration:.1f}s-{current_time:.1f}s ({segment_duration:.1f}s)")
+                print(f"[Subtitle {i+1}] '{data['text'][:30]}...' at {start_time:.1f}s-{start_time+duration:.1f}s (Safe Zone Y={y_position}px)")
 
             except Exception as e:
-                print(f"[WARNING] 자막 생성 실패 ({i+1}): {e}")
-                # 에러가 나도 시간은 진행
-                if segment.duration:
-                    current_time += segment.duration
+                print(f"[WARNING] 자막 이미지 변환 실패 ({i+1}): {e}")
+                import traceback
+                traceback.print_exc()
 
         if subtitle_clips:
             # 비디오 + 자막 합성
             video_clip = self.CompositeVideoClip([video_clip] + subtitle_clips)
-            print(f"[Editor] 자막 {len(subtitle_clips)}개 추가 완료")
+            print(f"[Editor] 자막 {len(subtitle_clips)}개 추가 완료 (SHORTS_SPEC.md Safe Zone 적용)")
 
         return video_clip
 
