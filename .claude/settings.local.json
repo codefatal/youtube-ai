@@ -39,7 +39,16 @@
       "Bash(venv/Scripts/pip.exe install:*)",
       "Bash(alembic init:*)",
       "Bash(venv/Scripts/alembic.exe init:*)",
-      "Bash(venv/Scripts/alembic.exe revision:*)"
+      "Bash(venv/Scripts/alembic.exe revision:*)",
+      "Bash(venv\\\\Scripts\\\\pip.exe install:*)",
+      "Bash(find:*)",
+      "Bash(powershell -Command \"Set-ExecutionPolicy Bypass -Scope Process -Force; [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.ServicePointManager]::SecurityProtocol -bor 3072; iex \\(\\(New-Object System.Net.WebClient\\).DownloadString\\(''https://community.chocolatey.org/install.ps1''\\)\\)\")",
+      "Bash(C:ProgramDatachocolateybinchoco.exe install ffmpeg -y)",
+      "Bash(\"C:/ProgramData/chocolatey/bin/choco.exe\" install ffmpeg -y)",
+      "Bash(ffmpeg:*)",
+      "Bash(\"C:/ProgramData/chocolatey/bin/ffmpeg.exe\" -version)",
+      "Bash(python:*)",
+      "Bash(grep:*)"
     ],
     "deny": [],
     "ask": []

@@ -405,6 +405,73 @@ async def get_config():
         raise HTTPException(status_code=500, detail=f"설정 조회 실패: {str(e)}")
 
 
+# ==================== 테스트 API ====================
+
+class TestVideoRequest(BaseModel):
+    """테스트 영상 생성 요청"""
+    duration: int = 10  # 영상 길이 (초)
+    subtitles: List[str] = ["테스트 자막 1", "테스트 자막 2", "테스트 자막 3"]
+    title: str = "테스트 영상"
+
+@app.post("/api/test/video")
+async def create_test_video(request: TestVideoRequest):
+    """
+    테스트용 간단한 영상 생성 (10초 기본)
+    - 사용자가 입력한 자막으로 영상 생성
+    - 스톡 영상 사용
+    """
+    try:
+        from core.models import ContentPlan, ScriptSegment, VideoFormat
+
+        # 자막당 시간 계산
+        segment_duration = request.duration / len(request.subtitles)
+
+        # ContentPlan 생성
+        segments = [
+            ScriptSegment(
+                text=subtitle,
+                keyword="nature landscape",  # 고정 키워드
+                duration=segment_duration
+            )
+            for subtitle in request.subtitles
+        ]
+
+        content_plan = ContentPlan(
+            title=request.title,
+            description="테스트 영상입니다",
+            tags=["테스트"],
+            format=VideoFormat.SHORTS,
+            target_duration=request.duration,
+            segments=segments
+        )
+
+        # Orchestrator로 영상 생성
+        orchestrator = ContentOrchestrator()
+        job = await asyncio.to_thread(
+            orchestrator.create_content_from_plan,
+            content_plan=content_plan,
+            upload=False
+        )
+
+        if job.status == ContentStatus.COMPLETED:
+            return {
+                "success": True,
+                "video_path": job.output_video_path,
+                "duration": request.duration,
+                "subtitles": request.subtitles
+            }
+        else:
+            return {
+                "success": False,
+                "error": "영상 생성 실패"
+            }
+
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"테스트 영상 생성 실패: {str(e)}")
+
+
 # ==================== 서버 실행 ====================
 
 if __name__ == "__main__":
