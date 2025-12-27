@@ -475,13 +475,13 @@ class VideoEditor:
             # 폴백: 원본 비디오 반환
             return video_clip
 
-    def _wrap_text(self, text: str, max_chars: int = 18) -> str:
+    def _wrap_text(self, text: str, max_chars: int = 25) -> str:
         """
         자막 텍스트를 단어 단위로 줄바꿈 (Phase 1)
 
         Args:
             text: 원본 텍스트
-            max_chars: 한 줄 최대 글자 수 (기본 18자)
+            max_chars: 한 줄 최대 글자 수 (기본 25자, 너무 긴 텍스트만 줄바꿈)
 
         Returns:
             줄바꿈이 적용된 텍스트
@@ -520,7 +520,7 @@ class VideoEditor:
         total_duration: float
     ):
         """
-        자막 추가
+        자막 추가 (Phase 1 재설계: TTS 세그먼트별 정확한 싱크)
 
         Args:
             video_clip: 베이스 비디오 클립
@@ -533,23 +533,25 @@ class VideoEditor:
         if not content_plan.segments:
             return video_clip
 
-        # 세그먼트별 시간 계산
-        segment_duration = total_duration / len(content_plan.segments)
-
         subtitle_clips = []
+        current_time = 0.0  # 누적 시간 추적
 
         for i, segment in enumerate(content_plan.segments):
-            start_time = i * segment_duration
-
             # 자막 텍스트 (효과음 제거)
             import re
             text = re.sub(r'\([^)]*\)', '', segment.text).strip()
 
             if not text:
+                # 텍스트가 없어도 시간은 진행
+                if segment.duration:
+                    current_time += segment.duration
                 continue
 
-            # Phase 1: 텍스트 줄바꿈 적용 (18자 기준)
-            text = self._wrap_text(text, max_chars=18)
+            # Phase 1 수정: 세그먼트 텍스트 그대로 사용 (강제 줄바꿈 제거)
+            # 단, 너무 길면 자동 줄바꿈 (25자 기준)
+            if len(text) > 25:
+                text = self._wrap_text(text, max_chars=25)
+            # 그 외에는 세그먼트 텍스트 그대로 (1줄 표시)
 
             # Phase 2: 템플릿 설정 적용
             if self.template:
@@ -586,7 +588,7 @@ class VideoEditor:
                     # Linux/Mac: DejaVu Sans (fallback)
                     font_path = '/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf'
 
-                # TextClip 생성
+                # Phase 1 수정: TextClip 생성 (자동 크기 조정)
                 txt_clip = self.TextClip(
                     text=text,
                     font=font_path,
@@ -594,8 +596,8 @@ class VideoEditor:
                     color=color,
                     stroke_color=stroke_color,
                     stroke_width=stroke_width,
-                    method='caption',
-                    size=(int(self.config.resolution[0] * 0.9), None)  # 폭 복원
+                    method='label',  # caption → label (자동 크기)
+                    # size 제거 - 자동으로 텍스트 크기에 맞춤
                 )
 
                 # Phase 2: 쇼츠 레이아웃 적용 시 자막 위치 조정
@@ -617,13 +619,22 @@ class VideoEditor:
                     y_position = int(self.config.resolution[1] - 100)
                     txt_clip = txt_clip.with_position(('center', y_position))
 
-                # 시간 설정
-                txt_clip = txt_clip.with_start(start_time).with_duration(segment_duration)
+                # Phase 1 수정: 세그먼트별 정확한 시간 설정
+                segment_duration = segment.duration if segment.duration else 3.0
+                txt_clip = txt_clip.with_start(current_time).with_duration(segment_duration)
 
                 subtitle_clips.append(txt_clip)
 
+                # 누적 시간 업데이트
+                current_time += segment_duration
+
+                print(f"[Subtitle {i+1}] '{text[:30]}...' at {current_time-segment_duration:.1f}s-{current_time:.1f}s ({segment_duration:.1f}s)")
+
             except Exception as e:
                 print(f"[WARNING] 자막 생성 실패 ({i+1}): {e}")
+                # 에러가 나도 시간은 진행
+                if segment.duration:
+                    current_time += segment.duration
 
         if subtitle_clips:
             # 비디오 + 자막 합성
