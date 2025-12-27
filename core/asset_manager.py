@@ -289,6 +289,14 @@ class AssetManager:
                 # ✨ 실제 TTS 길이 측정
                 seg_duration = self._get_audio_duration(seg_filepath)
 
+                # ✨ None이면 예측값 사용 (fallback)
+                if seg_duration is None:
+                    import re
+                    text_clean = re.sub(r'\([^)]*\)', '', text).strip()
+                    char_count = len(text_clean)
+                    seg_duration = max(0.5, char_count * 0.17)
+                    print(f"[WARNING] 세그먼트 {i+1} 길이 측정 실패. 예측값 사용: {seg_duration:.2f}초")
+
                 # ✨ content_plan의 segment.duration 업데이트 (핵심!)
                 content_plan.segments[i].duration = seg_duration
 
@@ -660,7 +668,7 @@ class AssetManager:
 
     def _get_audio_duration(self, audio_path: str) -> Optional[float]:
         """
-        Phase 3: 실제 오디오 파일 길이 측정 (pydub 사용)
+        실제 오디오 파일 길이 측정 (MoviePy 사용 - Python 3.14 호환)
 
         Args:
             audio_path: 오디오 파일 경로
@@ -669,23 +677,22 @@ class AssetManager:
             오디오 길이 (초) 또는 None
         """
         try:
-            from pydub import AudioSegment
+            # MoviePy 사용 (이미 의존성에 있음)
+            from moviepy import AudioFileClip
 
-            audio = AudioSegment.from_file(audio_path)
-            duration_seconds = len(audio) / 1000.0  # 밀리초 → 초
+            audio_clip = AudioFileClip(audio_path)
+            duration_seconds = audio_clip.duration
+            audio_clip.close()  # 리소스 해제
 
             return duration_seconds
 
-        except ImportError:
-            print("[WARNING] pydub 패키지가 설치되지 않았습니다. 예상 길이를 사용합니다.")
-            return None
         except Exception as e:
             print(f"[ERROR] 오디오 길이 측정 실패: {e}")
             return None
 
     def _concatenate_audio_files(self, audio_files: List[str]) -> Optional[str]:
         """
-        여러 TTS 오디오 파일을 하나로 합치기 (pydub 사용)
+        여러 TTS 오디오 파일을 하나로 합치기 (MoviePy 사용 - Python 3.14 호환)
 
         Args:
             audio_files: 오디오 파일 경로 리스트
@@ -694,18 +701,19 @@ class AssetManager:
             합쳐진 파일 경로 또는 None
         """
         try:
-            from pydub import AudioSegment
+            from moviepy import AudioFileClip, concatenate_audioclips
 
             print(f"[TTS] {len(audio_files)}개의 오디오 파일 합치기...")
 
-            # 첫 번째 파일 로드
-            combined = AudioSegment.from_file(audio_files[0])
+            # 모든 파일 로드
+            audio_clips = []
+            for i, audio_file in enumerate(audio_files, start=1):
+                clip = AudioFileClip(audio_file)
+                audio_clips.append(clip)
+                print(f"[TTS] {i}/{len(audio_files)} 로드...")
 
-            # 나머지 파일들을 순서대로 합치기
-            for i, audio_file in enumerate(audio_files[1:], start=2):
-                audio_segment = AudioSegment.from_file(audio_file)
-                combined += audio_segment  # concatenate
-                print(f"[TTS] {i}/{len(audio_files)} 합침...")
+            # 모든 오디오 합치기
+            combined = concatenate_audioclips(audio_clips)
 
             # 합쳐진 파일 저장
             import hashlib
@@ -713,14 +721,16 @@ class AssetManager:
             output_filename = f"tts_combined_{files_hash}.mp3"
             output_path = self.audio_dir / output_filename
 
-            combined.export(str(output_path), format="mp3")
+            combined.write_audiofile(str(output_path), codec='mp3', logger=None)
 
-            print(f"[SUCCESS] TTS 파일 합치기 완료: {output_path} ({len(combined)/1000:.2f}초)")
+            # 리소스 해제
+            for clip in audio_clips:
+                clip.close()
+            combined.close()
+
+            print(f"[SUCCESS] TTS 파일 합치기 완료: {output_path} ({combined.duration:.2f}초)")
             return str(output_path)
 
-        except ImportError:
-            print("[ERROR] pydub 패키지가 필요합니다. pip install pydub")
-            return None
         except Exception as e:
             print(f"[ERROR] 오디오 파일 합치기 실패: {e}")
             import traceback
