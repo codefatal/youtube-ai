@@ -3,7 +3,7 @@ FastAPI Backend Server for YouTube AI v3.0
 AI-Powered Original Content Creation System
 """
 from contextlib import asynccontextmanager
-from fastapi import FastAPI, HTTPException, BackgroundTasks
+from fastapi import FastAPI, HTTPException, BackgroundTasks, UploadFile, File, Form
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
@@ -13,6 +13,7 @@ import os
 import asyncio
 from datetime import datetime
 from dotenv import load_dotenv
+import shutil
 
 # .env 파일 로드
 load_dotenv(os.path.join(os.path.dirname(__file__), '..', '.env'))
@@ -470,6 +471,93 @@ async def create_test_video(request: TestVideoRequest):
         import traceback
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=f"테스트 영상 생성 실패: {str(e)}")
+
+
+# ==================== BGM API ====================
+
+@app.post("/api/bgm/upload")
+async def upload_bgm(
+    file: UploadFile = File(...),
+    mood: str = Form(...),
+    name: str = Form(...)
+):
+    """
+    BGM 파일 업로드
+
+    Args:
+        file: mp3 파일
+        mood: 분위기 (HAPPY, SAD, ENERGETIC, CALM, TENSE, MYSTERIOUS)
+        name: BGM 이름
+    """
+    try:
+        # mood 검증
+        valid_moods = ["HAPPY", "SAD", "ENERGETIC", "CALM", "TENSE", "MYSTERIOUS"]
+        mood_upper = mood.upper()
+        if mood_upper not in valid_moods:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Invalid mood. Must be one of: {', '.join(valid_moods)}"
+            )
+
+        # 파일 확장자 확인
+        if not file.filename.endswith('.mp3'):
+            raise HTTPException(status_code=400, detail="Only .mp3 files are allowed")
+
+        # music/MOOD/ 폴더 생성
+        music_dir = os.path.join(os.path.dirname(__file__), '..', 'music', mood_upper)
+        os.makedirs(music_dir, exist_ok=True)
+
+        # 파일명 정리 (공백 → 언더스코어)
+        clean_name = name.replace(' ', '_')
+        filepath = os.path.join(music_dir, f"{clean_name}.mp3")
+
+        # 파일 저장
+        with open(filepath, 'wb') as f:
+            shutil.copyfileobj(file.file, f)
+
+        print(f"[BGM] 업로드 완료: {filepath}")
+
+        return {
+            "success": True,
+            "message": f"BGM uploaded successfully",
+            "filepath": filepath,
+            "mood": mood_upper,
+            "name": name
+        }
+
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"BGM upload failed: {str(e)}")
+
+
+@app.get("/api/bgm/list")
+async def list_bgm():
+    """music 폴더의 모든 BGM 파일 목록"""
+    try:
+        music_root = os.path.join(os.path.dirname(__file__), '..', 'music')
+        bgm_list = []
+
+        if os.path.exists(music_root):
+            for mood_folder in os.listdir(music_root):
+                mood_path = os.path.join(music_root, mood_folder)
+                if os.path.isdir(mood_path):
+                    for file in os.listdir(mood_path):
+                        if file.endswith('.mp3'):
+                            bgm_list.append({
+                                "mood": mood_folder,
+                                "name": file.replace('.mp3', ''),
+                                "filepath": os.path.join(mood_path, file)
+                            })
+
+        return {
+            "success": True,
+            "bgm_count": len(bgm_list),
+            "bgm_list": bgm_list
+        }
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"BGM list failed: {str(e)}")
 
 
 # ==================== 서버 실행 ====================

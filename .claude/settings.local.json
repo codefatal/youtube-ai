@@ -48,7 +48,8 @@
       "Bash(ffmpeg:*)",
       "Bash(\"C:/ProgramData/chocolatey/bin/ffmpeg.exe\" -version)",
       "Bash(python:*)",
-      "Bash(grep:*)"
+      "Bash(grep:*)",
+      "Bash(venv/Scripts/python.exe:*)"
     ],
     "deny": [],
     "ask": []
