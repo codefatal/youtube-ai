@@ -266,6 +266,12 @@ class AssetManager:
                 similarity_boost=settings.get("tts_similarity_boost"),
                 style=settings.get("tts_style")
             )
+        elif provider == "typecast":  # Phase 5: Typecast TTS 추가
+            filepath = self._generate_typecast(
+                text=full_text,
+                actor_id=settings.get("tts_voice_id", "isaac"),
+                lang=settings.get("tts_lang", "ko-KR")
+            )
         else:
             filepath = self._generate_gtts(full_text)
 
@@ -436,6 +442,83 @@ class AssetManager:
             return self._generate_gtts(text)
         except Exception as e:
             print(f"[ERROR] ElevenLabs TTS 생성 실패: {e}")
+            return self._generate_gtts(text)
+
+    def _generate_typecast(
+        self,
+        text: str,
+        actor_id: str = "isaac",  # 기본 한국어 남성 목소리
+        lang: str = "ko-KR",
+        max_seconds: int = 300
+    ) -> Optional[str]:
+        """
+        Phase 5: Typecast TTS로 음성 생성
+
+        Args:
+            text: 변환할 텍스트
+            actor_id: Typecast 배우 ID (isaac, suji 등)
+            lang: 언어 코드 (ko-KR, en-US)
+            max_seconds: 최대 길이 (초)
+
+        Returns:
+            저장된 파일 경로 또는 None
+        """
+        try:
+            import os
+            import requests
+
+            # API 키 확인
+            api_key = os.getenv("TYPECAST_API_KEY")
+            if not api_key:
+                print("[ERROR] TYPECAST_API_KEY 환경변수가 설정되지 않았습니다.")
+                return self._generate_gtts(text)
+
+            # 파일명 생성 (해시 기반 캐싱)
+            combined_hash = hashlib.md5(
+                f"{text}_{actor_id}_{lang}".encode()
+            ).hexdigest()[:10]
+
+            filename = f"tts_typecast_{combined_hash}.mp3"
+            filepath = self.audio_dir / filename
+
+            # 이미 생성된 경우 (스마트 캐싱)
+            if filepath.exists():
+                print(f"[TTS] 캐시에서 로드: {filename}")
+                return str(filepath)
+
+            # Typecast API 호출
+            print(f"[Typecast] 음성 생성 중...")
+            print(f"  - Actor: {actor_id}")
+            print(f"  - Lang: {lang}")
+
+            url = "https://typecast.ai/api/speak"
+            headers = {
+                "Authorization": f"Bearer {api_key}",
+                "Content-Type": "application/json"
+            }
+            payload = {
+                "text": text,
+                "actor_id": actor_id,
+                "lang": lang,
+                "max_seconds": max_seconds,
+                "xapi_hd": True  # 고품질 오디오
+            }
+
+            response = requests.post(url, headers=headers, json=payload, timeout=60)
+
+            if response.status_code == 200:
+                # 오디오 파일 저장
+                with open(filepath, 'wb') as f:
+                    f.write(response.content)
+
+                print(f"[SUCCESS] Typecast TTS 생성 완료: {filepath}")
+                return str(filepath)
+            else:
+                print(f"[ERROR] Typecast API 오류: {response.status_code} - {response.text}")
+                return self._generate_gtts(text)
+
+        except Exception as e:
+            print(f"[ERROR] Typecast TTS 생성 실패: {e}")
             return self._generate_gtts(text)
 
     def _get_cached_video(self, keyword: str) -> Optional[StockVideoAsset]:

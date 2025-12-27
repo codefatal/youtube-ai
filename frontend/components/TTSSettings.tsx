@@ -93,6 +93,7 @@ export default function TTSSettings({ settings, onChange }: TTSSettingsProps) {
         >
           <option value="gtts">gTTS (무료)</option>
           <option value="elevenlabs">ElevenLabs (프리미엄)</option>
+          <option value="typecast">Typecast (한국어 전문)</option>
         </select>
       </div>
 
@@ -199,6 +200,31 @@ export default function TTSSettings({ settings, onChange }: TTSSettingsProps) {
           >
             {previewLoading ? '생성 중...' : '🎵 미리듣기'}
           </button>
+        </>
+      )}
+
+      {/* Phase 5: Typecast 설정 */}
+      {settings.provider === 'typecast' && (
+        <>
+          <div>
+            <label className="block text-sm font-medium text-gray-300 mb-2">
+              목소리 선택
+            </label>
+            <select
+              value={settings.voiceId || 'isaac'}
+              onChange={(e) => onChange({ ...settings, voiceId: e.target.value })}
+              className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white text-sm"
+            >
+              <option value="isaac">Isaac (남성, 차분한)</option>
+              <option value="suji">Suji (여성, 밝은)</option>
+              <option value="minho">Minho (남성, 활기찬)</option>
+              <option value="jiwon">Jiwon (여성, 전문적인)</option>
+              <option value="yuna">Yuna (여성, 부드러운)</option>
+            </select>
+            <p className="text-xs text-gray-400 mt-1">
+              한국어에 최적화된 자연스러운 음성
+            </p>
+          </div>
         </>
       )}
     </div>
