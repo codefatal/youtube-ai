@@ -444,27 +444,47 @@ class VideoEditor:
                 color=(0, 0, 0)
             ).with_duration(duration).with_position((0, 0))
 
-            # 2. 상단 제목 텍스트
+            # 2. 상단 제목 텍스트 (완전 재설계)
             import platform
             font_path = 'C:\\Windows\\Fonts\\malgunbd.ttf' if platform.system() == 'Windows' else '/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf'
 
-            # Phase 2 수정: 제목 줄바꿈 (15자 기준 - 가로폭 증가)
-            wrapped_title = self._wrap_text(title, max_chars=15)
+            # FIX: 줄바꿈 기준 증가 (15자 → 20자)
+            wrapped_title = self._wrap_text(title, max_chars=20)
 
-            # FIX: method='label'로 변경 (자동 크기 조정)
-            title_clip = self.TextClip(
+            # FIX: 폰트 크기 증가 + 외곽선 강화
+            title_text_clip = self.TextClip(
                 text=wrapped_title,
                 font=font_path,
-                font_size=60,  # Phase 2: 55 → 60px
+                font_size=80,  # 60 → 80px (더 크고 임팩트 있게)
                 color='white',
                 stroke_color='black',
-                stroke_width=2,
-                method='label'  # caption → label (텍스트 짤림 방지)
+                stroke_width=3,  # 2 → 3px (더 두껍게)
+                method='label'  # 자동 크기 조정
             ).with_duration(duration)
 
-            # 제목을 상단 섹션 중앙에 정확히 배치
-            title_y = (top_height - title_clip.size[1]) // 2
-            title_clip = title_clip.with_position(('center', title_y))
+            # FIX: 반투명 배경 박스 추가 (차별화)
+            text_width, text_height = title_text_clip.size
+            # 패딩 추가 (좌우 40px, 상하 30px)
+            bg_width = min(text_width + 80, width - 40)  # 화면보다 넓으면 제한
+            bg_height = text_height + 60
+
+            title_bg = self.ColorClip(
+                size=(bg_width, bg_height),
+                color=(0, 0, 0),  # 검은색
+            ).with_duration(duration).with_opacity(0.7)  # 70% 불투명
+
+            # 배경 박스를 상단 섹션 중앙에 배치
+            bg_y = (top_height - bg_height) // 2
+            title_bg = title_bg.with_position(('center', bg_y))
+
+            # 텍스트를 배경 위에 정확히 중앙 배치
+            title_text_clip = title_text_clip.with_position(('center', bg_y + 30))
+
+            # FIX: 배경 + 텍스트를 하나로 합성
+            title_composite = self.CompositeVideoClip(
+                [title_bg, title_text_clip],
+                size=(width, top_height)
+            ).with_duration(duration).with_position((0, 0))
 
             # 3. 중앙 비디오 (960px) - 원본 비디오를 중앙 섹션에 맞게 조정
             # 비디오 크기 확인
@@ -484,7 +504,7 @@ class VideoEditor:
             composite = self.CompositeVideoClip(
                 [
                     top_bg,
-                    title_clip,
+                    title_composite,  # title_clip → title_composite
                     middle_video,
                     bottom_bg
                 ],
@@ -573,12 +593,12 @@ class VideoEditor:
                     current_time += segment.duration
                 continue
 
-            # FIX: 자막 1줄 강제 (줄바꿈 문자 모두 제거)
+            # FIX: 자막 줄바꿈 개선 (화면 너비 고려)
             text = text.replace('\n', ' ').strip()
 
-            # 너무 긴 텍스트만 줄바꿈 (40자 이상)
-            if len(text) > 40:
-                text = self._wrap_text(text, max_chars=40)
+            # 25자 이상이면 자동 줄바꿈 (화면 너비 90% 이내 유지)
+            if len(text) > 25:
+                text = self._wrap_text(text, max_chars=25)
 
             # Phase 2: 템플릿 설정 적용
             if self.template:
@@ -621,8 +641,8 @@ class VideoEditor:
                     # Linux/Mac: DejaVu Sans (fallback)
                     font_path = '/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf'
 
-                # Phase 1 수정: TextClip 생성 (자동 크기 조정)
-                txt_clip = self.TextClip(
+                # FIX: TextClip 생성 (자동 크기 조정)
+                txt_text_clip = self.TextClip(
                     text=text,
                     font=font_path,
                     font_size=fontsize,
@@ -630,8 +650,18 @@ class VideoEditor:
                     stroke_color=stroke_color,
                     stroke_width=stroke_width,
                     method='label',  # caption → label (자동 크기)
-                    # size 제거 - 자동으로 텍스트 크기에 맞춤
                 )
+
+                # FIX: 검은 반투명 배경 박스 추가
+                text_width, text_height = txt_text_clip.size
+                # 패딩 추가 (좌우 30px, 상하 20px)
+                bg_width = min(text_width + 60, int(self.config.resolution[0] * 0.95))  # 화면의 95% 이내
+                bg_height = text_height + 40
+
+                txt_bg = self.ColorClip(
+                    size=(bg_width, bg_height),
+                    color=(0, 0, 0),  # 검은색
+                ).with_opacity(0.6)  # 60% 불투명 (자막이 잘 보이도록)
 
                 # Phase 2: 쇼츠 레이아웃 적용 시 자막 위치 조정
                 if content_plan.format == VideoFormat.SHORTS:
@@ -639,24 +669,33 @@ class VideoEditor:
                     # 중간 영상 영역: y=480~1440 (960px)
                     # 하단에서 150px 위 (y=1290)
                     y_position = 1440 - 150
-                    txt_clip = txt_clip.with_position(('center', y_position))
                 elif position == 'bottom':
                     y_position = int(self.config.resolution[1] - y_offset)
-                    txt_clip = txt_clip.with_position(('center', y_position))
                 elif position == 'center':
-                    txt_clip = txt_clip.with_position('center')
+                    y_position = int(self.config.resolution[1] / 2)
                 elif position == 'top':
-                    txt_clip = txt_clip.with_position(('center', y_offset))
+                    y_position = y_offset
                 else:
                     # 기본값: 하단
                     y_position = int(self.config.resolution[1] - 100)
-                    txt_clip = txt_clip.with_position(('center', y_position))
+
+                # 배경 박스 위치 설정 (중앙 정렬)
+                txt_bg = txt_bg.with_position(('center', y_position))
+
+                # 텍스트를 배경 위에 정확히 중앙 배치
+                txt_text_clip = txt_text_clip.with_position(('center', y_position + 20))
+
+                # FIX: 배경 + 텍스트를 하나로 합성
+                txt_composite = self.CompositeVideoClip(
+                    [txt_bg, txt_text_clip],
+                    size=self.config.resolution
+                )
 
                 # Phase 1 수정: 세그먼트별 정확한 시간 설정
                 segment_duration = segment.duration if segment.duration else 3.0
-                txt_clip = txt_clip.with_start(current_time).with_duration(segment_duration)
+                txt_composite = txt_composite.with_start(current_time).with_duration(segment_duration)
 
-                subtitle_clips.append(txt_clip)
+                subtitle_clips.append(txt_composite)
 
                 # 누적 시간 업데이트
                 current_time += segment_duration
