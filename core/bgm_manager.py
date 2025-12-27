@@ -41,10 +41,10 @@ def _get_audio_duration(file_path: str) -> float:
 class BGMManager:
     """배경음악 관리자"""
 
-    def __init__(self, music_dir: str = "assets/music"):
+    def __init__(self, music_dir: str = "music"):
         """
         Args:
-            music_dir: 음악 파일 디렉토리 경로
+            music_dir: 음악 파일 디렉토리 경로 (Phase 3: "assets/music" → "music")
         """
         self.music_dir = Path(music_dir)
         self.music_dir.mkdir(parents=True, exist_ok=True)
@@ -71,9 +71,14 @@ class BGMManager:
         self._load_catalog()
 
     def _load_catalog(self):
-        """카탈로그 메타데이터 로드"""
+        """
+        카탈로그 메타데이터 로드
+        Phase 3: 카탈로그가 없으면 music 폴더 자동 스캔
+        """
         if not self.metadata_file.exists():
             print(f"[BGMManager] 카탈로그 파일 없음: {self.metadata_file}")
+            # Phase 3: music 폴더를 스캔해서 자동 생성 시도
+            self._auto_scan_music_folder()
             return
 
         try:
@@ -95,6 +100,56 @@ class BGMManager:
 
         except Exception as e:
             print(f"[BGMManager] 카탈로그 로드 실패: {e}")
+
+    def _auto_scan_music_folder(self):
+        """
+        Phase 3: music 폴더를 스캔해서 BGM 자동 감지 및 카탈로그 생성
+
+        폴더 구조:
+        music/
+          HAPPY/
+            song1.mp3
+            song2.mp3
+          ENERGETIC/
+            track1.mp3
+          ...
+        """
+        print(f"[BGMManager] music 폴더 자동 스캔 중: {self.music_dir}")
+
+        found_count = 0
+        for mood_folder in self.music_dir.iterdir():
+            if not mood_folder.is_dir():
+                continue
+
+            # 폴더 이름으로 mood 판별
+            mood_name = mood_folder.name.upper()
+            try:
+                mood = MoodType[mood_name]
+            except KeyError:
+                print(f"[BGMManager] 알 수 없는 mood 폴더: {mood_folder.name}")
+                continue
+
+            # 해당 mood 폴더에서 오디오 파일 찾기
+            for audio_file in mood_folder.glob("*.mp3"):
+                try:
+                    asset = self.add_bgm(
+                        file_path=str(audio_file),
+                        mood=mood,
+                        name=audio_file.stem,
+                        volume=0.2  # Phase 3: 기본 볼륨 0.3 → 0.2
+                    )
+                    found_count += 1
+                except Exception as e:
+                    print(f"[BGMManager] BGM 추가 실패 ({audio_file.name}): {e}")
+
+        if found_count > 0:
+            print(f"[BGMManager] 자동 스캔 완료: {found_count}개 BGM 발견")
+            # 카탈로그 저장
+            self.save_catalog()
+        else:
+            print(f"[BGMManager] 자동 스캔 결과: BGM 파일 없음")
+            print(f"[BGMManager] BGM을 사용하려면 music/MOOD_NAME/ 폴더에 mp3 파일을 넣으세요")
+            print(f"[BGMManager] 예: music/ENERGETIC/track1.mp3")
 
     def save_catalog(self):
         """카탈로그 메타데이터 저장"""
@@ -121,7 +176,7 @@ class BGMManager:
         name: Optional[str] = None,
         artist: Optional[str] = None,
         license: Optional[str] = None,
-        volume: float = 0.3
+        volume: float = 0.2  # Phase 3: 0.3 → 0.2
     ) -> BGMAsset:
         """
         BGM 추가
