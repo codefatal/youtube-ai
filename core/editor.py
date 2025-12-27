@@ -106,24 +106,31 @@ class VideoEditor:
         # 2. 오디오 로드 (Phase 2: BGM 믹싱 포함)
         audio_clip = self._load_audio_with_bgm(asset_bundle, content_plan.target_duration)
 
-        # Phase 4: 영상 길이 제어 - 사용자 지정 길이 강제
+        # FIX: 영상 길이 제어 - target_duration 절대 강제
         target_duration = content_plan.target_duration
-        print(f"[Editor] 목표 길이: {target_duration:.2f}초 (사용자 지정)")
+        print(f"[Editor] 목표 길이: {target_duration:.2f}초 (사용자 지정 - 절대 강제)")
 
-        # Phase 4: TTS가 목표보다 길면 자르기
+        # FIX: TTS 길이를 무조건 target_duration으로 맞춤
         if audio_clip:
             actual_duration = audio_clip.duration
             print(f"[Editor] 실제 TTS 길이: {actual_duration:.2f}초")
 
+            # 무조건 target_duration으로 자르거나 늘림
             if actual_duration > target_duration:
-                print(f"[Editor] TTS가 목표보다 {actual_duration - target_duration:.2f}초 더 김. 자르기...")
+                print(f"[Editor] TTS가 목표보다 {actual_duration - target_duration:.2f}초 더 김. {target_duration:.2f}초로 자르기...")
                 audio_clip = audio_clip.subclipped(0, target_duration)
-                print(f"[Editor] TTS를 {target_duration:.2f}초로 자름")
             elif actual_duration < target_duration:
-                print(f"[Editor] TTS가 목표보다 {target_duration - actual_duration:.2f}초 짧음 (그대로 사용)")
-                # 목표보다 짧은 경우는 그대로 사용 (패딩하지 않음)
+                print(f"[Editor] TTS가 목표보다 {target_duration - actual_duration:.2f}초 짧음. {target_duration:.2f}초로 늘리기 (무음 추가)...")
+                # 무음 추가로 길이 맞춤
+                from moviepy import AudioClip
+                silence_duration = target_duration - actual_duration
+                silence = AudioClip(lambda t: [0, 0], duration=silence_duration, fps=44100)
+                from moviepy import concatenate_audioclips
+                audio_clip = concatenate_audioclips([audio_clip, silence])
 
-        print(f"[Editor] 최종 목표 길이: {target_duration:.2f}초")
+            print(f"[Editor] TTS 최종 길이: {audio_clip.duration:.2f}초")
+
+        print(f"[Editor] 최종 목표 길이: {target_duration:.2f}초 (절대 강제)")
 
         # 4. 영상 클립 조정 및 연결
         final_video = self._compose_video_clips(
@@ -148,12 +155,12 @@ class VideoEditor:
         if audio_clip:
             final_video = final_video.with_audio(audio_clip)
 
-        # 6. 자막 추가
+        # 6. 자막 추가 (FIX: target_duration 강제)
         if content_plan.segments:
             final_video = self._add_subtitles(
                 final_video,
                 content_plan,
-                audio_clip.duration if audio_clip else target_duration
+                target_duration  # audio_clip.duration 대신 target_duration 사용
             )
 
         # 7. 출력 파일명 생성
@@ -164,9 +171,23 @@ class VideoEditor:
 
         output_path = os.path.join(self.config.output_dir, output_filename)
 
+        # FIX: 최종 영상 길이 강제 조정
+        actual_video_duration = final_video.duration
+        print(f"[Editor] 렌더링 전 영상 길이: {actual_video_duration:.2f}초 (목표: {target_duration:.2f}초)")
+
+        if abs(actual_video_duration - target_duration) > 0.5:
+            print(f"[WARNING] 영상 길이가 목표와 {abs(actual_video_duration - target_duration):.2f}초 차이남. 강제 조정 중...")
+            if actual_video_duration > target_duration:
+                # 길면 자르기
+                final_video = final_video.subclipped(0, target_duration)
+            else:
+                # 짧으면 마지막 프레임 freeze
+                final_video = final_video.with_duration(target_duration)
+            print(f"[Editor] 영상 길이 조정 완료: {final_video.duration:.2f}초")
+
         # 8. 영상 렌더링
         try:
-            print(f"\n[Editor] 렌더링 시작: {output_filename}")
+            print(f"\n[Editor] 렌더링 시작: {output_filename} ({target_duration:.2f}초)")
             final_video.write_videofile(
                 output_path,
                 fps=self.config.fps,
