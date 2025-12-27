@@ -427,9 +427,10 @@ class VideoEditor:
             import platform
             font_path = 'C:\\Windows\\Fonts\\malgunbd.ttf' if platform.system() == 'Windows' else '/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf'
 
-            # Phase 2: 제목 줄바꿈 (15자 기준 - 가로폭 증가)
+            # Phase 2 수정: 제목 줄바꿈 (15자 기준 - 가로폭 증가)
             wrapped_title = self._wrap_text(title, max_chars=15)
 
+            # FIX: method='label'로 변경 (자동 크기 조정)
             title_clip = self.TextClip(
                 text=wrapped_title,
                 font=font_path,
@@ -437,8 +438,7 @@ class VideoEditor:
                 color='white',
                 stroke_color='black',
                 stroke_width=2,
-                method='caption',
-                size=(int(width * 0.9), None)  # Phase 2: 80% → 90%
+                method='label'  # caption → label (텍스트 짤림 방지)
             ).with_duration(duration)
 
             # 제목을 상단 섹션 중앙에 정확히 배치
@@ -552,11 +552,12 @@ class VideoEditor:
                     current_time += segment.duration
                 continue
 
-            # Phase 1 수정: 세그먼트 텍스트 그대로 사용 (강제 줄바꿈 제거)
-            # 단, 너무 길면 자동 줄바꿈 (25자 기준)
-            if len(text) > 25:
-                text = self._wrap_text(text, max_chars=25)
-            # 그 외에는 세그먼트 텍스트 그대로 (1줄 표시)
+            # FIX: 자막 1줄 강제 (줄바꿈 문자 모두 제거)
+            text = text.replace('\n', ' ').strip()
+
+            # 너무 긴 텍스트만 줄바꿈 (40자 이상)
+            if len(text) > 40:
+                text = self._wrap_text(text, max_chars=40)
 
             # Phase 2: 템플릿 설정 적용
             if self.template:
@@ -568,14 +569,20 @@ class VideoEditor:
                 y_offset = self.template.subtitle_y_offset
                 position = self.template.subtitle_position
             else:
-                # Phase 1: 기본 폰트 크기 (60-70)
+                # FIX: 폰트 크기 자동 조정 (줄 수 + 글자 수 고려)
                 text_len = len(text.replace('\n', ''))  # 줄바꿈 제외한 글자 수
-                if text_len > 50:
+                line_count = text.count('\n') + 1  # 줄 수
+
+                if line_count >= 3:  # 3줄 이상
+                    fontsize = 50
+                elif line_count == 2:  # 2줄
                     fontsize = 60
-                elif text_len > 30:
-                    fontsize = 65
-                else:
-                    fontsize = 70
+                else:  # 1줄
+                    if text_len > 30:
+                        fontsize = 65
+                    else:
+                        fontsize = 75  # 1줄이고 짧으면 크게
+
                 color = 'white'
                 stroke_color = 'black'
                 stroke_width = 3  # 외곽선 두께
