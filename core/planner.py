@@ -118,6 +118,11 @@ class ContentPlanner:
             print(f"[ERROR] {format} 템플릿을 찾을 수 없습니다")
             return None
 
+        # ✨ DEBUG: target_duration 로그
+        print(f"\n[Planner] create_script 호출됨:")
+        print(f"[Planner]   - 주제: {topic}")
+        print(f"[Planner]   - target_duration: {target_duration}초 ⬅️ 파라미터 확인!")
+
         # 변수 치환
         prompt = template.format(
             topic=topic,
@@ -129,7 +134,7 @@ class ContentPlanner:
 
         # AI로 스크립트 생성
         try:
-            print(f"[AI] 스크립트 생성 중... (주제: {topic})")
+            print(f"[AI] 스크립트 생성 중... (주제: {topic}, 목표 길이: {target_duration}초)")
             result = self.ai.generate_json(
                 prompt=prompt,
                 temperature=0.7,

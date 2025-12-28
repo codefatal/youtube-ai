@@ -285,10 +285,27 @@ class AssetManager:
                     style=settings.get("tts_style")
                 )
             elif provider == "typecast":
+                # Typecast v1 API는 tc_ prefix voice_id 사용
+                # voice_id가 ElevenLabs 형식이면 무시하고 기본값 사용
+                voice_id = settings.get("tts_voice_id", "tc_5c3c52ca5827e00008dd7f3a")  # Sujin (여성)
+
+                # ElevenLabs voice ID 형식 감지 (길이가 20자 이상이면 ElevenLabs)
+                if len(str(voice_id)) == 20 and not str(voice_id).startswith("tc_"):
+                    # ElevenLabs ID 형식 (20자, tc_ 없음)
+                    typecast_voice_id = "tc_5c3c52ca5827e00008dd7f3a"  # 기본: Sujin (여성)
+                    print(f"[WARNING] ElevenLabs voice_id가 감지되어 Typecast 기본 voice 'Sujin' 사용")
+                else:
+                    # tc_ prefix 검증
+                    if not str(voice_id).startswith("tc_"):
+                        typecast_voice_id = "tc_5c3c52ca5827e00008dd7f3a"  # Sujin
+                        print(f"[WARNING] Typecast voice_id는 tc_로 시작해야 합니다. 기본값 사용: Sujin")
+                    else:
+                        typecast_voice_id = voice_id
+
                 seg_filepath = self._generate_typecast(
                     text=text,
-                    actor_id=settings.get("tts_voice_id", "isaac"),
-                    lang=settings.get("tts_lang", "ko-KR")
+                    voice_id=typecast_voice_id,
+                    emotion=settings.get("tts_emotion", "normal")
                 )
             else:
                 seg_filepath = self._generate_gtts(text)
@@ -524,18 +541,20 @@ class AssetManager:
     def _generate_typecast(
         self,
         text: str,
-        actor_id: str = "isaac",  # 기본 한국어 남성 목소리
-        lang: str = "ko-KR",
-        max_seconds: int = 300
+        voice_id: str = "tc_5c3c52ca5827e00008dd7f3a",  # 기본: Sujin (여성)
+        emotion: str = "normal",
+        volume: int = 100
     ) -> Optional[str]:
         """
-        Phase 5: Typecast TTS로 음성 생성
+        Typecast TTS로 음성 생성 (v1 API)
+
+        공식 문서: https://typecast.ai/docs/api-reference
 
         Args:
-            text: 변환할 텍스트
-            actor_id: Typecast 배우 ID (isaac, suji 등)
-            lang: 언어 코드 (ko-KR, en-US)
-            max_seconds: 최대 길이 (초)
+            text: 변환할 텍스트 (최대 5000자)
+            voice_id: Typecast voice ID (tc_로 시작, 예: tc_5c3c52ca5827e00008dd7f3a)
+            emotion: 감정 (normal, happy, sad, angry)
+            volume: 볼륨 (0-200, 기본값: 100)
 
         Returns:
             저장된 파일 경로 또는 None
@@ -547,12 +566,22 @@ class AssetManager:
             # API 키 확인
             api_key = os.getenv("TYPECAST_API_KEY")
             if not api_key:
-                print("[ERROR] TYPECAST_API_KEY 환경변수가 설정되지 않았습니다.")
+                print("[WARNING] ============================================")
+                print("[WARNING] Typecast TTS를 사용하려면 .env 파일에")
+                print("[WARNING] TYPECAST_API_KEY를 설정해주세요.")
+                print("[WARNING] 현재는 gTTS로 대체합니다.")
+                print("[WARNING] ============================================")
                 return self._generate_gtts(text)
+
+            # voice_id 검증 (tc_로 시작해야 함)
+            if not voice_id.startswith("tc_"):
+                print(f"[WARNING] 잘못된 Typecast voice_id: {voice_id}")
+                print(f"[WARNING] 기본 voice_id 사용: Sujin (tc_5c3c52ca5827e00008dd7f3a)")
+                voice_id = "tc_5c3c52ca5827e00008dd7f3a"
 
             # 파일명 생성 (해시 기반 캐싱)
             combined_hash = hashlib.md5(
-                f"{text}_{actor_id}_{lang}".encode()
+                f"{text}_{voice_id}_{emotion}".encode()
             ).hexdigest()[:10]
 
             filename = f"tts_typecast_{combined_hash}.mp3"
@@ -563,22 +592,30 @@ class AssetManager:
                 print(f"[TTS] 캐시에서 로드: {filename}")
                 return str(filepath)
 
-            # Typecast API 호출
+            # Typecast API v1 호출
             print(f"[Typecast] 음성 생성 중...")
-            print(f"  - Actor: {actor_id}")
-            print(f"  - Lang: {lang}")
+            print(f"  - Voice ID: {voice_id}")
+            print(f"  - Emotion: {emotion}")
+            print(f"  - Text length: {len(text)} chars")
 
-            url = "https://typecast.ai/api/speak"
+            url = "https://api.typecast.ai/v1/text-to-speech"
             headers = {
-                "Authorization": f"Bearer {api_key}",
+                "X-API-KEY": api_key,  # v1 API는 X-API-KEY 헤더 사용
                 "Content-Type": "application/json"
             }
             payload = {
+                "voice_id": voice_id,
                 "text": text,
-                "actor_id": actor_id,
-                "lang": lang,
-                "max_seconds": max_seconds,
-                "xapi_hd": True  # 고품질 오디오
+                "model": "ssfm-v21",  # 필수: Speech Synthesis Foundation Model
+                "prompt": {
+                    "emotion_preset": emotion,
+                    "emotion_intensity": 1.0
+                },
+                "output": {
+                    "audio_format": "mp3",
+                    "volume": volume,
+                    "audio_tempo": 1.0
+                }
             }
 
             response = requests.post(url, headers=headers, json=payload, timeout=60)

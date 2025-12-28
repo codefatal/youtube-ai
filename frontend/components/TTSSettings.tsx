@@ -203,7 +203,7 @@ export default function TTSSettings({ settings, onChange }: TTSSettingsProps) {
         </>
       )}
 
-      {/* Phase 5: Typecast 설정 */}
+      {/* Phase 5: Typecast 설정 (v1 API) */}
       {settings.provider === 'typecast' && (
         <>
           <div>
@@ -211,18 +211,21 @@ export default function TTSSettings({ settings, onChange }: TTSSettingsProps) {
               목소리 선택
             </label>
             <select
-              value={settings.voiceId || 'isaac'}
+              value={settings.voiceId || 'tc_5c3c52ca5827e00008dd7f3a'}
               onChange={(e) => onChange({ ...settings, voiceId: e.target.value })}
               className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white text-sm"
             >
-              <option value="isaac">Isaac (남성, 차분한)</option>
-              <option value="suji">Suji (여성, 밝은)</option>
-              <option value="minho">Minho (남성, 활기찬)</option>
-              <option value="jiwon">Jiwon (여성, 전문적인)</option>
-              <option value="yuna">Yuna (여성, 부드러운)</option>
+              <option value="tc_5c3c52ca5827e00008dd7f3a">Sujin (여성, 밝은)</option>
+              <option value="tc_5c3c52caea9791000747155e">Younghee (여성, 부드러운)</option>
+              <option value="tc_5c789c337ad86500073a02cd">GeumHee (여성, 전문적인)</option>
+              <option value="tc_5c3c52ca5827e00008dd7f38">Minsang (남성, 차분한)</option>
+              <option value="tc_5c789c32dabcfa0008b0a38e">Jeongseob (남성, 활기찬)</option>
+              <option value="tc_5c3c52ca5827e00008dd7f36">Jinhyuk (남성, 깊은)</option>
+              <option value="tc_64b8fa1ef1ff6f997055188e">Geunyeong (여성, 최신)</option>
+              <option value="tc_64b8fa40ef03762a5fc0e51d">Geunhyeok (남성, 최신)</option>
             </select>
             <p className="text-xs text-gray-400 mt-1">
-              한국어에 최적화된 자연스러운 음성
+              Typecast v1 API (한국어 전문 음성)
             </p>
           </div>
         </>

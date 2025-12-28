@@ -17,6 +17,7 @@ from core.config import (
     FONT_SUBTITLE, FONT_SIZE_SUBTITLE, FONT_SIZE_SUBTITLE_SMALL,
     STROKE_WIDTH,
     SUBTITLE_BG_PADDING_X, SUBTITLE_BG_PADDING_Y, SUBTITLE_BG_OPACITY,
+    SUBTITLE_MAX_CHARS, SUBTITLE_MIN_DURATION, SUBTITLE_MAX_DURATION, SUBTITLE_CHAR_PER_SECOND,
     clamp_y_to_safe_zone
 )
 
@@ -175,13 +176,71 @@ class SubtitleService:
 
         return (img, y_position)
 
+    def _split_long_text(self, text: str, max_chars: int = SUBTITLE_MAX_CHARS) -> List[str]:
+        """
+        긴 텍스트를 짧은 조각으로 분할 (읽기 편하게)
+
+        Args:
+            text: 원본 텍스트
+            max_chars: 한 조각 최대 글자 수
+
+        Returns:
+            분할된 텍스트 리스트
+        """
+        # 효과음 제거
+        import re
+        text = re.sub(r'\([^)]*\)', '', text).strip()
+
+        if not text or len(text) <= max_chars:
+            return [text] if text else []
+
+        # 문장 단위로 먼저 분리 (., !, ?, 기준)
+        sentences = re.split(r'([.!?]\s+)', text)
+        chunks = []
+        current_chunk = ""
+
+        for sentence in sentences:
+            if not sentence.strip():
+                continue
+
+            # 현재 청크에 추가했을 때 길이 체크
+            test_chunk = current_chunk + sentence
+
+            if len(test_chunk) <= max_chars:
+                current_chunk = test_chunk
+            else:
+                # 현재 청크 저장
+                if current_chunk:
+                    chunks.append(current_chunk.strip())
+
+                # 문장 자체가 max_chars보다 긴 경우 단어 단위로 분할
+                if len(sentence) > max_chars:
+                    words = sentence.split()
+                    temp_chunk = ""
+                    for word in words:
+                        if len(temp_chunk + " " + word) <= max_chars:
+                            temp_chunk += (" " if temp_chunk else "") + word
+                        else:
+                            if temp_chunk:
+                                chunks.append(temp_chunk.strip())
+                            temp_chunk = word
+                    current_chunk = temp_chunk
+                else:
+                    current_chunk = sentence
+
+        # 마지막 청크 추가
+        if current_chunk:
+            chunks.append(current_chunk.strip())
+
+        return chunks if chunks else [text]
+
     def create_subtitle_clips(
         self,
         segments: List[dict],
         fps: int = 30
     ) -> List[dict]:
         """
-        세그먼트 리스트로부터 자막 클립 정보 생성
+        세그먼트 리스트로부터 자막 클립 정보 생성 (긴 자막 자동 분할)
 
         Args:
             segments: 정렬된 세그먼트 리스트
@@ -214,18 +273,41 @@ class SubtitleService:
             if not text:
                 continue
 
-            # 자막 이미지 생성
-            subtitle_img, y_pos = self.create_subtitle_image(text)
+            # 긴 텍스트 자동 분할 (SUBTITLE_MAX_CHARS 초과 시)
+            text_chunks = self._split_long_text(text, SUBTITLE_MAX_CHARS)
 
-            subtitle_clips.append({
-                "image": subtitle_img,
-                "start": start,
-                "duration": duration,
-                "y_position": y_pos,
-                "text": text
-            })
+            # 각 청크에 duration 비례 배분
+            total_chars = sum(len(chunk) for chunk in text_chunks)
+            current_start = start
 
-            print(f"[Subtitle {i+1}] '{text[:30]}...' at {start:.1f}s-{start+duration:.1f}s (Safe Zone: Y={y_pos}px)")
+            for j, chunk in enumerate(text_chunks):
+                # duration 비례 배분 (글자 수 비율)
+                chunk_ratio = len(chunk) / total_chars if total_chars > 0 else 1.0
+                chunk_duration = duration * chunk_ratio
+
+                # 읽기 속도 고려한 적정 duration 계산
+                optimal_duration = len(chunk) / SUBTITLE_CHAR_PER_SECOND
+
+                # 실제 duration: 비례 배분값과 적정값의 평균 (더 안정적)
+                chunk_duration = (chunk_duration + optimal_duration) / 2.0
+
+                # MIN/MAX 제한 적용
+                chunk_duration = max(SUBTITLE_MIN_DURATION, min(SUBTITLE_MAX_DURATION, chunk_duration))
+
+                # 자막 이미지 생성
+                subtitle_img, y_pos = self.create_subtitle_image(chunk)
+
+                subtitle_clips.append({
+                    "image": subtitle_img,
+                    "start": current_start,
+                    "duration": chunk_duration,
+                    "y_position": y_pos,
+                    "text": chunk
+                })
+
+                print(f"[Subtitle {i+1}-{j+1}] '{chunk[:30]}...' at {current_start:.1f}s-{current_start+chunk_duration:.1f}s ({chunk_duration:.1f}s, Safe Zone: Y={y_pos}px)")
+
+                current_start += chunk_duration
 
         return subtitle_clips
 

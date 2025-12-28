@@ -196,6 +196,13 @@ class ContentOrchestrator:
         try:
             # 1. Planner: 스크립트 생성
             self._update_job_status(db_job, JobStatus.PLANNING, "스크립트 생성 중...")
+
+            # ✨ DEBUG: target_duration 로그
+            print(f"\n[Orchestrator] ========== 파이프라인 시작 ==========")
+            print(f"[Orchestrator] 주제: {topic}")
+            print(f"[Orchestrator] target_duration: {target_duration}초 ⬅️ 중요!")
+            print(f"[Orchestrator] ===========================================\n")
+
             planner = self._get_planner()
             content_plan = planner.create_script(
                 topic=topic,
@@ -204,6 +211,12 @@ class ContentOrchestrator:
             )
             if not content_plan:
                 raise Exception("스크립트 생성 실패")
+
+            # ✨ DEBUG: 생성된 ContentPlan의 target_duration 확인
+            print(f"[Orchestrator] ContentPlan 생성 완료:")
+            print(f"[Orchestrator]   - 제목: {content_plan.title}")
+            print(f"[Orchestrator]   - target_duration: {content_plan.target_duration}초 ⬅️ 확인!")
+
             self.logger.info(f"스크립트 생성 완료: {content_plan.title}")
 
             # 2. Asset Manager: 에셋 수집

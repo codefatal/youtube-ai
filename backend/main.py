@@ -218,6 +218,14 @@ async def generate_script(request: GenerateScriptRequest):
 async def create_video(request: CreateVideoRequest, background_tasks: BackgroundTasks):
     """영상 생성 (백그라운드 작업)"""
     try:
+        # ✨ DEBUG: 영상 길이 로그
+        print(f"\n[API] ========== 영상 생성 요청 ==========")
+        print(f"[API] 주제: {request.topic or 'AI 자동 생성'}")
+        print(f"[API] 포맷: {request.format}")
+        print(f"[API] 길이: {request.duration}초 ⬅️ 중요!")
+        print(f"[API] TTS Provider: {request.tts_settings.get('provider') if request.tts_settings else 'gtts'}")
+        print(f"[API] =====================================\n")
+
         orchestrator = get_orchestrator()
 
         # 설정 생성
@@ -238,6 +246,8 @@ async def create_video(request: CreateVideoRequest, background_tasks: Background
             planner = ContentPlanner()
             topics = planner.generate_topic_ideas(category="트렌드", count=1)
             topic = topics[0] if topics else "AI 기술 소개"
+
+        print(f"[API] orchestrator.create_content 호출 중 (target_duration={request.duration})")
 
         # 영상 생성 (비동기)
         job = await asyncio.to_thread(

@@ -276,8 +276,8 @@ class JobHistory(BaseModel):
 class SystemConfig(BaseModel):
     """시스템 설정"""
     # AI 설정
-    ai_provider: AIProvider = Field(AIProvider.GEMINI, description="AI 제공자")
-    gemini_model: str = Field("gemini-2.5-flash", description="Gemini 모델")
+    ai_provider: AIProvider = Field(AIProvider.GEMINI, description="AI 제공자")  # Claude는 미구현이므로 Gemini 사용
+    gemini_model: str = Field("gemini-2.5-flash", description="Gemini 모델")  # 2.5 우선, quota 초과 시 자동으로 2.0 fallback
 
     # TTS 설정
     tts_provider: TTSProvider = Field(TTSProvider.ELEVENLABS, description="TTS 제공자")

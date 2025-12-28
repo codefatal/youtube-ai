@@ -472,23 +472,50 @@ class VideoEditor:
                 method='label'  # 자동 크기 조정
             ).with_duration(duration)
 
-            # FIX: 반투명 배경 박스 추가 (차별화)
+            # FIX: 반투명 배경 박스 추가 (차별화) + Safe Zone 적용
             text_width, text_height = title_text_clip.size
-            # 패딩 추가 (좌우 40px, 상하 30px)
+
+            # 줄바꿈 개수 확인 (줄간격 고려)
+            line_count = wrapped_title.count('\n') + 1
+
+            # 패딩 추가 (좌우 40px, 상하 패딩은 줄 수에 따라 조정)
             bg_width = min(text_width + 80, width - 40)  # 화면보다 넓으면 제한
-            bg_height = text_height + 60
+
+            # 상하 패딩: 기본 50px + 줄간격 여유분 (줄 수만큼 추가)
+            # 1줄: 100px (상하 50px), 2줄: 120px (상하 60px), 3줄: 140px (상하 70px)
+            vertical_padding = 100 + (line_count - 1) * 20
+            bg_height = text_height + vertical_padding
+
+            print(f"[Title] 줄 수: {line_count}, 텍스트 높이: {text_height}px, 배경 박스 높이: {bg_height}px")
+
+            # Safe Zone: 배경 박스가 top_height를 넘지 않도록 제한
+            if bg_height > top_height - 40:  # 상하 20px 여백 확보
+                bg_height = top_height - 40
+                print(f"[WARNING] 제목 박스 높이 제한: {bg_height}px (top_height: {top_height}px)")
 
             title_bg = self.ColorClip(
                 size=(bg_width, bg_height),
                 color=(0, 0, 0),  # 검은색
             ).with_duration(duration).with_opacity(0.7)  # 70% 불투명
 
-            # 배경 박스를 상단 섹션 중앙에 배치
-            bg_y = (top_height - bg_height) // 2
+            # 배경 박스를 상단 섹션 중앙에 배치 (Safe Zone 적용)
+            bg_y = max(20, (top_height - bg_height) // 2)  # 최소 20px 상단 여백
+
+            # 하단 잘림 방지: bg_y + bg_height가 top_height를 넘지 않도록
+            if bg_y + bg_height > top_height - 20:
+                bg_y = top_height - bg_height - 20
+
             title_bg = title_bg.with_position(('center', bg_y))
 
-            # 텍스트를 배경 위에 정확히 중앙 배치
-            title_text_clip = title_text_clip.with_position(('center', bg_y + 30))
+            # 텍스트를 배경 박스 내에서 중앙보다 약간 위에 배치 (줄간격 여유 확보)
+            # 중앙: (bg_height - text_height) // 2
+            # 약간 위: 상단 패딩을 하단 패딩보다 작게
+            top_padding = (bg_height - text_height) // 2 - 10  # 중앙에서 10px 위로
+            text_y = bg_y + max(30, top_padding)  # 최소 30px 상단 패딩 확보
+
+            title_text_clip = title_text_clip.with_position(('center', text_y))
+
+            print(f"[Title] 배경 박스 Y: {bg_y}px, 텍스트 Y: {text_y}px, 하단 여유: {bg_y + bg_height - (text_y + text_height)}px")
 
             # FIX: 배경 + 텍스트를 하나로 합성
             title_composite = self.CompositeVideoClip(

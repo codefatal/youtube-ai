@@ -25,7 +25,9 @@ class GeminiProvider:
             raise ValueError("GEMINI_API_KEY가 설정되지 않았습니다")
 
         self.model = model or os.getenv('GEMINI_MODEL', 'gemini-2.5-flash')
+        self.original_model = self.model  # 원본 모델 저장 (fallback용)
         self.usage_log = []
+        self.fallback_attempted = False  # fallback 시도 여부
 
         # Google GenAI 클라이언트 초기화
         try:
@@ -103,6 +105,52 @@ class GeminiProvider:
             return response_text
 
         except Exception as e:
+            error_str = str(e)
+
+            # 429 quota 초과 에러 감지
+            if "429" in error_str or "RESOURCE_EXHAUSTED" in error_str or "quota" in error_str.lower():
+                # gemini-2.5-flash에서 quota 초과 시 gemini-2.0-flash로 자동 fallback
+                if "2.5" in self.model and not self.fallback_attempted:
+                    fallback_model = "gemini-2.0-flash"  # 2.0이 별도 quota
+                    print(f"\n{'='*60}")
+                    print(f"⚠️  Gemini 2.5 Quota 초과 감지!")
+                    print(f"{'='*60}")
+                    print(f"[AUTO-FALLBACK] {self.model} → {fallback_model}")
+                    print(f"[INFO] Gemini 2.0은 별도 quota로 계산됩니다")
+                    print(f"{'='*60}\n")
+
+                    # 모델 변경
+                    self.model = fallback_model
+                    self.fallback_attempted = True
+
+                    # 재시도
+                    try:
+                        response = self.client.models.generate_content(
+                            model=self.model,
+                            contents=full_prompt,
+                            config=config
+                        )
+
+                        response_text = response.text
+
+                        if hasattr(response, 'candidates') and response.candidates:
+                            finish_reason = response.candidates[0].finish_reason
+                            if finish_reason and finish_reason != 'STOP':
+                                print(f"⚠️ Gemini 응답이 완전히 생성되지 않았습니다: {finish_reason}")
+
+                        if json_mode:
+                            response_text = self._clean_json_response(response_text)
+
+                        self._log_usage(prompt, response_text, response)
+
+                        print(f"[SUCCESS] Gemini 2.0으로 성공적으로 처리 완료!\n")
+                        return response_text
+
+                    except Exception as fallback_error:
+                        print(f"[ERROR] Gemini 2.0 fallback도 실패: {fallback_error}")
+                        raise RuntimeError(f"Gemini API 호출 실패 (2.5 및 2.0 모두 실패): {fallback_error}")
+
+            # quota 에러가 아니거나 이미 fallback을 시도했으면 그냥 에러 발생
             raise RuntimeError(f"Gemini API 호출 실패: {e}")
 
     def generate_json(

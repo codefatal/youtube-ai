@@ -80,6 +80,12 @@ TITLE_BG_PADDING_X = 40
 TITLE_BG_PADDING_Y = 30
 TITLE_BG_OPACITY = 0.7  # 70%
 
+# 자막 제약 (SHORTS_SPEC.md 개선)
+SUBTITLE_MAX_CHARS = 25           # 한 자막 최대 글자 수 (이상이면 분할)
+SUBTITLE_MIN_DURATION = 1.5       # 최소 표시 시간 (초) - 너무 빠르면 읽기 어려움
+SUBTITLE_MAX_DURATION = 4.0       # 최대 표시 시간 (초) - 너무 길면 지루함
+SUBTITLE_CHAR_PER_SECOND = 8.0    # 적정 읽기 속도 (글자/초)
+
 
 # ==================== 쇼츠 레이아웃 ====================
 # 3단 레이아웃: 상단(제목) + 중앙(영상) + 하단(자막)
