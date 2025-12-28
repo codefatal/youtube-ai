@@ -481,9 +481,10 @@ class VideoEditor:
             # 패딩 추가 (좌우 40px, 상하 패딩은 줄 수에 따라 조정)
             bg_width = min(text_width + 80, width - 40)  # 화면보다 넓으면 제한
 
-            # 상하 패딩: 기본 50px + 줄간격 여유분 (줄 수만큼 추가)
-            # 1줄: 100px (상하 50px), 2줄: 120px (상하 60px), 3줄: 140px (상하 70px)
-            vertical_padding = 100 + (line_count - 1) * 20
+            # 상하 패딩: 기본 80px + 줄간격 여유분 (줄 수만큼 추가)
+            # 줄간격 고려하여 충분한 여유 확보
+            # 1줄: 140px (상하 70px), 2줄: 180px (상하 90px), 3줄: 220px (상하 110px)
+            vertical_padding = 140 + (line_count - 1) * 40
             bg_height = text_height + vertical_padding
 
             print(f"[Title] 줄 수: {line_count}, 텍스트 높이: {text_height}px, 배경 박스 높이: {bg_height}px")
@@ -507,11 +508,11 @@ class VideoEditor:
 
             title_bg = title_bg.with_position(('center', bg_y))
 
-            # 텍스트를 배경 박스 내에서 중앙보다 약간 위에 배치 (줄간격 여유 확보)
-            # 중앙: (bg_height - text_height) // 2
-            # 약간 위: 상단 패딩을 하단 패딩보다 작게
-            top_padding = (bg_height - text_height) // 2 - 10  # 중앙에서 10px 위로
-            text_y = bg_y + max(30, top_padding)  # 최소 30px 상단 패딩 확보
+            # 텍스트를 배경 박스 내에서 상단에 배치 (하단 여유 충분히 확보)
+            # 줄간격으로 인한 하단 잘림 방지를 위해 상단에 배치
+            # 상단 패딩: 40px 고정, 나머지는 모두 하단 여유로
+            top_padding = 40
+            text_y = bg_y + top_padding
 
             title_text_clip = title_text_clip.with_position(('center', text_y))
 
