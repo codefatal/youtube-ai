@@ -9,10 +9,14 @@ from typing import Optional
 import hashlib
 from pathlib import Path
 
+from backend.schemas import VoiceInfo, TTSVoicesResponse, MessageResponse
+
 router = APIRouter(prefix="/api/tts", tags=["TTS"])
 
 # 미리듣기용 임시 디렉토리
-PREVIEW_DIR = Path("./downloads/audio/preview")
+import os
+PROJECT_ROOT = Path(__file__).parent.parent.parent
+PREVIEW_DIR = Path(os.getenv("TTS_PREVIEW_DIR", str(PROJECT_ROOT / "downloads" / "audio" / "preview")))
 PREVIEW_DIR.mkdir(parents=True, exist_ok=True)
 
 
@@ -23,14 +27,6 @@ class TTSPreviewRequest(BaseModel):
     stability: float = Field(default=0.5, ge=0.0, le=1.0, description="음성 안정성")
     similarity_boost: float = Field(default=0.75, ge=0.0, le=1.0, description="유사도")
     style: float = Field(default=0.0, ge=0.0, le=1.0, description="스타일 과장도")
-
-
-class VoiceInfo(BaseModel):
-    """Voice 정보"""
-    voice_id: str
-    name: str
-    language: str
-    description: str
 
 
 @router.post("/preview")
@@ -101,7 +97,7 @@ async def preview_tts(request: TTSPreviewRequest):
         raise HTTPException(status_code=500, detail=f"TTS 생성 실패: {str(e)}")
 
 
-@router.get("/voices")
+@router.get("/voices", response_model=TTSVoicesResponse)
 async def list_voices():
     """
     Phase 4: 사용 가능한 ElevenLabs Voice 목록 (10개 이상)
@@ -197,7 +193,7 @@ async def list_voices():
     return {"voices": voices}
 
 
-@router.delete("/cache")
+@router.delete("/cache", response_model=MessageResponse)
 async def clear_preview_cache():
     """
     미리듣기 캐시 삭제

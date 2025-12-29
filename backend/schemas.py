@@ -111,3 +111,81 @@ class AccountDetailResponse(AccountResponse):
     """Account 상세 정보 (설정 포함)"""
     settings: Optional[AccountSettingsResponse] = None
     jobs: List[JobHistoryResponse] = []
+
+
+# ============================================================================
+# Scheduler Schemas
+# ============================================================================
+
+class SchedulerJobInfo(BaseModel):
+    """스케줄러 Job 정보"""
+    id: str
+    name: str
+    next_run_time: Optional[str]
+    trigger: Optional[dict]
+
+
+class SchedulerJobsResponse(BaseModel):
+    """스케줄 목록 응답"""
+    jobs: List[SchedulerJobInfo]
+
+
+class MessageResponse(BaseModel):
+    """일반 메시지 응답"""
+    message: str
+
+
+# ============================================================================
+# TTS Schemas
+# ============================================================================
+
+class VoiceInfo(BaseModel):
+    """TTS 음성 정보"""
+    voice_id: str
+    name: str
+    language: str
+    description: str
+
+
+class TTSVoicesResponse(BaseModel):
+    """TTS 음성 목록 응답"""
+    voices: List[VoiceInfo]
+
+
+# ============================================================================
+# BGM Schemas
+# ============================================================================
+
+class MoodInfo(BaseModel):
+    """분위기 정보"""
+    value: str
+    label: str
+    description: str
+
+
+class MoodsResponse(BaseModel):
+    """분위기 목록 응답"""
+    moods: List[MoodInfo]
+
+
+class BGMInfo(BaseModel):
+    """BGM 파일 정보"""
+    name: str
+    mood: str
+    duration: float
+    file_path: str
+
+
+class BGMListResponse(BaseModel):
+    """BGM 목록 응답"""
+    bgm_files: List[BGMInfo]
+    total: int
+
+
+class BGMUploadResponse(BaseModel):
+    """BGM 업로드 응답"""
+    message: str
+    file_name: str
+    mood: str
+    duration: float
+    file_path: str

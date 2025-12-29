@@ -57,12 +57,11 @@ app = FastAPI(
 )
 
 # CORS 설정
+CORS_ORIGINS = os.getenv("CORS_ORIGINS", "http://localhost:3000,http://localhost:3001").split(",")
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:3000",
-        "http://localhost:3001"
-    ],
+    allow_origins=CORS_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -483,17 +482,22 @@ async def create_test_video(request: TestVideoRequest):
 if __name__ == "__main__":
     import uvicorn
 
+    # 환경변수에서 설정 가져오기
+    HOST = os.getenv("BACKEND_HOST", "0.0.0.0")
+    PORT = int(os.getenv("BACKEND_PORT", "8000"))
+    RELOAD = os.getenv("BACKEND_RELOAD", "true").lower() == "true"
+
     print("=" * 70)
     print("YouTube AI v4.0 Backend Server")
     print("=" * 70)
-    print(f"API 문서: http://localhost:8000/docs")
-    print(f"프론트엔드: http://localhost:3000")
+    print(f"API 문서: http://localhost:{PORT}/docs")
+    print(f"프론트엔드: {CORS_ORIGINS[0] if CORS_ORIGINS else 'http://localhost:3000'}")
     print("=" * 70)
 
     uvicorn.run(
         "main:app",
-        host="0.0.0.0",
-        port=8000,
-        reload=True,
+        host=HOST,
+        port=PORT,
+        reload=RELOAD,
         log_level="info"
     )

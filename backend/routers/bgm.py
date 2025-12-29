@@ -8,29 +8,18 @@ from typing import Optional, List
 from pathlib import Path
 import shutil
 
+from backend.schemas import MoodInfo, MoodsResponse, BGMInfo, BGMListResponse, BGMUploadResponse
+import os
+
 router = APIRouter(prefix="/api/bgm", tags=["BGM"])
 
 # BGM 저장 디렉토리
-BGM_DIR = Path("./music")
+PROJECT_ROOT = Path(__file__).parent.parent.parent
+BGM_DIR = Path(os.getenv("BGM_DIR", str(PROJECT_ROOT / "music")))
 BGM_DIR.mkdir(parents=True, exist_ok=True)
 
 
-class MoodInfo(BaseModel):
-    """분위기 정보"""
-    value: str
-    label: str
-    description: str
-
-
-class BGMInfo(BaseModel):
-    """BGM 정보"""
-    name: str
-    mood: str
-    duration: float
-    file_path: str
-
-
-@router.get("/moods")
+@router.get("/moods", response_model=MoodsResponse)
 async def list_moods():
     """
     Phase 5: 사용 가능한 분위기 목록
@@ -78,7 +67,7 @@ async def list_moods():
     return {"moods": moods}
 
 
-@router.get("/list")
+@router.get("/list", response_model=BGMListResponse)
 async def list_bgm_files():
     """
     Phase 5: 사용 가능한 BGM 파일 목록
@@ -102,7 +91,8 @@ async def list_bgm_files():
                         from pydub import AudioSegment
                         audio = AudioSegment.from_file(str(audio_file))
                         duration = len(audio) / 1000.0
-                    except:
+                    except Exception as e:
+                        # 길이 측정 실패 시 0.0 (pydub/ffmpeg 없을 수 있음)
                         duration = 0.0
 
                     bgm_info = BGMInfo(
@@ -122,7 +112,7 @@ async def list_bgm_files():
         raise HTTPException(status_code=500, detail=f"BGM 목록 조회 실패: {str(e)}")
 
 
-@router.post("/upload")
+@router.post("/upload", response_model=BGMUploadResponse)
 async def upload_bgm(
     file: UploadFile = File(...),
     mood: str = "CALM"
@@ -161,7 +151,8 @@ async def upload_bgm(
             from pydub import AudioSegment
             audio = AudioSegment.from_file(str(file_path))
             duration = len(audio) / 1000.0
-        except:
+        except Exception as e:
+            # 길이 측정 실패 시 0.0 (pydub/ffmpeg 없을 수 있음)
             duration = 0.0
 
         return {
