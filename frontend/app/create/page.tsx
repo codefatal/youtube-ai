@@ -2,10 +2,12 @@
 
 import React, { useState } from 'react';
 import TTSSettings from '@/components/TTSSettings';
+import TemplateSelector from '@/components/TemplateSelector';
 
 export default function CreatePage() {
   const [topic, setTopic] = useState('');
   const [duration, setDuration] = useState(60);
+  const [template, setTemplate] = useState('basic');
   const [ttsSettings, setTtsSettings] = useState({
     provider: 'gtts',
     voiceId: 'pNInz6obpgDQGcFmaJgB',
@@ -26,7 +28,7 @@ export default function CreatePage() {
   const handleCreate = async () => {
     setLoading(true);
     try {
-      const res = await fetch('http://localhost:8000/api/videos/create', {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/videos/create`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -34,7 +36,7 @@ export default function CreatePage() {
           format: 'shorts',
           duration,
           upload: false,
-          template: 'basic',  // 템플릿 고정
+          template: template,  // TemplateSelector에서 선택한 템플릿 사용
           tts_settings: ttsSettings,
           bgm_settings: bgmSettings,  // Phase 5: BGM 설정 전송
         }),
@@ -93,6 +95,9 @@ export default function CreatePage() {
               <span>180초</span>
             </div>
           </div>
+
+          {/* 템플릿 선택 */}
+          <TemplateSelector value={template} onChange={setTemplate} />
         </div>
 
         {/* 오른쪽: TTS 설정 */}

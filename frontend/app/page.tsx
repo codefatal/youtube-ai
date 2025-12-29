@@ -63,8 +63,8 @@ export default function Dashboard() {
   return (
     <div className="p-8">
       <div className="mb-8">
-        <h1 className="text-3xl font-bold text-gray-900 mb-2">대시보드</h1>
-        <p className="text-gray-600">YouTube AI v3.0 - AI 기반 독창적 콘텐츠 생성</p>
+        <h1 className="text-3xl font-bold text-white mb-2">대시보드</h1>
+        <p className="text-gray-400">YouTube AI v4.0 - AI 기반 독창적 콘텐츠 생성</p>
       </div>
 
       {/* 통계 카드 */}

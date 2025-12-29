@@ -22,7 +22,7 @@ export default function AccountSidebar() {
 
   const fetchAccounts = async () => {
     try {
-      const res = await fetch('http://localhost:8000/api/accounts/');
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/accounts/`);
       const data = await res.json();
       setAccounts(data);
     } catch (error) {

@@ -13,9 +13,11 @@ export default function AutomationPage() {
     fetchAccounts();
   }, []);
 
+  const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+
   const fetchJobs = async () => {
     try {
-      const response = await fetch('http://localhost:8000/api/scheduler/jobs');
+      const response = await fetch(`${API_URL}/api/scheduler/jobs`);
       const data = await response.json();
       setJobs(data.jobs || []);
     } catch (error) {
@@ -27,7 +29,7 @@ export default function AutomationPage() {
 
   const fetchAccounts = async () => {
     try {
-      const response = await fetch('http://localhost:8000/api/accounts/');
+      const response = await fetch(`${API_URL}/api/accounts/`);
       const data = await response.json();
       if (data.success) {
         setAccounts(data.data || []);
@@ -39,7 +41,7 @@ export default function AutomationPage() {
 
   const handleReloadSchedules = async () => {
     try {
-      await fetch('http://localhost:8000/api/scheduler/reload', {
+      await fetch(`${API_URL}/api/scheduler/reload`, {
         method: 'POST',
       });
       alert('스케줄이 다시 로드되었습니다.');
@@ -51,7 +53,7 @@ export default function AutomationPage() {
 
   const handleTriggerJob = async (accountId: number) => {
     try {
-      await fetch(`http://localhost:8000/api/scheduler/trigger/${accountId}`, {
+      await fetch(`${API_URL}/api/scheduler/trigger/${accountId}`, {
         method: 'POST',
       });
       alert(`계정 ID ${accountId}의 작업이 즉시 실행됩니다.`);
@@ -64,7 +66,7 @@ export default function AutomationPage() {
     if (!confirm('이 스케줄을 삭제하시겠습니까?')) return;
 
     try {
-      await fetch(`http://localhost:8000/api/scheduler/jobs/${jobId}`, {
+      await fetch(`${API_URL}/api/scheduler/jobs/${jobId}`, {
         method: 'DELETE',
       });
       alert('스케줄이 삭제되었습니다.');
