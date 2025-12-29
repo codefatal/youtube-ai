@@ -209,8 +209,8 @@ async def generate_script(request: GenerateScriptRequest):
 
 
 @app.post("/api/videos/create")
-async def create_video(request: CreateVideoRequest, background_tasks: BackgroundTasks):
-    """영상 생성 (백그라운드 작업)"""
+async def create_video(request: CreateVideoRequest):
+    """영상 생성 (비동기 작업)"""
     try:
         # ✨ DEBUG: 영상 길이 로그
         print(f"\n[API] ========== 영상 생성 요청 ==========")
