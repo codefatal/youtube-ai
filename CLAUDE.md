@@ -231,6 +231,13 @@ YOUTUBE_API_KEY=...             # For trend analysis (optional)
 - 다크 모드 디자인
 - 모바일 반응형
 
+**최근 버그 수정 (2025-12-29)**:
+- 제목 텍스트 하단 잘림 해결 (interline=60, 패딩 비율 증가)
+- 이모지 깨짐 방지 (포괄적인 유니코드 범위 제거)
+- BGM 자동 다운로드 기본 활성화 (bgm_enabled=True)
+- Gemini MAX_TOKENS 오류 자동 재시도 (16384 토큰, 1.5배 증가 재시도)
+- TTS 대기 시간 처리 ("(3초 대기)" → 실제 무음 추가)
+
 ### 🔄 다음 Phase
 
 **Phase 6: 통합 테스트, README 업데이트, 배포 준비**
@@ -390,6 +397,31 @@ python scripts/benchmark.py
    - Pillow >= 11.0.0
    - SQLAlchemy >= 2.0.23
 
+## 중요 구현 세부사항
+
+### TTS 대기 시간 구현
+스크립트에 `(3초 대기)`, `(5초 기다림)` 등의 표현을 포함하면 해당 시간만큼 무음이 자동 추가됩니다.
+
+**지원 표현**: `(N초 대기)`, `(N초 기다림)`, `(N초 멈춤)`, `(N초 정지)`
+
+**구현 위치**: `core/asset_manager.py:_add_pause_to_audio()`
+
+### 제목/자막 렌더링 주의사항
+- **이모지 사용 금지**: Pillow와 MoviePy는 이모지를 렌더링할 수 없음
+- 자동 제거: U+1F000~U+1FFFF 범위 및 특수 기호들이 자동 제거됨
+- **제목 잘림 방지**: `interline=60`, 패딩 비율 3.0/2.2 적용으로 충분한 여백 확보
+
+### Gemini API MAX_TOKENS 처리
+- 기본 max_tokens: 16384
+- MAX_TOKENS 도달 시 자동으로 1.5배 증가하여 재시도 (최대 2회)
+- 재시도 시퀀스: 16384 → 24576 → 36864
+- JSON 파싱 실패도 재시도 대상
+
+### BGM 자동 다운로드
+- 첫 실행 시 Bensound에서 6가지 분위기별 무료 BGM 자동 다운로드
+- 저장 위치: `music/MOOD_NAME/` (예: `music/HAPPY/happy_upbeat.mp3`)
+- 기본 활성화: `AssetManager(bgm_enabled=True)` (기본값)
+
 ## API Usage Examples
 
 ### Generate Topics
@@ -460,4 +492,4 @@ https://github.com/codefatal/youtube-ai
 
 **작성일**: 2025-12-26
 **버전**: v4.0
-**최종 업데이트**: Phase 5 완료
+**최종 업데이트**: 2025-12-29 (Phase 5 완료 + 버그 수정)
