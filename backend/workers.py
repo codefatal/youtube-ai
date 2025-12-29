@@ -106,9 +106,9 @@ def _generate_topic_for_channel_type(channel_type: ChannelType) -> str:
     Returns:
         생성된 주제
     """
-    from core.planner import Planner
+    from core.planner import ContentPlanner
 
-    planner = Planner()
+    planner = ContentPlanner()
 
     # 채널 타입별 카테고리 매핑
     category_map = {
