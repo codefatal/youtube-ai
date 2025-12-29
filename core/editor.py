@@ -118,31 +118,15 @@ class VideoEditor:
         # 2. 오디오 로드 (Phase 2: BGM 믹싱 포함)
         audio_clip = self._load_audio_with_bgm(asset_bundle, content_plan.target_duration)
 
-        # FIX: 영상 길이 제어 - target_duration 절대 강제
-        target_duration = content_plan.target_duration
-        print(f"[Editor] 목표 길이: {target_duration:.2f}초 (사용자 지정 - 절대 강제)")
-
-        # FIX: TTS 길이를 무조건 target_duration으로 맞춤
+        # 영상 길이 제어 - TTS 길이에 맞춤 (무음 추가 없이)
         if audio_clip:
             actual_duration = audio_clip.duration
-            print(f"[Editor] 실제 TTS 길이: {actual_duration:.2f}초")
-
-            # 무조건 target_duration으로 자르거나 늘림
-            if actual_duration > target_duration:
-                print(f"[Editor] TTS가 목표보다 {actual_duration - target_duration:.2f}초 더 김. {target_duration:.2f}초로 자르기...")
-                audio_clip = audio_clip.subclipped(0, target_duration)
-            elif actual_duration < target_duration:
-                print(f"[Editor] TTS가 목표보다 {target_duration - actual_duration:.2f}초 짧음. {target_duration:.2f}초로 늘리기 (무음 추가)...")
-                # 무음 추가로 길이 맞춤
-                from moviepy import AudioClip
-                silence_duration = target_duration - actual_duration
-                silence = AudioClip(lambda t: [0, 0], duration=silence_duration, fps=44100)
-                from moviepy import concatenate_audioclips
-                audio_clip = concatenate_audioclips([audio_clip, silence])
-
-            print(f"[Editor] TTS 최종 길이: {audio_clip.duration:.2f}초")
-
-        print(f"[Editor] 최종 목표 길이: {target_duration:.2f}초 (절대 강제)")
+            target_duration = actual_duration  # TTS 길이를 최종 길이로 사용
+            print(f"[Editor] TTS 길이: {actual_duration:.2f}초")
+            print(f"[Editor] 최종 영상 길이를 TTS에 맞춤: {target_duration:.2f}초")
+        else:
+            target_duration = content_plan.target_duration
+            print(f"[Editor] 오디오 없음, 목표 길이 사용: {target_duration:.2f}초")
 
         # 4. 영상 클립 조정 및 연결
         final_video = self._compose_video_clips(
@@ -469,7 +453,8 @@ class VideoEditor:
                 color='white',
                 stroke_color='black',
                 stroke_width=3,
-                method='label'  # 자동 크기 조정
+                method='label',  # 자동 크기 조정
+                interline=30  # 줄 간격 (하단 잘림 방지, 15→30 증가)
             ).with_duration(duration)
 
             # FIX: 반투명 배경 박스 추가 (차별화) + Safe Zone 적용
@@ -481,11 +466,11 @@ class VideoEditor:
             # 패딩 추가 (좌우 40px, 상하 패딩은 줄 수에 따라 조정)
             bg_width = min(text_width + 80, width - 40)  # 화면보다 넓으면 제한
 
-            # 상하 패딩: 기본 80px + 줄간격 여유분 (줄 수만큼 추가)
-            # 줄간격 고려하여 충분한 여유 확보
-            # 1줄: 140px (상하 70px), 2줄: 180px (상하 90px), 3줄: 220px (상하 110px)
-            vertical_padding = 140 + (line_count - 1) * 40
-            bg_height = text_height + vertical_padding
+            # 상하 패딩: MoviePy TextClip의 높이 계산 오차를 고려하여 충분히 확보
+            # 텍스트 높이의 1.5배를 패딩으로 추가 (위아래 각각 0.75배)
+            # 1줄: text_height * 2.5, 2줄 이상: text_height * 2.2
+            vertical_padding_ratio = 1.5 if line_count == 1 else 1.2
+            bg_height = int(text_height * (1 + vertical_padding_ratio))
 
             print(f"[Title] 줄 수: {line_count}, 텍스트 높이: {text_height}px, 배경 박스 높이: {bg_height}px")
 
@@ -508,15 +493,13 @@ class VideoEditor:
 
             title_bg = title_bg.with_position(('center', bg_y))
 
-            # 텍스트를 배경 박스 내에서 상단에 배치 (하단 여유 충분히 확보)
-            # 줄간격으로 인한 하단 잘림 방지를 위해 상단에 배치
-            # 상단 패딩: 40px 고정, 나머지는 모두 하단 여유로
-            top_padding = 40
-            text_y = bg_y + top_padding
+            # 텍스트를 배경 박스의 정중앙에 배치 (위/아래 여유 균등 분배)
+            # MoviePy의 높이 계산 오차를 고려하여 중앙 정렬이 가장 안전
+            text_y = bg_y + (bg_height - text_height) // 2
 
             title_text_clip = title_text_clip.with_position(('center', text_y))
 
-            print(f"[Title] 배경 박스 Y: {bg_y}px, 텍스트 Y: {text_y}px, 하단 여유: {bg_y + bg_height - (text_y + text_height)}px")
+            print(f"[Title] 배경 박스 Y: {bg_y}px, 텍스트 Y: {text_y}px, 상하 여유: {(bg_height - text_height) // 2}px")
 
             # FIX: 배경 + 텍스트를 하나로 합성
             title_composite = self.CompositeVideoClip(

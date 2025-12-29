@@ -144,10 +144,10 @@ class AutomationScheduler:
         Args:
             account_id: 계정 ID
         """
-        job_id = f"account_{account.id}"
+        job_id = f"account_{account_id}"
         try:
             self.scheduler.remove_job(job_id)
-            logger.info(f"[Scheduler] 계정 ID {account.id} 스케줄 제거됨")
+            logger.info(f"[Scheduler] 계정 ID {account_id} 스케줄 제거됨")
         except Exception as e:
             logger.warning(f"[Scheduler] 스케줄 제거 실패: {e}")
 

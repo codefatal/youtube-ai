@@ -347,7 +347,7 @@ async def get_recent_jobs(page: int = 1, limit: int = 10):
                             "completed_at": job.completed_at.isoformat() if job.completed_at else None,
                             "output_video_path": job.output_video_path,
                             "youtube_url": job.youtube_url,
-                            "error_log": job.error_log
+                            "error_log": job.error_message
                         }
                         for job in jobs
                     ],

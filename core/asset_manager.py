@@ -3,6 +3,7 @@ Asset Manager Module
 스톡 영상, TTS 음성 등 에셋 수집 및 관리
 """
 import os
+import sys
 import json
 import hashlib
 from pathlib import Path
@@ -726,17 +727,68 @@ class AssetManager:
 
             if bgm_asset:
                 print(f"[BGM] 선택 완료: {bgm_asset.name}")
-            else:
-                print(f"[BGM] {mood.value} 분위기의 BGM이 없습니다. 랜덤 선택 시도...")
-                # 폴백: 랜덤 BGM 선택
-                bgm_asset = self.bgm_manager.get_random_bgm(
-                    min_duration=content_plan.target_duration
-                )
+                return bgm_asset
 
-            return bgm_asset
+            # 분위기 맞는 BGM 없음 - 랜덤 선택 시도
+            print(f"[BGM] {mood.value} 분위기의 BGM이 없습니다. 랜덤 선택 시도...")
+            bgm_asset = self.bgm_manager.get_random_bgm(
+                min_duration=content_plan.target_duration
+            )
+
+            if bgm_asset:
+                print(f"[BGM] 랜덤 선택 완료: {bgm_asset.name}")
+                return bgm_asset
+
+            # 랜덤 BGM도 없음 - 기본 BGM 다운로드
+            print(f"[BGM] 로컬에 사용 가능한 BGM이 없습니다. 기본 BGM을 다운로드합니다...")
+
+            # setup_default_bgm.py 실행
+            import subprocess
+            from pathlib import Path
+            script_path = Path(__file__).parent.parent / "scripts" / "setup_default_bgm.py"
+
+            if script_path.exists():
+                try:
+                    print(f"[BGM] 기본 BGM 다운로드 중...")
+                    result = subprocess.run(
+                        [sys.executable, str(script_path)],
+                        capture_output=True,
+                        text=True,
+                        timeout=120
+                    )
+
+                    if result.returncode == 0:
+                        print(f"[SUCCESS] 기본 BGM 다운로드 완료")
+                        # 카탈로그 다시 로드
+                        self.bgm_manager._load_catalog()
+
+                        # 다시 시도
+                        bgm_asset = self.bgm_manager.get_bgm_by_mood(
+                            mood=mood,
+                            min_duration=content_plan.target_duration
+                        )
+
+                        if not bgm_asset:
+                            bgm_asset = self.bgm_manager.get_random_bgm(
+                                min_duration=content_plan.target_duration
+                            )
+
+                        if bgm_asset:
+                            print(f"[SUCCESS] BGM 선택 완료: {bgm_asset.name}")
+                            return bgm_asset
+                    else:
+                        print(f"[ERROR] BGM 다운로드 실패: {result.stderr}")
+
+                except Exception as e:
+                    print(f"[ERROR] BGM 다운로드 스크립트 실행 실패: {e}")
+
+            print(f"[WARNING] BGM 없이 영상을 생성합니다.")
+            return None
 
         except Exception as e:
             print(f"[ERROR] BGM 선택 실패: {e}")
+            import traceback
+            traceback.print_exc()
             return None
 
     def _get_audio_duration(self, audio_path: str) -> Optional[float]:

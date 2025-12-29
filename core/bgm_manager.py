@@ -375,3 +375,34 @@ class BGMManager:
         }
         stats["total"] = sum(stats.values())
         return stats
+
+    def download_and_add_bgm(
+        self,
+        mood: MoodType,
+        min_duration: Optional[float] = None,
+        max_results: int = 3
+    ) -> Optional[BGMAsset]:
+        """
+        자동으로 BGM 다운로드 및 카탈로그 추가
+
+        NOTE: 현재 Pixabay는 음악을 제공하지 않습니다.
+        무료 BGM을 사용하려면 다음 중 하나를 선택하세요:
+        1. 직접 BGM 파일을 music/MOOD_NAME/ 폴더에 추가
+        2. YouTube Audio Library에서 다운로드 후 추가
+        3. Free Music Archive (FMA)에서 다운로드 후 추가
+
+        Args:
+            mood: 원하는 분위기
+            min_duration: 최소 길이 (초)
+            max_results: 다운로드할 최대 개수
+
+        Returns:
+            다운로드된 BGMAsset 또는 None
+        """
+        print(f"[BGMManager] BGM 자동 다운로드가 현재 지원되지 않습니다.")
+        print(f"[BGMManager] 무료 BGM을 사용하려면 다음 방법을 사용하세요:")
+        print(f"[BGMManager] 1. YouTube Audio Library: https://www.youtube.com/audiolibrary")
+        print(f"[BGMManager] 2. Free Music Archive: https://freemusicarchive.org/")
+        print(f"[BGMManager] 3. 다운로드한 mp3 파일을 music/{mood.value.upper()}/ 폴더에 넣어주세요")
+        print(f"[BGMManager] BGM 없이 영상 생성을 계속합니다...")
+        return None

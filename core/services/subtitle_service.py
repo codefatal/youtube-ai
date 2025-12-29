@@ -115,6 +115,17 @@ class SubtitleService:
         Returns:
             (PIL.Image, y_position) 튜플
         """
+        # 이모지 및 특수문자 제거 (Pillow 렌더링 오류 방지)
+        import re
+        # 이모지 제거 (기본 이모지 범위)
+        text = re.sub(r'[\U00010000-\U0010ffff]', '', text)
+        # 추가 특수문자 제거 (✨, 💡 등)
+        text = re.sub(r'[✨💡🎉🔥💪🙌👍❤️🎯📢🎵🎶👇👆⭐️🌟💫⚡️]', '', text)
+        text = text.strip()
+
+        if not text:
+            text = "..."  # 빈 텍스트 방지
+
         # 폰트 선택 (텍스트 길이에 따라)
         text_len = len(text.replace('\n', ''))
         font = self.font_small if text_len > 30 else self.font_large
@@ -265,6 +276,7 @@ class SubtitleService:
             text = segment.get('text', '')
             start = segment.get('start', 0.0)
             duration = segment.get('duration', 1.0)
+            end = segment.get('end', start + duration)
 
             # 효과음 제거
             import re
@@ -279,20 +291,26 @@ class SubtitleService:
             # 각 청크에 duration 비례 배분
             total_chars = sum(len(chunk) for chunk in text_chunks)
             current_start = start
+            remaining_duration = duration
 
             for j, chunk in enumerate(text_chunks):
                 # duration 비례 배분 (글자 수 비율)
                 chunk_ratio = len(chunk) / total_chars if total_chars > 0 else 1.0
                 chunk_duration = duration * chunk_ratio
 
-                # 읽기 속도 고려한 적정 duration 계산
-                optimal_duration = len(chunk) / SUBTITLE_CHAR_PER_SECOND
+                # 마지막 청크인 경우, 남은 시간을 모두 사용 (겹침 방지)
+                if j == len(text_chunks) - 1:
+                    chunk_duration = end - current_start
+                else:
+                    # MIN 제한만 적용 (MAX는 적용하지 않음 - 겹침 방지)
+                    chunk_duration = max(SUBTITLE_MIN_DURATION, chunk_duration)
 
-                # 실제 duration: 비례 배분값과 적정값의 평균 (더 안정적)
-                chunk_duration = (chunk_duration + optimal_duration) / 2.0
+                    # 세그먼트 끝을 넘지 않도록 제한
+                    if current_start + chunk_duration > end:
+                        chunk_duration = end - current_start
 
-                # MIN/MAX 제한 적용
-                chunk_duration = max(SUBTITLE_MIN_DURATION, min(SUBTITLE_MAX_DURATION, chunk_duration))
+                # duration이 너무 짧으면 최소값 보장
+                chunk_duration = max(0.5, chunk_duration)
 
                 # 자막 이미지 생성
                 subtitle_img, y_pos = self.create_subtitle_image(chunk)
@@ -308,6 +326,7 @@ class SubtitleService:
                 print(f"[Subtitle {i+1}-{j+1}] '{chunk[:30]}...' at {current_start:.1f}s-{current_start+chunk_duration:.1f}s ({chunk_duration:.1f}s, Safe Zone: Y={y_pos}px)")
 
                 current_start += chunk_duration
+                remaining_duration -= chunk_duration
 
         return subtitle_clips
 
