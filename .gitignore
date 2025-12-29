@@ -53,3 +53,4 @@ backend/*.pyc
 
 # Refactoring state (개인 작업 진행 상황 - 공유 안 함)
 .refactor_state.json
+nul

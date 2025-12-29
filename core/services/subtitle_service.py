@@ -117,10 +117,12 @@ class SubtitleService:
         """
         # 이모지 및 특수문자 제거 (Pillow 렌더링 오류 방지)
         import re
-        # 이모지 제거 (기본 이모지 범위)
-        text = re.sub(r'[\U00010000-\U0010ffff]', '', text)
-        # 추가 특수문자 제거 (✨, 💡 등)
-        text = re.sub(r'[✨💡🎉🔥💪🙌👍❤️🎯📢🎵🎶👇👆⭐️🌟💫⚡️]', '', text)
+        # 모든 이모지 범위 제거 (U+1F000 ~ U+1FFFF)
+        text = re.sub(r'[\U0001F000-\U0001FFFF]', '', text)
+        # 추가 이모지 및 특수 기호 제거
+        text = re.sub(r'[✨💡🎉🔥💪🙌👍❤️🎯📢🎵🎶👇👆⭐️🌟💫⚡️🚀✅❌⚠️💯🎁🏆🎬📱💻🌈☀️🌙⭐🔴🟢🔵⚫⚪]', '', text)
+        # 다른 특수문자 범위 제거 (기타 기호들)
+        text = re.sub(r'[\u2600-\u26FF\u2700-\u27BF]', '', text)
         text = text.strip()
 
         if not text:

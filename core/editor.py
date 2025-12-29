@@ -442,6 +442,19 @@ class VideoEditor:
             ).with_duration(duration).with_position((0, 0))
 
             # 2. 상단 제목 텍스트 (SHORTS_SPEC.md: config.py 폰트 사용)
+            # 이모지 및 특수문자 제거 (MoviePy 렌더링 오류 방지)
+            import re
+            # 모든 이모지 범위 제거 (U+1F000 ~ U+1FFFF)
+            title = re.sub(r'[\U0001F000-\U0001FFFF]', '', title)
+            # 추가 이모지 및 특수 기호 제거
+            title = re.sub(r'[✨💡🎉🔥💪🙌👍❤️🎯📢🎵🎶👇👆⭐️🌟💫⚡️🚀✅❌⚠️💯🎁🏆🎬📱💻🌈☀️🌙⭐🔴🟢🔵⚫⚪]', '', title)
+            # 다른 특수문자 범위 제거
+            title = re.sub(r'[\u2600-\u26FF\u2700-\u27BF]', '', title)
+            title = title.strip()
+
+            if not title:
+                title = "영상 제목"  # 빈 제목 방지
+
             # FIX: 줄바꿈 기준 증가 (15자 → 20자)
             wrapped_title = self._wrap_text(title, max_chars=20)
 
@@ -454,7 +467,7 @@ class VideoEditor:
                 stroke_color='black',
                 stroke_width=3,
                 method='label',  # 자동 크기 조정
-                interline=30  # 줄 간격 (하단 잘림 방지, 15→30 증가)
+                interline=40  # 줄 간격 (하단 잘림 방지, 30→40 증가)
             ).with_duration(duration)
 
             # FIX: 반투명 배경 박스 추가 (차별화) + Safe Zone 적용
@@ -467,9 +480,9 @@ class VideoEditor:
             bg_width = min(text_width + 80, width - 40)  # 화면보다 넓으면 제한
 
             # 상하 패딩: MoviePy TextClip의 높이 계산 오차를 고려하여 충분히 확보
-            # 텍스트 높이의 1.5배를 패딩으로 추가 (위아래 각각 0.75배)
-            # 1줄: text_height * 2.5, 2줄 이상: text_height * 2.2
-            vertical_padding_ratio = 1.5 if line_count == 1 else 1.2
+            # interline과 하단 잘림을 모두 고려하여 큰 패딩 적용
+            # 1줄: text_height * 3.5 (위아래 각각 1.75배), 2줄 이상: text_height * 2.8 (위아래 각각 1.4배)
+            vertical_padding_ratio = 2.5 if line_count == 1 else 1.8
             bg_height = int(text_height * (1 + vertical_padding_ratio))
 
             print(f"[Title] 줄 수: {line_count}, 텍스트 높이: {text_height}px, 배경 박스 높이: {bg_height}px")

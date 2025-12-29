@@ -42,7 +42,7 @@ class AssetManager:
         tts_provider: str = "gtts",
         cache_enabled: bool = True,
         download_dir: str = "./downloads",
-        bgm_enabled: bool = False
+        bgm_enabled: bool = True
     ):
         """
         AssetManager 초기화
