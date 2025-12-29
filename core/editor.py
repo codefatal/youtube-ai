@@ -467,7 +467,7 @@ class VideoEditor:
                 stroke_color='black',
                 stroke_width=3,
                 method='label',  # 자동 크기 조정
-                interline=40  # 줄 간격 (하단 잘림 방지, 30→40 증가)
+                interline=60  # 줄 간격 (하단 잘림 방지, 40→60 대폭 증가)
             ).with_duration(duration)
 
             # FIX: 반투명 배경 박스 추가 (차별화) + Safe Zone 적용
@@ -480,9 +480,9 @@ class VideoEditor:
             bg_width = min(text_width + 80, width - 40)  # 화면보다 넓으면 제한
 
             # 상하 패딩: MoviePy TextClip의 높이 계산 오차를 고려하여 충분히 확보
-            # interline과 하단 잘림을 모두 고려하여 큰 패딩 적용
-            # 1줄: text_height * 3.5 (위아래 각각 1.75배), 2줄 이상: text_height * 2.8 (위아래 각각 1.4배)
-            vertical_padding_ratio = 2.5 if line_count == 1 else 1.8
+            # interline=60과 하단 잘림을 모두 고려하여 매우 큰 패딩 적용
+            # 1줄: text_height * 4.0 (위아래 각각 2.0배), 2줄 이상: text_height * 3.2 (위아래 각각 1.6배)
+            vertical_padding_ratio = 3.0 if line_count == 1 else 2.2
             bg_height = int(text_height * (1 + vertical_padding_ratio))
 
             print(f"[Title] 줄 수: {line_count}, 텍스트 높이: {text_height}px, 배경 박스 높이: {bg_height}px")

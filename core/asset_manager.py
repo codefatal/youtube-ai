@@ -270,46 +270,61 @@ class AssetManager:
         print(f"[TTS] 세그먼트별 개별 TTS 생성 시작 ({len(content_plan.segments)}개)")
 
         for i, segment in enumerate(content_plan.segments):
-            # 효과음 제거
+            # 효과음 및 대기 시간 추출
             import re
+
+            # 대기 시간 추출 (예: "(3초 대기)" → 3.0)
+            pause_duration = 0.0
+            pause_match = re.search(r'\((\d+(?:\.\d+)?)\s*초\s*(?:대기|기다림|멈춤|정지)\)', segment.text)
+            if pause_match:
+                pause_duration = float(pause_match.group(1))
+                print(f"[TTS] 세그먼트 {i+1}: {pause_duration}초 대기 감지")
+
+            # 효과음 및 대기 표현 제거
             text = re.sub(r'\([^)]*\)', '', segment.text).strip()
-            if not text:
+            if not text and pause_duration == 0:
                 continue
 
-            # 세그먼트별 TTS 생성
-            if provider == "elevenlabs":
-                seg_filepath = self._generate_elevenlabs(
-                    text=text,
-                    voice_id=settings.get("tts_voice_id"),
-                    stability=settings.get("tts_stability"),
-                    similarity_boost=settings.get("tts_similarity_boost"),
-                    style=settings.get("tts_style")
-                )
-            elif provider == "typecast":
-                # Typecast v1 API는 tc_ prefix voice_id 사용
-                # voice_id가 ElevenLabs 형식이면 무시하고 기본값 사용
-                voice_id = settings.get("tts_voice_id", "tc_5c3c52ca5827e00008dd7f3a")  # Sujin (여성)
+            # 세그먼트별 TTS 생성 (텍스트가 있는 경우만)
+            seg_filepath = None
+            if text:
+                if provider == "elevenlabs":
+                    seg_filepath = self._generate_elevenlabs(
+                        text=text,
+                        voice_id=settings.get("tts_voice_id"),
+                        stability=settings.get("tts_stability"),
+                        similarity_boost=settings.get("tts_similarity_boost"),
+                        style=settings.get("tts_style")
+                    )
+                elif provider == "typecast":
+                    # Typecast v1 API는 tc_ prefix voice_id 사용
+                    # voice_id가 ElevenLabs 형식이면 무시하고 기본값 사용
+                    voice_id = settings.get("tts_voice_id", "tc_5c3c52ca5827e00008dd7f3a")  # Sujin (여성)
 
-                # ElevenLabs voice ID 형식 감지 (길이가 20자 이상이면 ElevenLabs)
-                if len(str(voice_id)) == 20 and not str(voice_id).startswith("tc_"):
-                    # ElevenLabs ID 형식 (20자, tc_ 없음)
-                    typecast_voice_id = "tc_5c3c52ca5827e00008dd7f3a"  # 기본: Sujin (여성)
-                    print(f"[WARNING] ElevenLabs voice_id가 감지되어 Typecast 기본 voice 'Sujin' 사용")
-                else:
-                    # tc_ prefix 검증
-                    if not str(voice_id).startswith("tc_"):
-                        typecast_voice_id = "tc_5c3c52ca5827e00008dd7f3a"  # Sujin
-                        print(f"[WARNING] Typecast voice_id는 tc_로 시작해야 합니다. 기본값 사용: Sujin")
+                    # ElevenLabs voice ID 형식 감지 (길이가 20자 이상이면 ElevenLabs)
+                    if len(str(voice_id)) == 20 and not str(voice_id).startswith("tc_"):
+                        # ElevenLabs ID 형식 (20자, tc_ 없음)
+                        typecast_voice_id = "tc_5c3c52ca5827e00008dd7f3a"  # 기본: Sujin (여성)
+                        print(f"[WARNING] ElevenLabs voice_id가 감지되어 Typecast 기본 voice 'Sujin' 사용")
                     else:
-                        typecast_voice_id = voice_id
+                        # tc_ prefix 검증
+                        if not str(voice_id).startswith("tc_"):
+                            typecast_voice_id = "tc_5c3c52ca5827e00008dd7f3a"  # Sujin
+                            print(f"[WARNING] Typecast voice_id는 tc_로 시작해야 합니다. 기본값 사용: Sujin")
+                        else:
+                            typecast_voice_id = voice_id
 
-                seg_filepath = self._generate_typecast(
-                    text=text,
-                    voice_id=typecast_voice_id,
-                    emotion=settings.get("tts_emotion", "normal")
-                )
-            else:
-                seg_filepath = self._generate_gtts(text)
+                    seg_filepath = self._generate_typecast(
+                        text=text,
+                        voice_id=typecast_voice_id,
+                        emotion=settings.get("tts_emotion", "normal")
+                    )
+                else:
+                    seg_filepath = self._generate_gtts(text)
+
+            # 대기 시간이 있는 경우 무음 추가
+            if pause_duration > 0:
+                seg_filepath = self._add_pause_to_audio(seg_filepath, pause_duration, i)
 
             if seg_filepath:
                 # ✨ 실제 TTS 길이 측정
@@ -861,3 +876,70 @@ class AssetManager:
             import traceback
             traceback.print_exc()
             return None
+
+    def _add_pause_to_audio(
+        self,
+        audio_filepath: Optional[str],
+        pause_duration: float,
+        segment_index: int
+    ) -> Optional[str]:
+        """
+        오디오 파일에 무음 추가 (대기 시간 구현)
+
+        Args:
+            audio_filepath: 기존 오디오 파일 경로 (None이면 순수 무음만 생성)
+            pause_duration: 추가할 무음 길이 (초)
+            segment_index: 세그먼트 인덱스
+
+        Returns:
+            무음이 추가된 오디오 파일 경로 또는 None
+        """
+        try:
+            from moviepy import AudioFileClip, AudioClip, concatenate_audioclips
+            import numpy as np
+
+            audio_clips = []
+
+            # 1. 기존 TTS 오디오 로드 (있는 경우)
+            if audio_filepath:
+                tts_clip = AudioFileClip(audio_filepath)
+                audio_clips.append(tts_clip)
+                print(f"[TTS] 세그먼트 {segment_index+1}: TTS {tts_clip.duration:.1f}초 + 무음 {pause_duration:.1f}초")
+            else:
+                print(f"[TTS] 세그먼트 {segment_index+1}: 순수 무음 {pause_duration:.1f}초")
+
+            # 2. 무음 생성 (44100Hz, 스테레오)
+            silence = AudioClip(
+                make_frame=lambda t: np.array([0, 0]),  # 스테레오 무음
+                duration=pause_duration,
+                fps=44100
+            )
+            audio_clips.append(silence)
+
+            # 3. 오디오 연결
+            combined = concatenate_audioclips(audio_clips)
+
+            # 4. 파일 저장
+            import hashlib
+            hash_str = f"{audio_filepath}_{pause_duration}_{segment_index}"
+            file_hash = hashlib.md5(hash_str.encode()).hexdigest()[:10]
+            output_filename = f"tts_pause_{file_hash}.mp3"
+            output_path = self.audio_dir / output_filename
+
+            total_duration = combined.duration  # duration 저장 (close 전에)
+            combined.write_audiofile(str(output_path), codec='mp3', logger=None)
+
+            # 5. 리소스 해제
+            for clip in audio_clips:
+                clip.close()
+            combined.close()
+
+            print(f"[SUCCESS] 대기 시간 추가 완료: {output_path} (총 {total_duration:.1f}초)")
+            return str(output_path)
+
+        except Exception as e:
+            print(f"[ERROR] 무음 추가 실패: {e}")
+            import traceback
+            traceback.print_exc()
+            # 실패 시 원본 반환
+            return audio_filepath
