@@ -52,7 +52,9 @@
       "Bash(venv/Scripts/python.exe:*)",
       "Bash(./venv/Scripts/alembic.exe upgrade:*)",
       "Bash(./venv/Scripts/alembic.exe:*)",
-      "WebFetch(domain:typecast.ai)"
+      "WebFetch(domain:typecast.ai)",
+      "Bash(sort:*)",
+      "Bash(cat:*)"
     ],
     "deny": [],
     "ask": []
