@@ -175,20 +175,83 @@ class GeminiProvider:
         Raises:
             json.JSONDecodeError: JSON 파싱 실패 시
         """
-        response_text = self.generate(
-            prompt=prompt,
-            system_prompt=system_prompt,
-            temperature=temperature,
-            max_tokens=max_tokens,
-            json_mode=True
-        )
+        from google.genai import types
 
-        try:
-            return json.loads(response_text)
-        except json.JSONDecodeError as e:
-            print(f"❌ JSON 파싱 실패: {e}")
-            print(f"📄 원본 응답:\n{response_text}")
-            raise
+        # 시스템 프롬프트를 프롬프트에 포함
+        if system_prompt:
+            full_prompt = f"{system_prompt}\n\n{prompt}"
+        else:
+            full_prompt = prompt
+
+        # JSON 모드 프롬프트 추가
+        full_prompt += "\n\n⚠️ 반드시 순수 JSON 형식으로만 응답하세요. 마크다운 코드 블록(```json)이나 다른 텍스트 없이 JSON만 출력하세요."
+
+        # 최대 2번 재시도 (MAX_TOKENS 오류 시 토큰 수 증가)
+        current_max_tokens = max_tokens
+        max_retries = 2
+
+        for attempt in range(max_retries + 1):
+            try:
+                # 생성 설정
+                config = types.GenerateContentConfig(
+                    temperature=temperature,
+                    max_output_tokens=current_max_tokens,
+                )
+
+                # API 호출
+                response = self.client.models.generate_content(
+                    model=self.model,
+                    contents=full_prompt,
+                    config=config
+                )
+
+                # 응답 텍스트 추출
+                response_text = response.text
+
+                # 완료 상태 확인
+                finish_reason = None
+                if hasattr(response, 'candidates') and response.candidates:
+                    finish_reason = response.candidates[0].finish_reason
+
+                # MAX_TOKENS 오류이고 재시도 가능한 경우
+                # finish_reason은 enum이므로 str() 또는 .name으로 비교
+                finish_reason_str = str(finish_reason) if finish_reason else ''
+                if 'MAX_TOKENS' in finish_reason_str and attempt < max_retries:
+                    current_max_tokens = int(current_max_tokens * 1.5)  # 1.5배 증가
+                    print(f"⚠️ MAX_TOKENS 도달! 토큰 수를 {current_max_tokens}로 증가하여 재시도... ({attempt+1}/{max_retries})")
+                    continue
+
+                # 다른 finish_reason 경고
+                if finish_reason and 'STOP' not in finish_reason_str:
+                    print(f"⚠️ Gemini 응답이 완전히 생성되지 않았습니다: {finish_reason}")
+
+                # JSON 정제
+                response_text = self._clean_json_response(response_text)
+
+                # 사용량 로깅
+                self._log_usage(full_prompt, response_text, response)
+
+                # JSON 파싱
+                return json.loads(response_text)
+
+            except json.JSONDecodeError as e:
+                # MAX_TOKENS 오류로 인한 파싱 실패일 가능성
+                if attempt < max_retries:
+                    current_max_tokens = int(current_max_tokens * 1.5)
+                    print(f"❌ JSON 파싱 실패: {e}")
+                    print(f"📄 토큰 수를 {current_max_tokens}로 증가하여 재시도... ({attempt+1}/{max_retries})")
+                    continue
+                else:
+                    print(f"❌ JSON 파싱 실패 (재시도 횟수 초과): {e}")
+                    print(f"📄 원본 응답:\n{response_text}")
+                    raise
+
+            except Exception as e:
+                # 다른 에러는 즉시 발생
+                raise RuntimeError(f"Gemini API 호출 실패: {e}")
+
+        # 여기 도달하면 모든 재시도 실패
+        raise RuntimeError(f"JSON 생성 실패: 최대 재시도 횟수({max_retries}) 초과")
 
     def _clean_json_response(self, text: str) -> str:
         """

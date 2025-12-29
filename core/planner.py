@@ -138,7 +138,7 @@ class ContentPlanner:
             result = self.ai.generate_json(
                 prompt=prompt,
                 temperature=0.7,
-                max_tokens=8000
+                max_tokens=16384  # 8000→16384 증가 (긴 스크립트 지원)
             )
 
             # ContentPlan 객체 생성
