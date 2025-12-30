@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, Suspense } from 'react';
+import { useSearchParams } from 'next/navigation';
 
 interface PreviewJob {
   job_id: string;
@@ -30,23 +31,33 @@ interface PreviewMetadata {
   resolution: string;
 }
 
-export default function PreviewPage() {
+function PreviewContent() {
+  const searchParams = useSearchParams();
+  const initialJobId = searchParams.get('job_id');
+
   const [topic, setTopic] = useState('');
   const [duration, setDuration] = useState(60);
   const [template, setTemplate] = useState('basic');
   const [lowResolution, setLowResolution] = useState(true);
   const [loading, setLoading] = useState(false);
-  const [currentJobId, setCurrentJobId] = useState<string | null>(null);
+  const [currentJobId, setCurrentJobId] = useState<string | null>(initialJobId);
   const [previewData, setPreviewData] = useState<PreviewJob | null>(null);
   const [recentPreviews, setRecentPreviews] = useState<any[]>([]);
   const [selectedSegment, setSelectedSegment] = useState<number | null>(null);
 
   const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 
-  // 최근 프리뷰 목록 로드
+  // URL에서 job_id가 있으면 자동으로 로드
   useEffect(() => {
     loadRecentPreviews();
   }, []);
+
+  // job_id가 변경되면 상태 폴링 시작
+  useEffect(() => {
+    if (currentJobId && !previewData) {
+      pollPreviewStatus(currentJobId);
+    }
+  }, [currentJobId]);
 
   const loadRecentPreviews = async () => {
     try {
@@ -419,5 +430,24 @@ export default function PreviewPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+// Suspense로 감싸서 export (Next.js 13+ 필수)
+export default function PreviewPage() {
+  return (
+    <Suspense fallback={
+      <div className="p-8 max-w-6xl mx-auto">
+        <div className="animate-pulse">
+          <div className="h-8 bg-gray-700 rounded w-1/4 mb-8"></div>
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div className="bg-gray-800 rounded-lg p-6 h-96"></div>
+            <div className="lg:col-span-2 bg-gray-800 rounded-lg p-6 h-96"></div>
+          </div>
+        </div>
+      </div>
+    }>
+      <PreviewContent />
+    </Suspense>
   );
 }

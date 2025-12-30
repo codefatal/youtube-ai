@@ -1,10 +1,12 @@
 'use client';
 
 import React, { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import TTSSettings from '@/components/TTSSettings';
 import TemplateSelector from '@/components/TemplateSelector';
 
 export default function CreatePage() {
+  const router = useRouter();
   const [topic, setTopic] = useState('');
   const [duration, setDuration] = useState(60);
   const [template, setTemplate] = useState('basic');
@@ -24,6 +26,7 @@ export default function CreatePage() {
   });
 
   const [loading, setLoading] = useState(false);
+  const [previewLoading, setPreviewLoading] = useState(false);
 
   const handleCreate = async () => {
     setLoading(true);
@@ -52,6 +55,43 @@ export default function CreatePage() {
       console.error('영상 생성 실패:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Phase 3: 프리뷰 생성
+  const handlePreview = async () => {
+    if (!topic.trim()) {
+      alert('프리뷰를 생성하려면 주제를 입력해주세요.');
+      return;
+    }
+
+    setPreviewLoading(true);
+    try {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/preview/generate`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          topic,
+          format: 'shorts',
+          duration,
+          template_name: template,
+          low_resolution: true,
+          tts_settings: ttsSettings,
+        }),
+      });
+
+      const data = await res.json();
+      if (data.success) {
+        // 프리뷰 페이지로 이동
+        router.push(`/preview?job_id=${data.job_id}`);
+      } else {
+        alert(`오류: ${data.detail || '프리뷰 생성 실패'}`);
+      }
+    } catch (error) {
+      console.error('프리뷰 생성 실패:', error);
+      alert('프리뷰 생성 중 오류가 발생했습니다.');
+    } finally {
+      setPreviewLoading(false);
     }
   };
 
@@ -179,13 +219,30 @@ export default function CreatePage() {
       </div>
 
       {/* 생성 버튼 */}
-      <button
-        onClick={handleCreate}
-        disabled={loading}
-        className="mt-8 w-full px-6 py-3 bg-blue-600 hover:bg-blue-500 rounded-lg text-white font-semibold text-lg disabled:opacity-50"
-      >
-        {loading ? '생성 중...' : '🎬 영상 생성 시작'}
-      </button>
+      <div className="mt-8 flex gap-4">
+        {/* 프리뷰 버튼 */}
+        <button
+          onClick={handlePreview}
+          disabled={loading || previewLoading}
+          className="flex-1 px-6 py-3 bg-gray-600 hover:bg-gray-500 rounded-lg text-white font-semibold text-lg disabled:opacity-50 transition"
+        >
+          {previewLoading ? '프리뷰 생성 중...' : '🎬 프리뷰 먼저 보기'}
+        </button>
+
+        {/* 영상 생성 버튼 */}
+        <button
+          onClick={handleCreate}
+          disabled={loading || previewLoading}
+          className="flex-1 px-6 py-3 bg-blue-600 hover:bg-blue-500 rounded-lg text-white font-semibold text-lg disabled:opacity-50 transition"
+        >
+          {loading ? '생성 중...' : '⚡ 바로 생성'}
+        </button>
+      </div>
+
+      {/* 안내 문구 */}
+      <p className="mt-4 text-center text-sm text-gray-400">
+        💡 프리뷰를 먼저 확인하고 조정한 후 최종 렌더링하는 것을 권장합니다.
+      </p>
     </div>
   );
 }

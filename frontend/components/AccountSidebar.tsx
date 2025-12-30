@@ -52,6 +52,9 @@ export default function AccountSidebar() {
           <NavLink href="/create" active={pathname === '/create'}>
             ✨ 영상 생성
           </NavLink>
+          <NavLink href="/preview" active={pathname === '/preview'}>
+            🎬 프리뷰
+          </NavLink>
           <NavLink href="/jobs" active={pathname.startsWith('/jobs')}>
             📜 작업 이력
           </NavLink>
