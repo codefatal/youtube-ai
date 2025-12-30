@@ -593,6 +593,10 @@ class VideoEditor:
             # FIX: 줄바꿈 기준 증가 (15자 → 20자)
             wrapped_title = self._wrap_text(title, max_chars=20)
 
+            # ✨ UPGRADE_AI.md 수정사항 적용
+            # 1. stroke_width 설정 (마진 계산에 사용)
+            stroke_width = 3
+
             # SHORTS_SPEC.md: config.py에서 폰트 및 크기 가져옴
             title_text_clip = self.TextClip(
                 text=wrapped_title,
@@ -600,9 +604,9 @@ class VideoEditor:
                 font_size=FONT_SIZE_TITLE,  # 80px
                 color='white',
                 stroke_color='black',
-                stroke_width=3,
-                method='label',  # 자동 크기 조정
-                interline=60  # 줄 간격 (하단 잘림 방지, 40→60 대폭 증가)
+                stroke_width=stroke_width,
+                method='label',  # 자동 크기 조정 (size 지정 안 함)
+                interline=70  # ✨ 줄 간격 더 증가 (60→70, 하단 잘림 방지)
             ).with_duration(duration)
 
             # FIX: 반투명 배경 박스 추가 (차별화) + Safe Zone 적용
@@ -611,29 +615,39 @@ class VideoEditor:
             # 줄바꿈 개수 확인 (줄간격 고려)
             line_count = wrapped_title.count('\n') + 1
 
-            # 패딩 추가 (좌우 40px, 상하 패딩은 줄 수에 따라 조정)
-            bg_width = min(text_width + 80, width - 40)  # 화면보다 넓으면 제한
+            # ✨ 수정 1: 수직 패딩 대폭 증가 (Descender 잘림 방지)
+            # stroke_width 만큼 추가 마진 확보
+            stroke_margin = stroke_width * 2
 
-            # 상하 패딩: MoviePy TextClip의 높이 계산 오차를 고려하여 충분히 확보
-            # interline=60과 하단 잘림을 모두 고려하여 매우 큰 패딩 적용
-            # 1줄: text_height * 4.0 (위아래 각각 2.0배), 2줄 이상: text_height * 3.2 (위아래 각각 1.6배)
-            vertical_padding_ratio = 3.0 if line_count == 1 else 2.2
-            bg_height = int(text_height * (1 + vertical_padding_ratio))
+            # 패딩 추가 (좌우 40px + stroke 마진)
+            bg_width = min(text_width + 80 + stroke_margin, width - 40)
+
+            # ✨ 수직 패딩 비율 대폭 증가 (기존 3.0/2.2 → 4.0/3.0)
+            # Descender(g, j, y 등) 및 폰트 높이 계산 오차 고려
+            vertical_padding_ratio = 4.0 if line_count == 1 else 3.0
+            bg_height = int(text_height * (1 + vertical_padding_ratio)) + stroke_margin
 
             print(f"[Title] 줄 수: {line_count}, 텍스트 높이: {text_height}px, 배경 박스 높이: {bg_height}px")
 
+            # ✨ 수정 2: 유튜브 쇼츠 Safe Zone 적용 (상단 5~8% 여백)
+            # 유튜브 쇼츠 UI(검색 버튼 등)에 가려지지 않도록 상단에서 약 7% 내려온 위치
+            safe_zone_top = int(height * 0.07)  # 1920px * 0.07 = 약 134px
+
             # Safe Zone: 배경 박스가 top_height를 넘지 않도록 제한
-            if bg_height > top_height - 40:  # 상하 20px 여백 확보
-                bg_height = top_height - 40
-                print(f"[WARNING] 제목 박스 높이 제한: {bg_height}px (top_height: {top_height}px)")
+            max_bg_height = top_height - safe_zone_top - 20  # 하단 20px 여백
+            if bg_height > max_bg_height:
+                bg_height = max_bg_height
+                print(f"[WARNING] 제목 박스 높이 제한: {bg_height}px (max: {max_bg_height}px)")
 
             title_bg = self.ColorClip(
                 size=(bg_width, bg_height),
                 color=(0, 0, 0),  # 검은색
             ).with_duration(duration).with_opacity(0.7)  # 70% 불투명
 
-            # 배경 박스를 상단 섹션 중앙에 배치 (Safe Zone 적용)
-            bg_y = max(20, (top_height - bg_height) // 2)  # 최소 20px 상단 여백
+            # ✨ 배경 박스 위치: Safe Zone 적용 (상단 7% 지점부터 시작)
+            # 기존: bg_y = max(20, (top_height - bg_height) // 2)
+            # 수정: bg_y = safe_zone_top (유튜브 UI 회피)
+            bg_y = safe_zone_top
 
             # 하단 잘림 방지: bg_y + bg_height가 top_height를 넘지 않도록
             if bg_y + bg_height > top_height - 20:
@@ -641,13 +655,18 @@ class VideoEditor:
 
             title_bg = title_bg.with_position(('center', bg_y))
 
-            # 텍스트를 배경 박스의 정중앙에 배치 (위/아래 여유 균등 분배)
-            # MoviePy의 높이 계산 오차를 고려하여 중앙 정렬이 가장 안전
-            text_y = bg_y + (bg_height - text_height) // 2
+            # ✨ 수정 3: 텍스트 위치 - 배경 박스 내 중앙 + 하단 여유 추가
+            # Descender 잘림 방지를 위해 텍스트를 배경 박스 상단에 약간 붙임
+            # (하단에 더 많은 여유 공간 확보)
+            descender_buffer = int(text_height * 0.15)  # 텍스트 높이의 15% 추가 버퍼
+            text_y = bg_y + (bg_height - text_height) // 2 - descender_buffer
+
+            # text_y가 bg_y보다 작아지지 않도록 보정
+            text_y = max(bg_y + 10, text_y)
 
             title_text_clip = title_text_clip.with_position(('center', text_y))
 
-            print(f"[Title] 배경 박스 Y: {bg_y}px, 텍스트 Y: {text_y}px, 상하 여유: {(bg_height - text_height) // 2}px")
+            print(f"[Title] Safe Zone: {safe_zone_top}px, 배경 Y: {bg_y}px, 텍스트 Y: {text_y}px, 하단 여유: {bg_y + bg_height - text_y - text_height}px")
 
             # FIX: 배경 + 텍스트를 하나로 합성
             title_composite = self.CompositeVideoClip(
