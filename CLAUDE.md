@@ -238,6 +238,13 @@ YOUTUBE_API_KEY=...             # For trend analysis (optional)
 - Gemini MAX_TOKENS 오류 자동 재시도 (16384 토큰, 1.5배 증가 재시도)
 - TTS 대기 시간 처리 ("(3초 대기)" → 실제 무음 추가)
 
+**영상 완성도 개선 (2025-12-30)**:
+- **BGM 시스템 고도화**: 파일 검증 로직, MoviePy volumex/audio_loop 사용, 볼륨 0.25로 상향
+- **시각 효과 추가**: Ken Burns Effect (줌 1.15배), Crossfade 전환 (0.3초)
+- **검색 키워드 개선**: 추상적 명사 → 구체적 동작/사물 유도 프롬프트
+- **자막 배경 옵션**: `SUBTITLE_BG_ENABLED` 설정으로 활성화/비활성화
+- **버그 수정**: TemplateConfig.bgm_volume, MoviePy 2.x crossfade 호환
+
 ### 🔄 다음 Phase
 
 **Phase 6: 통합 테스트, README 업데이트, 배포 준비**
@@ -492,4 +499,4 @@ https://github.com/codefatal/youtube-ai
 
 **작성일**: 2025-12-26
 **버전**: v4.0
-**최종 업데이트**: 2025-12-29 (Phase 5 완료 + 버그 수정)
+**최종 업데이트**: 2025-12-30 (영상 완성도 개선 + VFX 효과 추가)
