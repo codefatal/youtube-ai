@@ -68,6 +68,9 @@ STROKE_WIDTH = 3  # px
 
 
 # ==================== 자막 스타일 ====================
+# ✨ Task 3-3: 자막 배경 박스 활성화 옵션
+SUBTITLE_BG_ENABLED = True  # True: 반투명 배경 박스 표시, False: 외곽선만 표시
+
 # 배경 박스 패딩
 SUBTITLE_BG_PADDING_X = 30  # 좌우 패딩 (px)
 SUBTITLE_BG_PADDING_Y = 20  # 상하 패딩 (px)

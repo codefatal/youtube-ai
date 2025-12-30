@@ -169,6 +169,7 @@ class TemplateConfig(BaseModel):
     # BGM 설정
     bgm_enabled: bool = Field(default=True, description="BGM 활성화")
     bgm_mood: Optional[MoodType] = Field(default=MoodType.ENERGETIC, description="BGM 분위기")
+    bgm_volume: float = Field(default=0.25, description="BGM 볼륨 (0.0 ~ 1.0)")
 
 
 class AssetBundle(BaseModel):

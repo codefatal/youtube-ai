@@ -33,6 +33,12 @@ from core.services.subtitle_service import get_subtitle_service
 class VideoEditor:
     """MoviePy 기반 영상 편집기"""
 
+    # ✨ 시각 효과 설정 (Task 3)
+    ENABLE_KEN_BURNS = True      # Ken Burns Effect (Zoom)
+    ENABLE_CROSSFADE = True      # 클립 간 크로스페이드
+    KEN_BURNS_ZOOM_RATIO = 1.15  # 줌 배율 (1.1 ~ 1.2 권장)
+    CROSSFADE_DURATION = 0.3     # 크로스페이드 길이 (초)
+
     def __init__(self, config: Optional[EditConfig] = None, template_name: Optional[str] = None):
         """
         VideoEditor 초기화
@@ -264,7 +270,7 @@ class VideoEditor:
 
     def _load_audio_with_bgm(self, asset_bundle: AssetBundle, target_duration: float):
         """
-        Phase 2: TTS 오디오와 BGM 믹싱
+        Phase 2: TTS 오디오와 BGM 믹싱 (고도화 버전)
 
         Args:
             asset_bundle: AssetBundle 객체
@@ -273,6 +279,9 @@ class VideoEditor:
         Returns:
             믹싱된 AudioFileClip 또는 TTS만, 또는 None
         """
+        # MoviePy audio effects import
+        from moviepy.audio import fx as afx
+
         # 1. TTS 오디오 로드
         tts_audio = self._load_audio(asset_bundle)
 
@@ -284,33 +293,59 @@ class VideoEditor:
         try:
             bgm_asset = asset_bundle.bgm
 
+            # ✨ BGM 파일 존재 및 유효성 검증
+            if not bgm_asset.local_path or not os.path.exists(bgm_asset.local_path):
+                print(f"[ERROR] BGM 파일이 존재하지 않습니다: {bgm_asset.local_path}")
+                return tts_audio
+
+            bgm_file_size = os.path.getsize(bgm_asset.local_path)
+            if bgm_file_size < 1024:  # 1KB 미만이면 유효하지 않음
+                print(f"[ERROR] BGM 파일 크기가 너무 작습니다: {bgm_file_size} bytes")
+                return tts_audio
+
+            print(f"[Editor] BGM 파일 검증 완료: {bgm_asset.name} ({bgm_file_size / 1024:.1f}KB)")
+
             # BGM 볼륨 설정 (템플릿 우선, 없으면 AssetBundle 기본값)
-            bgm_volume = self.template.bgm_volume if self.template else bgm_asset.volume
+            # ✨ 볼륨 범위 조정: 0.15 ~ 0.3 (기존 0.1~0.2는 너무 낮음)
+            # ✨ getattr로 안전하게 접근 (템플릿에 bgm_volume이 없을 수 있음)
+            bgm_volume = getattr(self.template, 'bgm_volume', bgm_asset.volume) if self.template else bgm_asset.volume
+            bgm_volume = max(0.15, min(0.3, bgm_volume))  # 안전한 범위로 클램프
 
-            # BGM 처리 (길이 조정, 페이드)
-            processed_bgm_path = self.bgm_manager.process_bgm(
-                bgm=bgm_asset,
-                target_duration=target_duration,
-                fade_in=1.0,
-                fade_out=2.0,
-                volume=bgm_volume
-            )
+            # ✨ MoviePy로 직접 BGM 로드 및 처리 (ffmpeg 의존성 제거)
+            bgm_audio = self.AudioFileClip(bgm_asset.local_path)
+            print(f"[Editor] BGM 원본 로드: {bgm_audio.duration:.2f}초")
 
-            # BGM 오디오 로드
-            bgm_audio = self.AudioFileClip(processed_bgm_path)
-            print(f"[Editor] BGM 로드: {bgm_audio.duration:.2f}초, 볼륨: {bgm_volume}")
+            # ✨ audio_loop: 영상 길이에 맞게 BGM 반복
+            if bgm_audio.duration < target_duration:
+                loops_needed = int(target_duration / bgm_audio.duration) + 1
+                print(f"[Editor] BGM 반복 필요: {loops_needed}회")
+                bgm_audio = afx.AudioLoop(bgm_audio, nloops=loops_needed)
+
+            # ✨ 정확한 길이로 자르기
+            bgm_audio = bgm_audio.subclipped(0, target_duration)
+
+            # ✨ 페이드 인/아웃 적용
+            bgm_audio = afx.AudioFadeIn(bgm_audio, 1.0)  # 1초 페이드 인
+            bgm_audio = afx.AudioFadeOut(bgm_audio, 2.0)  # 2초 페이드 아웃
+
+            # ✨ volumex로 볼륨 조절 (핵심!)
+            bgm_audio = bgm_audio.with_effects([afx.MultiplyVolume(bgm_volume)])
+            print(f"[Editor] BGM 처리 완료: {bgm_audio.duration:.2f}초, 볼륨: {bgm_volume}")
 
             # 4. TTS가 있으면 믹싱, 없으면 BGM만
             if tts_audio:
-                # CompositeAudioClip으로 믹싱
-                mixed_audio = self.CompositeAudioClip([tts_audio, bgm_audio])
-                print(f"[Editor] TTS + BGM 믹싱 완료")
+                # ✨ CompositeAudioClip: BGM을 먼저 배치하고 TTS를 위에 올림
+                # TTS가 BGM에 묻히지 않도록 TTS 볼륨 유지
+                mixed_audio = self.CompositeAudioClip([bgm_audio, tts_audio])
+                print(f"[Editor] TTS + BGM 믹싱 완료 (BGM 볼륨: {bgm_volume})")
                 return mixed_audio
             else:
                 return bgm_audio
 
         except Exception as e:
             print(f"[ERROR] BGM 처리 실패: {e}")
+            import traceback
+            traceback.print_exc()
             # 폴백: TTS만 반환
             return tts_audio
 
@@ -321,7 +356,7 @@ class VideoEditor:
         video_format: VideoFormat
     ):
         """
-        여러 클립을 조정하고 연결
+        여러 클립을 조정하고 연결 (Task 3: VFX 효과 포함)
 
         Args:
             clips: VideoFileClip 리스트
@@ -337,8 +372,16 @@ class VideoEditor:
         # 해상도 설정
         width, height = self.config.resolution
 
+        # ✨ Task 3-2: 크로스페이드를 위해 각 클립 길이 조정
+        crossfade_duration = self.CROSSFADE_DURATION if self.ENABLE_CROSSFADE else 0
+        num_clips = len(clips)
+
+        # 크로스페이드로 인한 오버랩 시간 계산
+        total_overlap = crossfade_duration * (num_clips - 1) if num_clips > 1 else 0
+        effective_duration = target_duration + total_overlap
+
         # Phase 3: 각 클립의 길이 계산 (균등 분배 + 미세 조정)
-        base_clip_duration = target_duration / len(clips)
+        base_clip_duration = effective_duration / len(clips)
 
         processed_clips = []
 
@@ -347,7 +390,7 @@ class VideoEditor:
             if i == len(clips) - 1:
                 # 이미 처리된 클립들의 총 시간 계산
                 elapsed_time = sum(c.duration for c in processed_clips)
-                clip_duration = target_duration - elapsed_time
+                clip_duration = effective_duration - elapsed_time
                 print(f"[Editor] 마지막 클립 길이 조정: {clip_duration:.2f}초 (남은 시간)")
             else:
                 clip_duration = base_clip_duration
@@ -366,17 +409,49 @@ class VideoEditor:
             # 2. 해상도 조정 (crop & resize)
             clip = self._resize_and_crop(clip, width, height)
 
+            # ✨ Task 3-1: Ken Burns Effect 적용
+            if self.ENABLE_KEN_BURNS:
+                clip = self._apply_ken_burns_effect(clip, self.KEN_BURNS_ZOOM_RATIO)
+
+            # ✨ Task 3-2: 크로스페이드 효과 적용 (MoviePy 2.x 호환)
+            if self.ENABLE_CROSSFADE and crossfade_duration > 0:
+                from moviepy.video import fx as vfx
+                # 첫 클립은 페이드 인만, 마지막 클립은 페이드 아웃만
+                if i > 0:
+                    # CrossFadeIn 효과 적용
+                    clip = clip.with_effects([vfx.CrossFadeIn(crossfade_duration)])
+                if i < num_clips - 1:
+                    # CrossFadeOut 효과 적용
+                    clip = clip.with_effects([vfx.CrossFadeOut(crossfade_duration)])
+
             processed_clips.append(clip)
 
         # 클립 연결
         try:
-            final_clip = self.concatenate_videoclips(processed_clips, method="compose")
+            # ✨ Task 3-2: 크로스페이드가 활성화되면 오버랩 연결
+            if self.ENABLE_CROSSFADE and crossfade_duration > 0 and num_clips > 1:
+                # CompositeVideoClip으로 오버랩 배치
+                clips_with_timing = []
+                current_start = 0
+
+                for i, clip in enumerate(processed_clips):
+                    clips_with_timing.append(clip.with_start(current_start))
+                    # 다음 클립은 크로스페이드만큼 겹침
+                    current_start += clip.duration - crossfade_duration
+
+                final_clip = self.CompositeVideoClip(clips_with_timing, size=(width, height))
+                print(f"[Editor] 클립 {len(processed_clips)}개 크로스페이드 연결 완료 (오버랩: {crossfade_duration}초)")
+            else:
+                final_clip = self.concatenate_videoclips(processed_clips, method="compose")
+                print(f"[Editor] 클립 {len(processed_clips)}개 연결 완료")
+
             final_duration = final_clip.duration
-            print(f"[Editor] 클립 {len(processed_clips)}개 연결 완료")
             print(f"[Editor] 최종 영상 길이: {final_duration:.2f}초 (목표: {target_duration:.2f}초, 차이: {abs(final_duration - target_duration):.2f}초)")
             return final_clip
         except Exception as e:
             print(f"[ERROR] 클립 연결 실패: {e}")
+            import traceback
+            traceback.print_exc()
             return None
 
     def _resize_and_crop(self, clip, target_width: int, target_height: int):
@@ -412,6 +487,66 @@ class VideoEditor:
         clip = clip.resized((target_width, target_height))
 
         return clip
+
+    def _apply_ken_burns_effect(self, clip, zoom_ratio: float = 1.15):
+        """
+        ✨ Task 3-1: Ken Burns Effect (천천히 줌인하는 효과)
+
+        정적인 영상에 동적인 느낌을 주기 위해 서서히 줌인합니다.
+
+        Args:
+            clip: VideoFileClip
+            zoom_ratio: 최종 줌 배율 (1.1 ~ 1.2 권장)
+
+        Returns:
+            Ken Burns 효과가 적용된 클립
+        """
+        if not self.ENABLE_KEN_BURNS:
+            return clip
+
+        try:
+            duration = clip.duration
+            width, height = clip.size
+
+            def zoom_effect(get_frame, t):
+                """시간에 따라 점진적으로 줌인"""
+                # t=0일 때 zoom=1.0, t=duration일 때 zoom=zoom_ratio
+                progress = t / duration if duration > 0 else 0
+                current_zoom = 1.0 + (zoom_ratio - 1.0) * progress
+
+                # 현재 프레임 가져오기
+                frame = get_frame(t)
+
+                # 줌 적용 (중앙 기준으로 크롭)
+                import numpy as np
+                from PIL import Image
+
+                # numpy array를 PIL Image로 변환
+                img = Image.fromarray(frame)
+
+                # 새로운 크기 계산
+                new_width = int(width * current_zoom)
+                new_height = int(height * current_zoom)
+
+                # 리사이즈
+                img_resized = img.resize((new_width, new_height), Image.Resampling.LANCZOS)
+
+                # 중앙 크롭
+                left = (new_width - width) // 2
+                top = (new_height - height) // 2
+                img_cropped = img_resized.crop((left, top, left + width, top + height))
+
+                return np.array(img_cropped)
+
+            # transform 적용
+            zoomed_clip = clip.transform(zoom_effect)
+            print(f"[Editor] Ken Burns Effect 적용: 줌 배율 {zoom_ratio}")
+
+            return zoomed_clip
+
+        except Exception as e:
+            print(f"[WARNING] Ken Burns Effect 적용 실패: {e}")
+            return clip
 
     def _create_shorts_layout(self, video_clip, title: str, duration: float):
         """

@@ -21,12 +21,28 @@
   * 예: "happy dog playing park", "sunset ocean beach", "coffee morning work"
 - `duration`: 예상 발화 시간 (초 단위, 자동 계산 가능하므로 생략 가능)
 
-# 키워드 작성 팁
+# 키워드 작성 팁 (매우 중요!)
 
-- 구체적이고 시각적인 장면을 묘사하세요
-- 여러 단어 조합으로 검색 정확도 높이기
+**핵심 원칙**: 키워드는 추상적 명사가 아니라, **실제로 화면에 보여질 동작이나 사물**이어야 합니다.
+
+**잘못된 예시 (추상적 - 사용 금지!)**:
+- "Success" → 추상적이라 관련 없는 영상이 검색됨
+- "Diet" → 추상적
+- "Happiness" → 추상적
+- "Motivation" → 추상적
+
+**올바른 예시 (구체적 - 이렇게 작성!)**:
+- "Success" → "man raising hands celebrating office", "people cheering victory"
+- "Diet" → "healthy salad bowl fresh vegetables", "person running park morning"
+- "Happiness" → "smiling family picnic outdoor", "friends laughing together cafe"
+- "Motivation" → "athlete training gym workout", "sunrise mountain top view"
+
+**추가 팁**:
+- 구체적이고 시각적인 장면을 묘사하세요 (누가, 무엇을, 어디서)
+- 3-5개 단어 조합으로 검색 정확도 높이기
+- 동작(verbs)과 장소를 포함하세요 (예: "running in park", "working at desk")
 - 감정이나 분위기 포함 (happy, calm, energetic 등)
-- 무료 스톡 영상(Pexels, Pixabay)에서 찾기 쉬운 키워드 사용
+- 무료 스톡 영상(Pexels, Pixabay)에서 실제로 찾기 쉬운 키워드 사용
 
 # 주제 정보
 

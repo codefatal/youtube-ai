@@ -713,6 +713,42 @@ class AssetManager:
             self.cache_dir.mkdir()
             print("[Cache] 캐시 삭제 완료")
 
+    def _validate_bgm_file(self, bgm_asset: BGMAsset) -> bool:
+        """
+        BGM 파일 유효성 검증
+
+        Args:
+            bgm_asset: BGMAsset 객체
+
+        Returns:
+            True if valid, False otherwise
+        """
+        if not bgm_asset or not bgm_asset.local_path:
+            print(f"[BGM] 검증 실패: BGM 경로가 없습니다")
+            return False
+
+        file_path = Path(bgm_asset.local_path)
+
+        # 1. 파일 존재 확인
+        if not file_path.exists():
+            print(f"[BGM] 검증 실패: 파일이 존재하지 않습니다 - {file_path}")
+            return False
+
+        # 2. 파일 크기 확인 (최소 1KB 이상)
+        file_size = file_path.stat().st_size
+        if file_size < 1024:
+            print(f"[BGM] 검증 실패: 파일 크기가 너무 작습니다 - {file_size} bytes")
+            return False
+
+        # 3. 파일 확장자 확인
+        valid_extensions = {'.mp3', '.wav', '.ogg', '.m4a', '.aac'}
+        if file_path.suffix.lower() not in valid_extensions:
+            print(f"[BGM] 검증 실패: 지원하지 않는 형식입니다 - {file_path.suffix}")
+            return False
+
+        print(f"[BGM] 검증 성공: {bgm_asset.name} ({file_size / 1024:.1f}KB)")
+        return True
+
     def _select_bgm(self, content_plan: ContentPlan) -> Optional[BGMAsset]:
         """
         Phase 2: 콘텐츠에 맞는 BGM 선택
@@ -740,17 +776,21 @@ class AssetManager:
                 min_duration=content_plan.target_duration
             )
 
-            if bgm_asset:
+            # ✨ BGM 파일 유효성 검증
+            if bgm_asset and self._validate_bgm_file(bgm_asset):
                 print(f"[BGM] 선택 완료: {bgm_asset.name}")
                 return bgm_asset
+            elif bgm_asset:
+                print(f"[WARNING] BGM 파일 검증 실패, 다른 BGM 시도...")
 
             # 분위기 맞는 BGM 없음 - 랜덤 선택 시도
-            print(f"[BGM] {mood.value} 분위기의 BGM이 없습니다. 랜덤 선택 시도...")
+            print(f"[BGM] {mood.value} 분위기의 유효한 BGM이 없습니다. 랜덤 선택 시도...")
             bgm_asset = self.bgm_manager.get_random_bgm(
                 min_duration=content_plan.target_duration
             )
 
-            if bgm_asset:
+            # ✨ 랜덤 선택된 BGM도 검증
+            if bgm_asset and self._validate_bgm_file(bgm_asset):
                 print(f"[BGM] 랜덤 선택 완료: {bgm_asset.name}")
                 return bgm_asset
 
@@ -783,12 +823,17 @@ class AssetManager:
                             min_duration=content_plan.target_duration
                         )
 
+                        # ✨ 다운로드 후에도 검증
+                        if bgm_asset and self._validate_bgm_file(bgm_asset):
+                            print(f"[SUCCESS] BGM 선택 완료: {bgm_asset.name}")
+                            return bgm_asset
+
                         if not bgm_asset:
                             bgm_asset = self.bgm_manager.get_random_bgm(
                                 min_duration=content_plan.target_duration
                             )
 
-                        if bgm_asset:
+                        if bgm_asset and self._validate_bgm_file(bgm_asset):
                             print(f"[SUCCESS] BGM 선택 완료: {bgm_asset.name}")
                             return bgm_asset
                     else:

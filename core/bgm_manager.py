@@ -136,7 +136,7 @@ class BGMManager:
                         file_path=str(audio_file),
                         mood=mood,
                         name=audio_file.stem,
-                        volume=0.2  # Phase 3: 기본 볼륨 0.3 → 0.2
+                        volume=0.25  # ✨ 0.2 → 0.25 (더 잘 들리도록 조정)
                     )
                     found_count += 1
                 except Exception as e:
@@ -176,7 +176,7 @@ class BGMManager:
         name: Optional[str] = None,
         artist: Optional[str] = None,
         license: Optional[str] = None,
-        volume: float = 0.2  # Phase 3: 0.3 → 0.2
+        volume: float = 0.25  # ✨ 0.2 → 0.25 (더 잘 들리도록 조정)
     ) -> BGMAsset:
         """
         BGM 추가

@@ -16,6 +16,7 @@ from core.config import (
     COLOR_TEXT_PRIMARY, COLOR_BG_TRANSPARENT_BLACK,
     FONT_SUBTITLE, FONT_SIZE_SUBTITLE, FONT_SIZE_SUBTITLE_SMALL,
     STROKE_WIDTH,
+    SUBTITLE_BG_ENABLED,  # ✨ Task 3-3: 배경 활성화 옵션
     SUBTITLE_BG_PADDING_X, SUBTITLE_BG_PADDING_Y, SUBTITLE_BG_OPACITY,
     SUBTITLE_MAX_CHARS, SUBTITLE_MIN_DURATION, SUBTITLE_MAX_DURATION, SUBTITLE_CHAR_PER_SECOND,
     clamp_y_to_safe_zone
@@ -158,11 +159,13 @@ class SubtitleService:
         bg_x = (CANVAS_WIDTH - bg_width) // 2
 
         # 1. 반투명 검은 배경 박스 그리기 (SHORTS_SPEC.md Type B)
-        bg_color = COLOR_BG_TRANSPARENT_BLACK  # (0, 0, 0, 150)
-        draw.rectangle(
-            [bg_x, y_position, bg_x + bg_width, y_position + bg_height],
-            fill=bg_color
-        )
+        # ✨ Task 3-3: SUBTITLE_BG_ENABLED 옵션에 따라 배경 표시/숨김
+        if SUBTITLE_BG_ENABLED:
+            bg_color = COLOR_BG_TRANSPARENT_BLACK  # (0, 0, 0, 150)
+            draw.rectangle(
+                [bg_x, y_position, bg_x + bg_width, y_position + bg_height],
+                fill=bg_color
+            )
 
         # 2. 텍스트 그리기 (중앙 정렬)
         text_x = (CANVAS_WIDTH - text_width) // 2
