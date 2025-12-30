@@ -19,7 +19,8 @@ from core.models import (
     AssetBundle,
     BGMAsset,
     TTSProvider,
-    MoodType
+    MoodType,
+    SegmentTiming  # Phase 2: TTS-영상 동기화
 )
 
 # SHORTS_SPEC.md: Whisper 통합
@@ -119,21 +120,23 @@ class AssetManager:
         if download_videos:
             video_assets = self._collect_stock_videos(content_plan)
 
-        # 2. TTS 음성 생성
+        # 2. TTS 음성 생성 (Phase 2: segment_timings 포함)
         audio_asset = None
+        segment_timings = []
         if generate_tts:
-            audio_asset = self._generate_tts(content_plan, account_id, tts_settings_override)
+            audio_asset, segment_timings = self._generate_tts(content_plan, account_id, tts_settings_override)
 
         # 3. Phase 2: BGM 선택
         bgm_asset = None
         if select_bgm and self.bgm_enabled and self.bgm_manager:
             bgm_asset = self._select_bgm(content_plan)
 
-        # 4. AssetBundle 생성
+        # 4. AssetBundle 생성 (Phase 2: segment_timings 포함)
         bundle = AssetBundle(
             videos=video_assets,
             audio=audio_asset,
-            bgm=bgm_asset
+            bgm=bgm_asset,
+            segment_timings=segment_timings  # Phase 2: TTS-영상 동기화용
         )
 
         bgm_msg = f", BGM {1 if bgm_asset else 0}개" if self.bgm_enabled else ""
@@ -226,9 +229,16 @@ class AssetManager:
 
         return provider.download_video(asset, output_dir=str(self.video_dir))
 
-    def _generate_tts(self, content_plan: ContentPlan, account_id: Optional[int] = None, tts_settings_override: Optional[Dict[str, Any]] = None) -> Optional[AudioAsset]:
+    def _generate_tts(
+        self,
+        content_plan: ContentPlan,
+        account_id: Optional[int] = None,
+        tts_settings_override: Optional[Dict[str, Any]] = None
+    ) -> tuple[Optional[AudioAsset], List[SegmentTiming]]:
         """
         TTS 음성 생성 (세그먼트별 개별 생성 → 실제 싱크 맞춤)
+
+        Phase 2 개선: SegmentTiming 리스트 반환으로 정확한 동기화 지원
 
         Args:
             content_plan: ContentPlan 객체
@@ -236,7 +246,7 @@ class AssetManager:
             tts_settings_override: TTS 설정 오버라이드 (프론트엔드 직접 설정용)
 
         Returns:
-            AudioAsset 객체 또는 None
+            (AudioAsset 객체 또는 None, SegmentTiming 리스트)
         """
         # 1. DB에서 계정 설정 가져오기
         if account_id:
@@ -266,6 +276,10 @@ class AssetManager:
         # 3. ✨ FIX: 세그먼트별 개별 TTS 생성 (싱크 맞추기)
         provider = settings.get("tts_provider", "gtts")
         segment_audio_files = []
+
+        # Phase 2: SegmentTiming 리스트 및 누적 시간 추적
+        segment_timings: List[SegmentTiming] = []
+        cumulative_time = 0.0
 
         print(f"[TTS] 세그먼트별 개별 TTS 생성 시작 ({len(content_plan.segments)}개)")
 
@@ -341,14 +355,27 @@ class AssetManager:
                 # ✨ content_plan의 segment.duration 업데이트 (핵심!)
                 content_plan.segments[i].duration = seg_duration
 
+                # Phase 2: SegmentTiming 생성 (누적 시간 포함)
+                timing = SegmentTiming(
+                    segment_index=i,
+                    text=segment.text,
+                    tts_duration=seg_duration,
+                    start_time=cumulative_time,
+                    end_time=cumulative_time + seg_duration
+                )
+                segment_timings.append(timing)
+
+                # 누적 시간 업데이트
+                cumulative_time += seg_duration
+
                 segment_audio_files.append(seg_filepath)
-                print(f"[TTS {i+1}/{len(content_plan.segments)}] '{text[:30]}...' → {seg_duration:.2f}초")
+                print(f"[TTS {i+1}/{len(content_plan.segments)}] '{text[:30]}...' → {seg_duration:.2f}초 (시작: {timing.start_time:.2f}초)")
             else:
                 print(f"[ERROR] 세그먼트 {i+1} TTS 생성 실패")
 
         if not segment_audio_files:
             print("[ERROR] TTS 생성 실패: 모든 세그먼트 실패")
-            return None
+            return None, []
 
         # 4. ✨ 모든 TTS 파일을 하나로 합치기 (concatenate)
         final_filepath = self._concatenate_audio_files(segment_audio_files)
@@ -376,10 +403,18 @@ class AssetManager:
                         final_filepath
                     )
 
-                    # content_plan.segments 업데이트 (Whisper 타임스탬프 적용)
+                    # content_plan.segments 및 segment_timings 업데이트 (Whisper 타임스탬프 적용)
+                    whisper_cumulative = 0.0
                     for i, aligned in enumerate(aligned_segments):
                         if i < len(content_plan.segments):
                             content_plan.segments[i].duration = aligned['duration']
+
+                        # Phase 2: Whisper 기반으로 segment_timings도 업데이트
+                        if i < len(segment_timings):
+                            segment_timings[i].tts_duration = aligned['duration']
+                            segment_timings[i].start_time = whisper_cumulative
+                            segment_timings[i].end_time = whisper_cumulative + aligned['duration']
+                            whisper_cumulative += aligned['duration']
 
                     print(f"[SUCCESS] Whisper 타임스탬프 적용 완료 → 자막 싱크 정확도 극대화")
                 except Exception as e:
@@ -387,16 +422,19 @@ class AssetManager:
             else:
                 print(f"[INFO] Whisper 미사용. 세그먼트별 duration으로 자막 생성")
 
+            # Phase 2: 최종 타이밍 정보 출력
+            print(f"[Phase 2] SegmentTiming 생성 완료: {len(segment_timings)}개, 총 {cumulative_time:.2f}초")
             print(f"[SUCCESS] TTS 생성 완료: {final_filepath} ({duration:.2f}초)")
 
-            return AudioAsset(
+            audio_asset = AudioAsset(
                 text=full_text,
                 provider=TTSProvider(provider),
                 local_path=final_filepath,
                 duration=duration
             )
+            return audio_asset, segment_timings
 
-        return None
+        return None, []
 
     def _get_account_tts_settings(self, account_id: int) -> dict:
         """

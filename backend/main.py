@@ -32,7 +32,7 @@ from core.models import (
 # Phase 1: Database and API Routers
 from backend.database import init_db, SessionLocal
 from backend.models import JobHistory as DBJobHistory, JobStatus
-from backend.routers import accounts, tts, scheduler, bgm  # Phase 5: BGM 라우터 추가
+from backend.routers import accounts, tts, scheduler, bgm, preview  # Phase 3: Preview 라우터 추가
 from backend.scheduler import scheduler_instance  # ✨ NEW
 from sqlalchemy import func
 
@@ -74,6 +74,7 @@ app.include_router(accounts.router)
 app.include_router(tts.router)
 app.include_router(scheduler.router)
 app.include_router(bgm.router)  # Phase 5: BGM API
+app.include_router(preview.router)  # Phase 3: Preview API
 
 
 # 전역 Orchestrator (싱글톤 패턴)

@@ -110,6 +110,35 @@ class ContentPlan(BaseModel):
 
 
 # ============================================================
+# Phase 2: Segment Timing Models (TTS-영상 동기화)
+# ============================================================
+
+class SegmentTiming(BaseModel):
+    """
+    세그먼트별 타이밍 정보 (Phase 2)
+
+    TTS 생성 후 실제 길이를 기록하여 정확한 동기화에 사용
+    """
+    segment_index: int = Field(..., description="세그먼트 인덱스 (0부터)")
+    text: str = Field(..., description="세그먼트 텍스트")
+    tts_duration: float = Field(..., description="실제 TTS 길이 (초)")
+    start_time: float = Field(..., description="누적 시작 시간 (초)")
+    end_time: float = Field(..., description="누적 종료 시간 (초)")
+
+    model_config = {
+        "json_schema_extra": {
+            "example": {
+                "segment_index": 0,
+                "text": "안녕하세요, 오늘은...",
+                "tts_duration": 4.5,
+                "start_time": 0.0,
+                "end_time": 4.5
+            }
+        }
+    }
+
+
+# ============================================================
 # Asset Manager Models
 # ============================================================
 
@@ -178,6 +207,9 @@ class AssetBundle(BaseModel):
     audio: Optional[AudioAsset] = Field(None, description="오디오 에셋")
     bgm: Optional[BGMAsset] = Field(None, description="배경음악 에셋")  # Phase 2 추가
     background_music: Optional[str] = Field(None, description="배경 음악 경로 (하위 호환)")
+
+    # Phase 2: 세그먼트별 타이밍 정보 (TTS-영상 동기화용)
+    segment_timings: List["SegmentTiming"] = Field(default_factory=list, description="세그먼트별 타이밍")
 
 
 # ============================================================

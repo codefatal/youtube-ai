@@ -29,6 +29,9 @@ from core.config import (
 # SHORTS_SPEC.md: SubtitleService 사용 (Pillow 기반)
 from core.services.subtitle_service import get_subtitle_service
 
+# Phase 1: TitleService 사용 (Pillow 기반 - 텍스트 잘림 방지)
+from core.services.title_service import get_title_service
+
 
 class VideoEditor:
     """MoviePy 기반 영상 편집기"""
@@ -134,11 +137,12 @@ class VideoEditor:
             target_duration = content_plan.target_duration
             print(f"[Editor] 오디오 없음, 목표 길이 사용: {target_duration:.2f}초")
 
-        # 4. 영상 클립 조정 및 연결
+        # 4. 영상 클립 조정 및 연결 (Phase 2: segment_timings 사용)
         final_video = self._compose_video_clips(
             video_clips,
             target_duration,
-            content_plan.format
+            content_plan.format,
+            segment_timings=asset_bundle.segment_timings  # Phase 2: TTS-영상 동기화
         )
 
         if not final_video:
@@ -353,15 +357,17 @@ class VideoEditor:
         self,
         clips: List,
         target_duration: float,
-        video_format: VideoFormat
+        video_format: VideoFormat,
+        segment_timings: List = None  # Phase 2: SegmentTiming 리스트
     ):
         """
-        여러 클립을 조정하고 연결 (Task 3: VFX 효과 포함)
+        여러 클립을 조정하고 연결 (Phase 2: TTS-영상 동기화)
 
         Args:
             clips: VideoFileClip 리스트
             target_duration: 목표 길이 (초)
             video_format: 영상 포맷
+            segment_timings: Phase 2 SegmentTiming 리스트 (TTS 길이 기반 동기화)
 
         Returns:
             CompositeVideoClip 또는 None
@@ -380,20 +386,60 @@ class VideoEditor:
         total_overlap = crossfade_duration * (num_clips - 1) if num_clips > 1 else 0
         effective_duration = target_duration + total_overlap
 
-        # Phase 3: 각 클립의 길이 계산 (균등 분배 + 미세 조정)
-        base_clip_duration = effective_duration / len(clips)
+        # Phase 2: segment_timings가 있으면 TTS 길이 기반 동기화
+        use_segment_timings = segment_timings and len(segment_timings) > 0
+        if use_segment_timings:
+            print(f"[Editor] Phase 2: TTS 길이 기반 동기화 활성화 ({len(segment_timings)}개 세그먼트)")
+
+            # 클립 수와 세그먼트 수가 다를 경우 비례 분배
+            if len(clips) != len(segment_timings):
+                print(f"[Editor] 클립 수({len(clips)})와 세그먼트 수({len(segment_timings)}) 불일치 - 비례 분배")
+
+        # 각 클립의 목표 길이 계산
+        clip_durations = []
+        if use_segment_timings:
+            # Phase 2: TTS 길이 기반 분배
+            total_tts_duration = sum(t.tts_duration for t in segment_timings)
+
+            if len(clips) == len(segment_timings):
+                # 1:1 매핑 (이상적인 경우)
+                for timing in segment_timings:
+                    clip_durations.append(timing.tts_duration)
+            else:
+                # 비례 분배
+                for i in range(len(clips)):
+                    # 각 클립에 할당할 세그먼트 범위 계산
+                    seg_start = int(i * len(segment_timings) / len(clips))
+                    seg_end = int((i + 1) * len(segment_timings) / len(clips))
+                    seg_end = max(seg_end, seg_start + 1)  # 최소 1개
+
+                    # 해당 범위의 TTS 길이 합
+                    duration = sum(segment_timings[j].tts_duration for j in range(seg_start, min(seg_end, len(segment_timings))))
+                    clip_durations.append(duration)
+
+            # 크로스페이드 보정
+            if crossfade_duration > 0:
+                # 마지막 클립 제외하고 크로스페이드 만큼 늘림
+                for i in range(len(clip_durations) - 1):
+                    clip_durations[i] += crossfade_duration
+
+            print(f"[Editor] Phase 2: 클립별 TTS 동기화 길이: {[f'{d:.2f}s' for d in clip_durations]}")
+        else:
+            # 기존 방식: 균등 분배
+            base_clip_duration = effective_duration / len(clips)
+            clip_durations = [base_clip_duration] * len(clips)
 
         processed_clips = []
 
         for i, clip in enumerate(clips):
-            # Phase 3: 마지막 클립은 남은 시간 정확히 맞춤
+            # Phase 2: 미리 계산된 길이 사용 또는 마지막 클립 조정
             if i == len(clips) - 1:
-                # 이미 처리된 클립들의 총 시간 계산
+                # 마지막 클립은 남은 시간에 맞춤
                 elapsed_time = sum(c.duration for c in processed_clips)
-                clip_duration = effective_duration - elapsed_time
+                clip_duration = max(0.5, effective_duration - elapsed_time)
                 print(f"[Editor] 마지막 클립 길이 조정: {clip_duration:.2f}초 (남은 시간)")
             else:
-                clip_duration = base_clip_duration
+                clip_duration = clip_durations[i] if i < len(clip_durations) else clip_durations[-1]
 
             # 1. 길이 조정
             if clip.duration > clip_duration:
@@ -550,8 +596,12 @@ class VideoEditor:
 
     def _create_shorts_layout(self, video_clip, title: str, duration: float):
         """
-        Phase 2: 쇼츠 레이아웃 생성 (상단 1/4 + 중앙 1/2 + 하단 1/4)
-        SHORTS_SPEC.md: config.py 상수 사용
+        Phase 1 (퀄리티 개선): 쇼츠 레이아웃 생성 (상단 1/4 + 중앙 1/2 + 하단 1/4)
+
+        TitleService(Pillow 기반)를 사용하여 정확한 텍스트 렌더링
+        - MoviePy TextClip의 폰트 메트릭 부정확 문제 해결
+        - Descender(g, j, y 등) 잘림 완전 방지
+        - Safe Zone 정밀 적용
 
         Args:
             video_clip: 원본 비디오 클립 (1080x1920)
@@ -561,6 +611,8 @@ class VideoEditor:
         Returns:
             레이아웃이 적용된 CompositeVideoClip
         """
+        import numpy as np
+
         width = CANVAS_WIDTH   # 1080
         height = CANVAS_HEIGHT  # 1920
 
@@ -576,109 +628,35 @@ class VideoEditor:
                 color=(0, 0, 0)
             ).with_duration(duration).with_position((0, 0))
 
-            # 2. 상단 제목 텍스트 (SHORTS_SPEC.md: config.py 폰트 사용)
-            # 이모지 및 특수문자 제거 (MoviePy 렌더링 오류 방지)
-            import re
-            # 모든 이모지 범위 제거 (U+1F000 ~ U+1FFFF)
-            title = re.sub(r'[\U0001F000-\U0001FFFF]', '', title)
-            # 추가 이모지 및 특수 기호 제거
-            title = re.sub(r'[✨💡🎉🔥💪🙌👍❤️🎯📢🎵🎶👇👆⭐️🌟💫⚡️🚀✅❌⚠️💯🎁🏆🎬📱💻🌈☀️🌙⭐🔴🟢🔵⚫⚪]', '', title)
-            # 다른 특수문자 범위 제거
-            title = re.sub(r'[\u2600-\u26FF\u2700-\u27BF]', '', title)
-            title = title.strip()
+            # 2. ✨ Phase 1: TitleService로 제목 이미지 생성 (Pillow 기반)
+            title_service = get_title_service()
 
-            if not title:
-                title = "영상 제목"  # 빈 제목 방지
+            # TitleService가 모든 처리 수행:
+            # - 이모지/특수문자 제거
+            # - 텍스트 줄바꿈
+            # - Safe Zone 적용
+            # - 정확한 바운딩 박스 계산
+            # - 반투명 배경 박스
+            # - 외곽선 텍스트 렌더링
+            title_array, title_metadata = title_service.create_title_array(
+                title,
+                canvas_width=width,
+                canvas_height=height
+            )
 
-            # FIX: 줄바꿈 기준 증가 (15자 → 20자)
-            wrapped_title = self._wrap_text(title, max_chars=20)
+            # numpy array를 ImageClip으로 변환
+            title_image_clip = self.ImageClip(title_array).with_duration(duration)
 
-            # ✨ UPGRADE_AI.md 수정사항 적용
-            # 1. stroke_width 설정 (마진 계산에 사용)
-            stroke_width = 3
+            # 제목 이미지는 전체 캔버스 크기이므로 (0, 0)에 배치
+            # 단, 상단 섹션(top_height)만 표시되도록 크롭
+            # TitleService는 이미 Safe Zone을 적용했으므로 그대로 사용
+            title_image_clip = title_image_clip.with_position((0, 0))
 
-            # SHORTS_SPEC.md: config.py에서 폰트 및 크기 가져옴
-            title_text_clip = self.TextClip(
-                text=wrapped_title,
-                font=FONT_TITLE,  # config.py에서 관리
-                font_size=FONT_SIZE_TITLE,  # 80px
-                color='white',
-                stroke_color='black',
-                stroke_width=stroke_width,
-                method='label',  # 자동 크기 조정 (size 지정 안 함)
-                interline=70  # ✨ 줄 간격 더 증가 (60→70, 하단 잘림 방지)
-            ).with_duration(duration)
-
-            # FIX: 반투명 배경 박스 추가 (차별화) + Safe Zone 적용
-            text_width, text_height = title_text_clip.size
-
-            # 줄바꿈 개수 확인 (줄간격 고려)
-            line_count = wrapped_title.count('\n') + 1
-
-            # ✨ 수정 1: 수직 패딩 대폭 증가 (Descender 잘림 방지)
-            # stroke_width 만큼 추가 마진 확보
-            stroke_margin = stroke_width * 2
-
-            # 패딩 추가 (좌우 40px + stroke 마진)
-            bg_width = min(text_width + 80 + stroke_margin, width - 40)
-
-            # ✨ 수직 패딩 비율 대폭 증가 (기존 3.0/2.2 → 4.0/3.0)
-            # Descender(g, j, y 등) 및 폰트 높이 계산 오차 고려
-            vertical_padding_ratio = 4.0 if line_count == 1 else 3.0
-            bg_height = int(text_height * (1 + vertical_padding_ratio)) + stroke_margin
-
-            print(f"[Title] 줄 수: {line_count}, 텍스트 높이: {text_height}px, 배경 박스 높이: {bg_height}px")
-
-            # ✨ 수정 2: 유튜브 쇼츠 Safe Zone 적용 (상단 5~8% 여백)
-            # 유튜브 쇼츠 UI(검색 버튼 등)에 가려지지 않도록 상단에서 약 7% 내려온 위치
-            safe_zone_top = int(height * 0.07)  # 1920px * 0.07 = 약 134px
-
-            # Safe Zone: 배경 박스가 top_height를 넘지 않도록 제한
-            max_bg_height = top_height - safe_zone_top - 20  # 하단 20px 여백
-            if bg_height > max_bg_height:
-                bg_height = max_bg_height
-                print(f"[WARNING] 제목 박스 높이 제한: {bg_height}px (max: {max_bg_height}px)")
-
-            title_bg = self.ColorClip(
-                size=(bg_width, bg_height),
-                color=(0, 0, 0),  # 검은색
-            ).with_duration(duration).with_opacity(0.7)  # 70% 불투명
-
-            # ✨ 배경 박스 위치: Safe Zone 적용 (상단 7% 지점부터 시작)
-            # 기존: bg_y = max(20, (top_height - bg_height) // 2)
-            # 수정: bg_y = safe_zone_top (유튜브 UI 회피)
-            bg_y = safe_zone_top
-
-            # 하단 잘림 방지: bg_y + bg_height가 top_height를 넘지 않도록
-            if bg_y + bg_height > top_height - 20:
-                bg_y = top_height - bg_height - 20
-
-            title_bg = title_bg.with_position(('center', bg_y))
-
-            # ✨ 수정 3: 텍스트 위치 - 배경 박스 내 중앙 + 하단 여유 추가
-            # Descender 잘림 방지를 위해 텍스트를 배경 박스 상단에 약간 붙임
-            # (하단에 더 많은 여유 공간 확보)
-            descender_buffer = int(text_height * 0.15)  # 텍스트 높이의 15% 추가 버퍼
-            text_y = bg_y + (bg_height - text_height) // 2 - descender_buffer
-
-            # text_y가 bg_y보다 작아지지 않도록 보정
-            text_y = max(bg_y + 10, text_y)
-
-            title_text_clip = title_text_clip.with_position(('center', text_y))
-
-            print(f"[Title] Safe Zone: {safe_zone_top}px, 배경 Y: {bg_y}px, 텍스트 Y: {text_y}px, 하단 여유: {bg_y + bg_height - text_y - text_height}px")
-
-            # FIX: 배경 + 텍스트를 하나로 합성
-            title_composite = self.CompositeVideoClip(
-                [title_bg, title_text_clip],
-                size=(width, top_height)
-            ).with_duration(duration).with_position((0, 0))
+            print(f"[Title] Pillow 기반 렌더링 완료: Y={title_metadata['y_position']}px, "
+                  f"배경 {title_metadata['bg_width']}x{title_metadata['bg_height']}px, "
+                  f"{title_metadata['line_count']}줄")
 
             # 3. 중앙 비디오 (960px) - 원본 비디오를 중앙 섹션에 맞게 조정
-            # 비디오 크기 확인
-            video_width, video_height = video_clip.size
-
-            # 중앙 섹션 비율에 맞게 crop & resize
             middle_video = self._resize_and_crop(video_clip, width, middle_height)
             middle_video = middle_video.with_position((0, top_height))
 
@@ -689,17 +667,20 @@ class VideoEditor:
             ).with_duration(duration).with_position((0, top_height + middle_height))
 
             # 5. 모든 레이어 합성
+            # 제목 이미지는 전체 캔버스 크기지만, 상단 영역에만 내용이 있음
+            # (나머지는 투명 - RGBA)
             composite = self.CompositeVideoClip(
                 [
-                    top_bg,
-                    title_composite,  # title_clip → title_composite
-                    middle_video,
-                    bottom_bg
+                    top_bg,           # 상단 검은 배경
+                    middle_video,     # 중앙 비디오
+                    bottom_bg,        # 하단 검은 배경
+                    title_image_clip  # 제목 (투명 배경, 상단에만 내용)
                 ],
                 size=(width, height)
             )
 
             print(f"[Editor] 쇼츠 레이아웃 적용 완료 (상단: {top_height}px, 중앙: {middle_height}px, 하단: {bottom_height}px)")
+            print(f"[Editor] ✨ Phase 1: Pillow 기반 제목 렌더링 (텍스트 잘림 방지)")
             return composite
 
         except Exception as e:
