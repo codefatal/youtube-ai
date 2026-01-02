@@ -233,11 +233,19 @@ export default function TimelineEditorPage() {
                 {/* 좌측: 썸네일/미리보기 */}
                 <div className="w-1/3 flex-shrink-0">
                   <div className="aspect-[9/16] bg-gray-700 rounded-lg overflow-hidden relative group">
-                    {segment.video_url ? (
-                      <img
-                        src={getVideoThumbnailUrl(segment.video_url) || ''}
-                        alt={`Segment ${segment.segment_index}`}
+                    {segment.video_local_path ? (
+                      <video
+                        src={`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/${segment.video_local_path.replace(/\\/g, '/')}`}
                         className="w-full h-full object-cover"
+                        muted
+                        playsInline
+                      />
+                    ) : segment.video_url ? (
+                      <video
+                        src={segment.video_url}
+                        className="w-full h-full object-cover"
+                        muted
+                        playsInline
                       />
                     ) : (
                       <div className="w-full h-full flex items-center justify-center text-gray-500">

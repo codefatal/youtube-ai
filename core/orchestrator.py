@@ -287,6 +287,135 @@ class ContentOrchestrator:
             self.db.commit()
             return db_job
 
+    def create_content_from_plan(
+        self,
+        content_plan: ContentPlan,
+        upload: bool = False,
+        job_id: Optional[str] = None,
+        account_id: Optional[int] = None,
+        template: Optional[str] = None,
+        tts_settings: Optional[Dict[str, Any]] = None,
+        bgm_settings: Optional[Dict[str, Any]] = None
+    ) -> DBJobHistory:
+        """
+        Phase 3: 이미 생성된 ContentPlan으로부터 영상 생성 (Draft finalize용)
+
+        Args:
+            content_plan: 생성된 ContentPlan 객체
+            upload: YouTube 업로드 여부
+            job_id: 작업 ID (None이면 자동 생성)
+            account_id: 계정 ID
+            template: 템플릿 이름
+            tts_settings: TTS 설정 오버라이드
+            bgm_settings: BGM 설정
+
+        Returns:
+            JobHistory ORM 객체
+        """
+        # 작업 ID 생성
+        if not job_id:
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            job_id = f"job_{timestamp}"
+
+        self.logger.info(f"작업 시작 (from ContentPlan): {job_id}")
+        self._update_progress(f"작업 시작: {content_plan.title}", 0)
+
+        # DB에 작업 기록 생성
+        db_job = DBJobHistory(
+            job_id=job_id,
+            account_id=account_id,
+            topic=content_plan.topic or "Draft 렌더링",
+            status=JobStatus.PENDING,
+            format=content_plan.format.value,
+            duration=content_plan.target_duration
+        )
+        self.db.add(db_job)
+        self.db.commit()
+        self.db.refresh(db_job)
+
+        try:
+            # 1. Asset Manager: 에셋 수집 (스크립트 생성 단계 스킵)
+            self._update_job_status(db_job, JobStatus.COLLECTING_ASSETS, "에셋 수집 중 (영상 + 음성)...")
+
+            # BGM 설정 적용
+            bgm_enabled = bgm_settings.get('enabled', True) if bgm_settings else True
+
+            asset_manager = AssetManager(
+                tts_provider="gtts",
+                bgm_enabled=bgm_enabled
+            )
+
+            asset_bundle = asset_manager.collect_assets(
+                content_plan,
+                download_videos=True,
+                generate_tts=True,
+                account_id=account_id,
+                tts_settings_override=tts_settings
+            )
+            if not asset_bundle:
+                raise Exception("에셋 수집 실패")
+
+            # BGM 설정 적용 (mood, volume)
+            if bgm_settings and asset_bundle.bgm:
+                if 'volume' in bgm_settings:
+                    asset_bundle.bgm.volume = bgm_settings['volume']
+
+            self.logger.info(f"에셋 수집 완료: 영상 {len(asset_bundle.videos)}개")
+
+            # 2. Editor: 영상 편집
+            self._update_job_status(db_job, JobStatus.EDITING, "영상 편집 중...")
+            editor = self._get_editor()
+            output_filename = f"{job_id}.mp4"
+            video_path = editor.create_video(
+                content_plan=content_plan,
+                asset_bundle=asset_bundle,
+                output_filename=output_filename,
+                template_name=template
+            )
+            if not video_path:
+                raise Exception("영상 편집 실패")
+            db_job.output_video_path = str(video_path)
+            self.logger.info(f"영상 편집 완료: {video_path}")
+
+            # 3. Uploader: YouTube 업로드 (옵션)
+            if upload:
+                self._update_job_status(db_job, JobStatus.UPLOADING, "YouTube 업로드 중...")
+                uploader = self._get_uploader()
+                metadata = uploader.generate_metadata(content_plan, optimize_seo=True)
+                if not uploader.youtube:
+                    uploader.authenticate(account_id=account_id)
+
+                upload_result = uploader.upload_video(
+                    video_path=str(video_path),
+                    metadata=metadata,
+                    max_retries=3
+                )
+                if upload_result.success:
+                    db_job.youtube_url = upload_result.url
+                    db_job.youtube_video_id = upload_result.video_id
+                    self.logger.info(f"YouTube 업로드 완료: {upload_result.url}")
+                else:
+                    raise Exception(f"업로드 실패: {upload_result.error}")
+
+            # 4. 완료
+            self._update_job_status(db_job, JobStatus.COMPLETED, "모든 작업 완료!", 100)
+            db_job.completed_at = datetime.utcnow()
+            self.db.commit()
+            self.logger.info(f"작업 완료: {job_id}")
+            return db_job
+
+        except Exception as e:
+            import traceback
+            error_message = str(e)
+            self.logger.error(f"작업 실패 ({job_id}): {error_message}")
+            traceback.print_exc()
+
+            db_job.status = JobStatus.FAILED
+            db_job.error_message = error_message
+            db_job.completed_at = datetime.utcnow()
+            self.db.commit()
+            return db_job
+
     def _update_job_status(self, db_job: DBJobHistory, status: JobStatus, message: str, progress: Optional[int] = None):
         """
         DB 기반 작업 상태 업데이트

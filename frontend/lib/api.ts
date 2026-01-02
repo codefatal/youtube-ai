@@ -190,9 +190,12 @@ export async function deleteDraft(draftId: string): Promise<void> {
 export function getTTSAudioUrl(ttsLocalPath: string | null): string | null {
   if (!ttsLocalPath) return null;
 
+  // Windows 경로 구분자를 URL 슬래시로 변환
+  const normalizedPath = ttsLocalPath.replace(/\\/g, '/');
+
   // TTS 파일 경로를 절대 URL로 변환
-  // 예: assets/tts/segment_0.mp3 → http://localhost:8000/assets/tts/segment_0.mp3
-  return `${API_URL}/${ttsLocalPath}`;
+  // 예: downloads/audio/tts_xxxxx.mp3 → http://localhost:8000/downloads/audio/tts_xxxxx.mp3
+  return `${API_URL}/${normalizedPath}`;
 }
 
 /**
@@ -202,10 +205,13 @@ export function getVideoThumbnailUrl(videoUrl: string | null): string | null {
   if (!videoUrl) return null;
 
   // Pexels/Pixabay URL을 그대로 사용
-  // 또는 로컬 경로라면 절대 URL로 변환
   if (videoUrl.startsWith('http')) {
     return videoUrl;
   }
 
-  return `${API_URL}/${videoUrl}`;
+  // Windows 경로 구분자를 URL 슬래시로 변환
+  const normalizedPath = videoUrl.replace(/\\/g, '/');
+
+  // 로컬 경로라면 절대 URL로 변환
+  return `${API_URL}/${normalizedPath}`;
 }
