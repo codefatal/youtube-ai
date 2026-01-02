@@ -324,7 +324,7 @@ class ContentOrchestrator:
         db_job = DBJobHistory(
             job_id=job_id,
             account_id=account_id,
-            topic=content_plan.topic or "Draft 렌더링",
+            topic=content_plan.title or "Draft 렌더링",
             status=JobStatus.PENDING,
             format=content_plan.format.value,
             duration=content_plan.target_duration
