@@ -62,16 +62,21 @@ class MoodType(str, Enum):
 # ============================================================
 
 class ScriptSegment(BaseModel):
-    """스크립트 세그먼트"""
+    """스크립트 세그먼트 (Phase 2: image_search_query 추가)"""
     text: str = Field(..., description="대사 텍스트")
-    keyword: str = Field(..., description="영상 검색 키워드")
+    keyword: str = Field(..., description="영상 검색 키워드 (하위 호환성)")
+    image_search_query: Optional[str] = Field(
+        None,
+        description="Phase 2: Pexels/Pixabay 검색용 구체적 시각 묘사 (영어, 우선 사용)"
+    )
     duration: Optional[float] = Field(None, description="예상 길이(초)")
 
     model_config = {
         "json_schema_extra": {
             "example": {
                 "text": "강아지는 사람의 가장 좋은 친구입니다.",
-                "keyword": "happy dog playing park",
+                "keyword": "happy dog",
+                "image_search_query": "happy golden retriever dog owner smiling playing outdoor park",
                 "duration": 3.0
             }
         }
@@ -124,6 +129,7 @@ class SegmentTiming(BaseModel):
     tts_duration: float = Field(..., description="실제 TTS 길이 (초)")
     start_time: float = Field(..., description="누적 시작 시간 (초)")
     end_time: float = Field(..., description="누적 종료 시간 (초)")
+    tts_local_path: Optional[str] = Field(None, description="세그먼트별 TTS 로컬 경로 (Phase 3)")
 
     model_config = {
         "json_schema_extra": {

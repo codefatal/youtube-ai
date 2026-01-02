@@ -263,7 +263,8 @@ class ContentPlanner:
 
     def _validate_and_adjust_duration(self, content_plan: ContentPlan) -> ContentPlan:
         """
-        세그먼트 시간 검증 및 조정 (Phase 4 - 목표 길이 엄격 준수)
+        세그먼트 시간 검증 및 조정
+        Phase 1: 추정치 계산 최소화 - 실제 TTS 길이는 AssetManager에서 측정
 
         Args:
             content_plan: 검증할 ContentPlan
@@ -274,73 +275,34 @@ class ContentPlanner:
         target_duration = content_plan.target_duration
         segments = content_plan.segments
 
-        # 1. 각 세그먼트에 duration이 없으면 자동 계산
+        # Phase 1: 추정치는 참고용으로만 계산 (실제 TTS 길이로 덮어씀)
+        # duration=None으로 두어 AssetManager가 실제 값을 설정하도록 함
         for segment in segments:
             if segment.duration is None or segment.duration == 0:
-                # Phase 4: TTS 읽기 속도 개선 (실제 TTS 엔진 고려)
-                # ElevenLabs: 약 0.17초/글자 (더 느림)
-                # gTTS: 약 0.15초/글자
+                # 매우 대략적인 추정치 (참고용)
                 text = segment.text.strip()
-
-                # 효과음 제거 (예: (박수 소리))
                 text_clean = re.sub(r'\([^)]*\)', '', text).strip()
-
-                # 글자 수 계산
                 char_count = len(text_clean)
 
-                # Phase 4: 예상 TTS 시간 (더 보수적으로 계산)
-                estimated_duration = char_count * 0.17  # 0.15 → 0.17
+                # Phase 1: 추정치는 대략적으로만 계산 (AssetManager가 실제 값으로 업데이트)
+                # 이 값은 AssetManager의 TTS 생성 시 실제 오디오 길이로 **완전히 덮어써집니다**
+                estimated_duration = char_count * 0.15  # 대략적인 추정
 
-                # 최소 0.5초 보장
+                # 추정치 설정 (참고용, 나중에 실제 값으로 교체됨)
                 segment.duration = max(0.5, round(estimated_duration, 1))
 
-        # 2. 총 시간 계산
+        # 2. 총 시간 계산 (추정치 기반)
         total_duration = sum(seg.duration for seg in segments if seg.duration)
 
-        print(f"[Planner] 총 세그먼트 시간: {total_duration:.1f}초 / 목표: {target_duration}초")
+        print(f"[Planner] 추정 총 시간: {total_duration:.1f}초 / 목표: {target_duration}초")
+        print(f"[Planner] ⚠️ Phase 1: 이 추정치는 참고용입니다. 실제 TTS 길이는 AssetManager에서 측정됩니다.")
 
-        # 3. Phase 3: ±1초 이내 강제 조정
-        duration_diff = total_duration - target_duration
+        # Phase 1: 추정치 기반 조정 제거
+        # AssetManager가 실제 TTS 생성 후 정확한 길이로 업데이트하므로,
+        # 여기서 target_duration에 맞추려는 비율 조정은 하지 않습니다.
 
-        if abs(duration_diff) > 1.0:
-            print(f"[Planner] 시간 차이 {duration_diff:.1f}초 감지. 세그먼트 조정 중...")
-
-            # 비율 조정 (proportional scaling)
-            scale_factor = target_duration / total_duration if total_duration > 0 else 1.0
-
-            for segment in segments:
-                if segment.duration:
-                    segment.duration = round(segment.duration * scale_factor, 1)
-
-            # 재계산
-            total_duration = sum(seg.duration for seg in segments if seg.duration)
-            print(f"[Planner] 조정 후 총 시간: {total_duration:.1f}초")
-
-        # 4. Phase 3: 미세 조정 (±1초 이내 강제)
-        final_diff = target_duration - total_duration
-
-        if abs(final_diff) > 0.1 and segments:
-            # 마지막 세그먼트에 차이 추가/제거
-            last_segment = segments[-1]
-            if last_segment.duration:
-                # 최소 0.5초 보장
-                last_segment.duration = max(0.5, round(last_segment.duration + final_diff, 1))
-                print(f"[Planner] 마지막 세그먼트 미세 조정: {last_segment.duration:.1f}초")
-
-        # 5. Phase 3: 최종 검증 (±1초 강제)
-        final_total = sum(seg.duration for seg in segments if seg.duration)
-        final_diff = abs(final_total - target_duration)
-
-        if final_diff > 1.0:
-            print(f"[WARNING] 시간 차이 {final_diff:.1f}초로 목표 ±1초 초과. 추가 조정 필요.")
-            # 강제 조정: 모든 세그먼트 비율 재조정
-            scale_factor = target_duration / final_total
-            for segment in segments:
-                if segment.duration:
-                    segment.duration = max(0.5, round(segment.duration * scale_factor, 1))
-
-            final_total = sum(seg.duration for seg in segments if seg.duration)
-            print(f"[Planner] 강제 조정 후 총 시간: {final_total:.1f}초")
+        # 참고: 이전 버전에서는 여기서 비율 조정을 했지만,
+        # Phase 1부터는 실제 TTS 길이를 기준으로 하므로 제거됨
 
         return content_plan
 

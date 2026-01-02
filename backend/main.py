@@ -5,6 +5,7 @@ AI-Powered Original Content Creation System
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 from typing import List, Optional, Dict, Any
 import sys
@@ -32,7 +33,7 @@ from core.models import (
 # Phase 1: Database and API Routers
 from backend.database import init_db, SessionLocal
 from backend.models import JobHistory as DBJobHistory, JobStatus
-from backend.routers import accounts, tts, scheduler, bgm, preview  # Phase 3: Preview 라우터 추가
+from backend.routers import accounts, tts, scheduler, bgm, preview, drafts  # Phase 3: Draft 라우터 추가
 from backend.scheduler import scheduler_instance  # ✨ NEW
 from sqlalchemy import func
 
@@ -75,6 +76,17 @@ app.include_router(tts.router)
 app.include_router(scheduler.router)
 app.include_router(bgm.router)  # Phase 5: BGM API
 app.include_router(preview.router)  # Phase 3: Preview API
+app.include_router(drafts.router)  # Phase 3: Draft API (Human-in-the-Loop)
+
+
+# ==================== 정적 파일 서빙 (Phase 3) ====================
+# 프론트엔드에서 에셋 파일 접근을 위한 정적 파일 서빙
+downloads_path = os.path.join(os.path.dirname(__file__), '..', 'downloads')
+if os.path.exists(downloads_path):
+    app.mount("/downloads", StaticFiles(directory=downloads_path), name="downloads")
+    print(f"[FastAPI] 정적 파일 서빙 설정 완료: {downloads_path}")
+else:
+    print(f"[WARNING] downloads 폴더가 존재하지 않습니다: {downloads_path}")
 
 
 # 전역 Orchestrator (싱글톤 패턴)

@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import TTSSettings from '@/components/TTSSettings';
 import TemplateSelector from '@/components/TemplateSelector';
+import { createDraft } from '@/lib/api';
 
 export default function CreatePage() {
   const router = useRouter();
@@ -27,6 +28,29 @@ export default function CreatePage() {
 
   const [loading, setLoading] = useState(false);
   const [previewLoading, setPreviewLoading] = useState(false);
+  const [draftLoading, setDraftLoading] = useState(false);
+
+  // Phase 3: Draft 모드로 생성 (편집 가능한 초안)
+  const handleCreateDraft = async () => {
+    setDraftLoading(true);
+    try {
+      const draft = await createDraft({
+        topic: topic || null,
+        format: 'shorts',
+        duration,
+        style: '정보성',
+        collect_assets: true,  // 에셋도 미리 수집
+      });
+
+      // 편집 페이지로 리다이렉트
+      router.push(`/projects/${draft.draft_id}/edit`);
+    } catch (error) {
+      console.error('Draft 생성 실패:', error);
+      alert('Draft 생성에 실패했습니다.');
+    } finally {
+      setDraftLoading(false);
+    }
+  };
 
   const handleCreate = async () => {
     setLoading(true);
@@ -219,30 +243,73 @@ export default function CreatePage() {
       </div>
 
       {/* 생성 버튼 */}
-      <div className="mt-8 flex gap-4">
-        {/* 프리뷰 버튼 */}
+      <div className="mt-8 space-y-4">
+        {/* Phase 3: Draft 모드 버튼 (권장) */}
         <button
-          onClick={handlePreview}
-          disabled={loading || previewLoading}
-          className="flex-1 px-6 py-3 bg-gray-600 hover:bg-gray-500 rounded-lg text-white font-semibold text-lg disabled:opacity-50 transition"
+          onClick={handleCreateDraft}
+          disabled={loading || previewLoading || draftLoading}
+          className="w-full px-6 py-4 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 rounded-lg text-white font-bold text-xl disabled:opacity-50 transition shadow-lg"
         >
-          {previewLoading ? '프리뷰 생성 중...' : '🎬 프리뷰 먼저 보기'}
+          {draftLoading ? (
+            <span className="flex items-center justify-center gap-2">
+              <svg
+                className="animate-spin h-5 w-5"
+                fill="none"
+                viewBox="0 0 24 24"
+              >
+                <circle
+                  className="opacity-25"
+                  cx="12"
+                  cy="12"
+                  r="10"
+                  stroke="currentColor"
+                  strokeWidth="4"
+                />
+                <path
+                  className="opacity-75"
+                  fill="currentColor"
+                  d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                />
+              </svg>
+              Draft 생성 중...
+            </span>
+          ) : (
+            '✨ 편집 모드로 생성 (권장)'
+          )}
         </button>
 
-        {/* 영상 생성 버튼 */}
-        <button
-          onClick={handleCreate}
-          disabled={loading || previewLoading}
-          className="flex-1 px-6 py-3 bg-blue-600 hover:bg-blue-500 rounded-lg text-white font-semibold text-lg disabled:opacity-50 transition"
-        >
-          {loading ? '생성 중...' : '⚡ 바로 생성'}
-        </button>
+        <div className="grid grid-cols-2 gap-4">
+          {/* 프리뷰 버튼 */}
+          <button
+            onClick={handlePreview}
+            disabled={loading || previewLoading || draftLoading}
+            className="px-6 py-3 bg-gray-600 hover:bg-gray-500 rounded-lg text-white font-semibold text-lg disabled:opacity-50 transition"
+          >
+            {previewLoading ? '프리뷰 생성 중...' : '🎬 프리뷰'}
+          </button>
+
+          {/* 영상 생성 버튼 */}
+          <button
+            onClick={handleCreate}
+            disabled={loading || previewLoading || draftLoading}
+            className="px-6 py-3 bg-blue-600 hover:bg-blue-500 rounded-lg text-white font-semibold text-lg disabled:opacity-50 transition"
+          >
+            {loading ? '생성 중...' : '⚡ 바로 생성'}
+          </button>
+        </div>
       </div>
 
       {/* 안내 문구 */}
-      <p className="mt-4 text-center text-sm text-gray-400">
-        💡 프리뷰를 먼저 확인하고 조정한 후 최종 렌더링하는 것을 권장합니다.
-      </p>
+      <div className="mt-4 bg-purple-900 bg-opacity-30 border border-purple-700 rounded-lg p-4">
+        <p className="text-sm text-purple-200">
+          💡 <strong>편집 모드</strong>를 사용하면:
+        </p>
+        <ul className="mt-2 space-y-1 text-sm text-purple-300 list-disc list-inside">
+          <li>스크립트와 이미지를 먼저 확인하고 수정할 수 있습니다</li>
+          <li>세그먼트별로 이미지 재생성 및 텍스트 편집이 가능합니다</li>
+          <li>최종 확인 후 렌더링하여 시간을 절약할 수 있습니다</li>
+        </ul>
+      </div>
     </div>
   );
 }

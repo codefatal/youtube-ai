@@ -127,12 +127,14 @@ class VideoEditor:
         # 2. 오디오 로드 (Phase 2: BGM 믹싱 포함)
         audio_clip = self._load_audio_with_bgm(asset_bundle, content_plan.target_duration)
 
-        # 영상 길이 제어 - TTS 길이에 맞춤 (무음 추가 없이)
+        # Phase 1: TTS 오디오 길이를 절대 기준으로 사용 (추정치 무시)
         if audio_clip:
             actual_duration = audio_clip.duration
             target_duration = actual_duration  # TTS 길이를 최종 길이로 사용
-            print(f"[Editor] TTS 길이: {actual_duration:.2f}초")
-            print(f"[Editor] 최종 영상 길이를 TTS에 맞춤: {target_duration:.2f}초")
+            print(f"\n{'='*60}")
+            print(f"[Phase 1] TTS 오디오 길이: {actual_duration:.2f}초")
+            print(f"[Phase 1] ✅ 최종 영상 길이를 TTS에 강제로 맞춤 (추정치 무시)")
+            print(f"{'='*60}\n")
         else:
             target_duration = content_plan.target_duration
             print(f"[Editor] 오디오 없음, 목표 길이 사용: {target_duration:.2f}초")
@@ -756,6 +758,7 @@ class VideoEditor:
         current_time = 0.0
 
         for seg in content_plan.segments:
+            # Phase 1: 실제 TTS 길이 사용 (AssetManager가 업데이트한 값)
             duration = seg.duration if seg.duration else 3.0
 
             # Whisper로 정렬된 경우 start/end 사용, 아니면 누적 계산
@@ -774,6 +777,8 @@ class VideoEditor:
             })
 
             current_time = end_time
+
+        print(f"[Phase 1] 자막 생성: {len(segments_data)}개 세그먼트, 총 {current_time:.2f}초")
 
         # SubtitleService로 자막 클립 정보 생성 (PIL Image + Safe Zone 적용됨)
         subtitle_clip_data = subtitle_service.create_subtitle_clips(segments_data, fps=self.config.fps)

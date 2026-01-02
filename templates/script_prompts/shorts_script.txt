@@ -13,36 +13,66 @@
 4. **언어**: 한국어
 5. **제목**: 최대 20자 이내 (화면에 잘 표시되도록 간결하게)
 
-# 스크립트 세그먼트 작성 규칙
+# 스크립트 세그먼트 작성 규칙 (Phase 2: Visual Search Quality)
 
 각 대사 세그먼트마다 다음을 포함해야 합니다:
 - `text`: 대사 내용 (명확하고 간결하게)
-- `keyword`: 해당 대사에 어울리는 영상 검색 키워드 (영어, 3-5 단어)
-  * 예: "happy dog playing park", "sunset ocean beach", "coffee morning work"
+- `keyword`: 간단한 키워드 (하위 호환성, 3-5 단어)
+- `image_search_query`: **Phase 2 핵심!** Pexels/Pixabay 검색용 구체적 시각 묘사 (영어)
+  * 이 필드가 영상 검색에 사용됩니다!
+  * 반드시 추상적 명사가 아닌 **구체적인 동작, 사물, 장면**을 묘사하세요
+  * 예: "man climbing mountain summit success", "fresh salad bowl healthy food close up"
 - `duration`: 예상 발화 시간 (초 단위, 자동 계산 가능하므로 생략 가능)
 
-# 키워드 작성 팁 (매우 중요!)
+# Phase 2: Image Search Query 작성 가이드 (🚨 매우 중요!)
 
-**핵심 원칙**: 키워드는 추상적 명사가 아니라, **실제로 화면에 보여질 동작이나 사물**이어야 합니다.
+## 핵심 원칙
 
-**잘못된 예시 (추상적 - 사용 금지!)**:
-- "Success" → 추상적이라 관련 없는 영상이 검색됨
-- "Diet" → 추상적
-- "Happiness" → 추상적
-- "Motivation" → 추상적
+**`image_search_query`는 추상적 명사가 아니라, Pexels/Pixabay에서 실제로 검색 가능한 구체적인 동작, 사물, 장면을 묘사해야 합니다!**
 
-**올바른 예시 (구체적 - 이렇게 작성!)**:
-- "Success" → "man raising hands celebrating office", "people cheering victory"
-- "Diet" → "healthy salad bowl fresh vegetables", "person running park morning"
-- "Happiness" → "smiling family picnic outdoor", "friends laughing together cafe"
-- "Motivation" → "athlete training gym workout", "sunrise mountain top view"
+## ❌ 잘못된 예시 (추상적 - 절대 금지!)
 
-**추가 팁**:
-- 구체적이고 시각적인 장면을 묘사하세요 (누가, 무엇을, 어디서)
-- 3-5개 단어 조합으로 검색 정확도 높이기
-- 동작(verbs)과 장소를 포함하세요 (예: "running in park", "working at desk")
-- 감정이나 분위기 포함 (happy, calm, energetic 등)
-- 무료 스톡 영상(Pexels, Pixabay)에서 실제로 찾기 쉬운 키워드 사용
+| 대사 예시 | ❌ 잘못된 query | 문제점 |
+|-----------|------------------|--------|
+| "성공하려면 도전해야 합니다" | "success motivation" | 추상적 → 맥락 무관 영상 |
+| "다이어트를 시작하세요" | "diet weight loss" | 추상적 → 광고, 텍스트 이미지 |
+| "행복은 가까이 있습니다" | "happiness joy" | 추상적 → 엉뚱한 영상 |
+
+## ✅ 올바른 예시 (구체적 - 반드시 이렇게!)
+
+| 대사 예시 | ✅ 올바른 image_search_query | 설명 |
+|-----------|--------------------------------|------|
+| "성공하려면 도전해야 합니다" | "businessperson climbing stairs office building" | 구체적 동작+장소 |
+| "다이어트를 시작하세요" | "fresh salad bowl healthy vegetables close up" | 구체적 사물+디테일 |
+| "행복은 가까이 있습니다" | "smiling family playing park outdoor sunset" | 구체적 주체+동작+장소 |
+| "운동이 중요합니다" | "athlete running track morning sunrise" | 구체적 동작+시간대 |
+
+## 필수 작성 공식
+
+```
+주체(Subject) + 동작(Action) + 장소/사물(Object/Place) + [분위기]
+```
+
+**예시**:
+- person + typing + laptop + office → "person typing laptop office desk focused"
+- woman + cooking + kitchen → "woman cooking healthy food modern kitchen"
+- child + playing + beach → "child playing sand beach summer happy"
+
+## 구체적 작성 팁
+
+1. **주체 명시** (누가): person, man, woman, athlete, student, child, family, couple
+2. **동작 동사** (무엇을): running, working, eating, smiling, typing, cooking, exercising
+3. **장소/사물** (어디서/무엇을): office, park, beach, mountain, laptop, food, gym
+4. **분위기/시간** (선택): happy, calm, morning, sunset, professional, energetic
+
+## 추가 변환 예시
+
+- "집중력" → "person working laptop cafe focused concentration"
+- "스트레스" → "tired businessperson headache office desk fatigue"
+- "건강" → "people practicing yoga outdoor park morning"
+- "여행" → "backpacker hiking mountain trail adventure"
+- "공부" → "student studying library books laptop night"
+- "휴식" → "woman relaxing hammock beach ocean peaceful"
 
 # 주제 정보
 
@@ -64,15 +94,18 @@
   "segments": [
     {{
       "text": "여러분, 이것 알고 계셨나요?",
-      "keyword": "surprised person reacting"
+      "keyword": "surprised person",
+      "image_search_query": "surprised person reacting shocked expression close up"
     }},
     {{
       "text": "강아지는 사람의 감정을 90% 이상 인식할 수 있습니다.",
-      "keyword": "happy dog with owner smiling"
+      "keyword": "dog owner",
+      "image_search_query": "happy golden retriever dog owner smiling playing outdoor"
     }},
     {{
       "text": "오늘부터 반려견과 더 많은 시간을 보내세요!",
-      "keyword": "person playing with dog park"
+      "keyword": "dog park",
+      "image_search_query": "person playing throwing ball dog park sunny day"
     }}
   ]
 }}

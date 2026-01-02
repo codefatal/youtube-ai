@@ -41,13 +41,17 @@ def _get_audio_duration(file_path: str) -> float:
 class BGMManager:
     """배경음악 관리자"""
 
-    def __init__(self, music_dir: str = "music"):
+    def __init__(self, music_dir: str = "assets/bgm"):
         """
         Args:
-            music_dir: 음악 파일 디렉토리 경로 (Phase 3: "assets/music" → "music")
+            music_dir: 음악 파일 디렉토리 경로 (Phase 1: 로컬 라이브러리 "assets/bgm")
         """
         self.music_dir = Path(music_dir)
         self.music_dir.mkdir(parents=True, exist_ok=True)
+
+        # Phase 1: Default fallback 폴더 설정
+        self.default_dir = self.music_dir / "default"
+        self.default_dir.mkdir(parents=True, exist_ok=True)
 
         # ffmpeg 경로 찾기 (Windows Chocolatey 경로 포함)
         self.ffmpeg_cmd = shutil.which("ffmpeg")
@@ -103,18 +107,20 @@ class BGMManager:
 
     def _auto_scan_music_folder(self):
         """
-        Phase 3: music 폴더를 스캔해서 BGM 자동 감지 및 카탈로그 생성
+        Phase 1: BGM 폴더를 스캔해서 자동 감지 및 카탈로그 생성
 
         폴더 구조:
-        music/
+        assets/bgm/
           HAPPY/
             song1.mp3
             song2.mp3
           ENERGETIC/
             track1.mp3
+          default/
+            fallback1.mp3
           ...
         """
-        print(f"[BGMManager] music 폴더 자동 스캔 중: {self.music_dir}")
+        print(f"[BGMManager] BGM 폴더 자동 스캔 중: {self.music_dir}")
 
         found_count = 0
         for mood_folder in self.music_dir.iterdir():
@@ -224,7 +230,7 @@ class BGMManager:
         min_duration: Optional[float] = None
     ) -> Optional[BGMAsset]:
         """
-        분위기에 맞는 BGM 선택
+        분위기에 맞는 BGM 선택 (Phase 1: default fallback 추가)
 
         Args:
             mood: 원하는 분위기
@@ -244,7 +250,8 @@ class BGMManager:
 
         if not candidates:
             print(f"[BGMManager] {mood.value} BGM 없음 (min_duration={min_duration})")
-            return None
+            # Phase 1: default 폴더에서 fallback 시도
+            return self._get_default_bgm(min_duration)
 
         # 랜덤 선택
         selected = random.choice(candidates)
@@ -340,9 +347,55 @@ class BGMManager:
             raise
 
 
+    def _get_default_bgm(self, min_duration: Optional[float] = None) -> Optional[BGMAsset]:
+        """
+        Phase 1: default 폴더에서 fallback BGM 선택
+
+        Args:
+            min_duration: 최소 길이 (초)
+
+        Returns:
+            선택된 BGMAsset (없으면 None)
+        """
+        # default 폴더에서 mp3 파일 검색
+        default_files = list(self.default_dir.glob("*.mp3"))
+
+        if not default_files:
+            print(f"[BGMManager] default 폴더에 BGM 없음: {self.default_dir}")
+            return None
+
+        # 최소 길이 필터링
+        if min_duration:
+            valid_files = []
+            for file_path in default_files:
+                duration = _get_audio_duration(str(file_path))
+                if duration >= min_duration:
+                    valid_files.append((file_path, duration))
+
+            if not valid_files:
+                print(f"[BGMManager] default 폴더에 min_duration={min_duration}초 이상 BGM 없음")
+                return None
+
+            file_path, duration = random.choice(valid_files)
+        else:
+            file_path = random.choice(default_files)
+            duration = _get_audio_duration(str(file_path))
+
+        # BGMAsset 생성 (임시)
+        asset = BGMAsset(
+            name=file_path.stem,
+            local_path=str(file_path),
+            mood=MoodType.CALM,  # default는 CALM으로 설정
+            duration=duration,
+            volume=0.25
+        )
+
+        print(f"[BGMManager] default BGM 선택: {asset.name} ({duration:.1f}초)")
+        return asset
+
     def get_random_bgm(self, min_duration: Optional[float] = None) -> Optional[BGMAsset]:
         """
-        전체 카탈로그에서 랜덤 BGM 선택
+        전체 카탈로그에서 랜덤 BGM 선택 (Phase 1: default fallback 포함)
 
         Args:
             min_duration: 최소 길이 (초)
@@ -359,7 +412,9 @@ class BGMManager:
             all_bgms = [bgm for bgm in all_bgms if bgm.duration >= min_duration]
 
         if not all_bgms:
-            return None
+            # Phase 1: 카탈로그에 없으면 default 폴더 시도
+            print(f"[BGMManager] 카탈로그에 BGM 없음. default 폴더 시도...")
+            return self._get_default_bgm(min_duration)
 
         return random.choice(all_bgms)
 

@@ -156,18 +156,29 @@ class AssetManager:
         all_assets = []
 
         for i, segment in enumerate(content_plan.segments, 1):
-            keyword = segment.keyword
-            print(f"\n[{i}/{len(content_plan.segments)}] 키워드: '{keyword}' 검색 중...")
+            # Phase 2: image_search_query 우선 사용, 없으면 keyword fallback
+            search_query = segment.image_search_query or segment.keyword
+            using_field = "image_search_query" if segment.image_search_query else "keyword"
+
+            print(f"\n[{i}/{len(content_plan.segments)}] Phase 2: '{search_query}' 검색 중...")
+            print(f"[Phase 2] 사용 필드: {using_field}")
 
             # 캐시 확인
-            cached_asset = self._get_cached_video(keyword)
+            cached_asset = self._get_cached_video(search_query)
             if cached_asset:
                 print(f"[Cache] 캐시에서 영상 가져옴: {cached_asset.id}")
                 all_assets.append(cached_asset)
                 continue
 
             # 여러 제공자에서 검색
-            assets = self._search_from_providers(keyword)
+            assets = self._search_from_providers(search_query)
+
+            # Phase 4: Fallback - image_search_query 실패 시 keyword로 재검색
+            if not assets and segment.image_search_query and segment.keyword:
+                print(f"[Phase 4] image_search_query 실패 - keyword로 재시도: '{segment.keyword}'")
+                search_query = segment.keyword
+                using_field = "keyword (fallback)"
+                assets = self._search_from_providers(search_query)
 
             if assets:
                 # 첫 번째 영상 다운로드
@@ -180,17 +191,21 @@ class AssetManager:
                     all_assets.append(asset)
 
                     # 캐시 저장
-                    self._cache_video(keyword, asset)
+                    self._cache_video(search_query, asset)
                 else:
-                    print(f"[WARNING] '{keyword}' 다운로드 실패")
+                    print(f"[WARNING] '{search_query}' 다운로드 실패")
             else:
-                print(f"[WARNING] '{keyword}' 검색 결과 없음")
+                print(f"[WARNING] '{search_query}' 검색 결과 없음 (모든 fallback 시도 완료)")
 
         return all_assets
 
     def _search_from_providers(self, keyword: str, per_page: int = 3) -> List[StockVideoAsset]:
         """
-        여러 제공자에서 영상 검색
+        여러 제공자에서 영상 검색 (Phase 4: Smart Fallback)
+
+        우선순위:
+        1. Pexels (빠르고 품질 좋음)
+        2. Pixabay (고품질 파라미터 적용)
 
         Args:
             keyword: 검색 키워드
@@ -201,12 +216,38 @@ class AssetManager:
         """
         all_assets = []
 
-        for provider_name, provider in self.providers.items():
+        # Phase 4: Pexels 우선 검색
+        if 'pexels' in self.providers:
             try:
-                assets = provider.search_videos(keyword, per_page=per_page)
-                all_assets.extend(assets)
+                print(f"[AssetManager] Phase 4: Pexels 검색 시도 - '{keyword}'")
+                assets = self.providers['pexels'].search_videos(keyword, per_page=per_page)
+                if assets:
+                    print(f"[AssetManager] Pexels 성공: {len(assets)}개 발견")
+                    return assets  # Pexels에서 찾으면 바로 반환
+                else:
+                    print(f"[AssetManager] Pexels 결과 없음 - Pixabay로 fallback")
             except Exception as e:
-                print(f"[ERROR] {provider_name} 검색 실패: {e}")
+                print(f"[ERROR] Pexels 검색 실패: {e} - Pixabay로 fallback")
+
+        # Phase 4: Pixabay fallback (고품질 파라미터)
+        if 'pixabay' in self.providers:
+            try:
+                print(f"[AssetManager] Phase 4: Pixabay 고품질 검색 시도 - '{keyword}'")
+                assets = self.providers['pixabay'].search_videos(
+                    query=keyword,
+                    per_page=per_page,
+                    video_type='film',  # 실사 영상만
+                    orientation='vertical',  # 세로 영상 우선
+                    editors_choice=True,  # 에디터 추천
+                    safesearch=True,
+                    min_width=720,
+                    min_height=1280
+                )
+                if assets:
+                    print(f"[AssetManager] Pixabay 성공: {len(assets)}개 발견")
+                    all_assets.extend(assets)
+            except Exception as e:
+                print(f"[ERROR] Pixabay 검색 실패: {e}")
 
         return all_assets
 
@@ -361,7 +402,8 @@ class AssetManager:
                     text=segment.text,
                     tts_duration=seg_duration,
                     start_time=cumulative_time,
-                    end_time=cumulative_time + seg_duration
+                    end_time=cumulative_time + seg_duration,
+                    tts_local_path=seg_filepath  # Phase 3: 세그먼트별 TTS 경로 저장
                 )
                 segment_timings.append(timing)
 

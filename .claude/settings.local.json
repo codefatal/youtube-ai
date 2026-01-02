@@ -54,7 +54,9 @@
       "Bash(./venv/Scripts/alembic.exe:*)",
       "WebFetch(domain:typecast.ai)",
       "Bash(sort:*)",
-      "Bash(cat:*)"
+      "Bash(cat:*)",
+      "Bash(git reset:*)",
+      "Bash(git rm:*)"
     ],
     "deny": [],
     "ask": []

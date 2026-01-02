@@ -35,15 +35,25 @@ class PixabayProvider:
         self,
         query: str,
         per_page: int = 5,
-        video_type: str = "all"
+        video_type: str = "film",  # Phase 4: 기본값 film (실사 영상)
+        orientation: str = "vertical",  # Phase 4: 쇼츠용 세로 영상
+        editors_choice: bool = True,  # Phase 4: 에디터 추천 영상 우선
+        safesearch: bool = True,
+        min_width: int = 720,  # Phase 4: 최소 해상도
+        min_height: int = 1280
     ) -> List[StockVideoAsset]:
         """
-        키워드로 영상 검색 (Phase 6: API 키 체크 추가)
+        키워드로 영상 검색 (Phase 4: 고품질 파라미터 튜닝)
 
         Args:
             query: 검색 키워드 (영어)
             per_page: 결과 개수 (기본 5개, 최대 200)
-            video_type: 영상 타입 (all/film/animation)
+            video_type: 영상 타입 (all/film/animation) - 기본값 film
+            orientation: 영상 방향 (all/horizontal/vertical) - 기본값 vertical
+            editors_choice: 에디터 추천 영상만 (기본값 True)
+            safesearch: 안전 검색 (기본값 True)
+            min_width: 최소 너비 (기본값 720)
+            min_height: 최소 높이 (기본값 1280)
 
         Returns:
             StockVideoAsset 리스트
@@ -52,11 +62,80 @@ class PixabayProvider:
         if not self.api_key:
             return []
 
+        # Phase 4: 고품질 파라미터 설정
         params = {
             'key': self.api_key,
             'q': query,
             'per_page': min(per_page, 200),
-            'video_type': video_type
+            'video_type': video_type,
+            'orientation': orientation,
+            'safesearch': safesearch,
+            'min_width': min_width,
+            'min_height': min_height
+        }
+
+        # Phase 4: editors_choice는 True/False 문자열로 전달
+        if editors_choice:
+            params['editors_choice'] = 'true'
+
+        try:
+            print(f"[Pixabay] Phase 4: 고품질 검색 시작 - '{query}'")
+            print(f"[Pixabay]   - video_type: {video_type}, orientation: {orientation}")
+            print(f"[Pixabay]   - editors_choice: {editors_choice}, min_res: {min_width}x{min_height}")
+
+            response = requests.get(
+                self.BASE_URL,
+                params=params,
+                timeout=10
+            )
+            response.raise_for_status()
+
+            data = response.json()
+            hits = data.get('hits', [])
+
+            assets = []
+            for video in hits:
+                asset = self._parse_video(video, query)
+                if asset:
+                    assets.append(asset)
+
+            print(f"[Pixabay] '{query}' 검색 완료: {len(assets)}개 발견")
+
+            # Phase 4: Fallback - 결과가 없으면 제약 완화
+            if len(assets) == 0 and (orientation != "all" or editors_choice):
+                print(f"[Pixabay] Phase 4: 결과 없음 - Fallback 시도 (orientation=all, editors_choice=False)")
+                return self._search_with_fallback(query, per_page, video_type, safesearch, min_width, min_height)
+
+            return assets
+
+        except requests.exceptions.RequestException as e:
+            print(f"[ERROR] Pixabay API 오류: {e}")
+            return []
+
+    def _search_with_fallback(
+        self,
+        query: str,
+        per_page: int,
+        video_type: str,
+        safesearch: bool,
+        min_width: int,
+        min_height: int
+    ) -> List[StockVideoAsset]:
+        """
+        Phase 4: Fallback 검색 (제약 완화)
+
+        orientation을 all로, editors_choice를 False로 재시도
+        """
+        params = {
+            'key': self.api_key,
+            'q': query,
+            'per_page': min(per_page, 200),
+            'video_type': video_type,
+            'orientation': 'all',  # 모든 방향
+            'safesearch': safesearch,
+            'min_width': min_width,
+            'min_height': min_height
+            # editors_choice 제거
         }
 
         try:
@@ -76,11 +155,11 @@ class PixabayProvider:
                 if asset:
                     assets.append(asset)
 
-            print(f"[Pixabay] '{query}' 검색 완료: {len(assets)}개 발견")
+            print(f"[Pixabay] Fallback 검색 완료: {len(assets)}개 발견")
             return assets
 
         except requests.exceptions.RequestException as e:
-            print(f"[ERROR] Pixabay API 오류: {e}")
+            print(f"[ERROR] Pixabay Fallback API 오류: {e}")
             return []
 
     def _parse_video(self, video_data: Dict[str, Any], keyword: str) -> Optional[StockVideoAsset]:
