@@ -226,6 +226,8 @@ class AssetManager:
 
         try:
             from providers.ai import GeminiProvider
+            import time
+            import re
 
             # Gemini API 초기화
             gemini = GeminiProvider()
@@ -257,8 +259,30 @@ class AssetManager:
 반드시 JSON 형식으로만 답변하세요.
 """
 
-            # AI 응답 받기
-            response = gemini.generate_json(prompt, temperature=0.3)
+            # AI 응답 받기 (Rate limiting 재시도 포함)
+            max_retries = 2
+            retry_count = 0
+
+            while retry_count <= max_retries:
+                try:
+                    response = gemini.generate_json(prompt, temperature=0.3)
+                    break  # 성공하면 루프 탈출
+                except Exception as api_error:
+                    error_str = str(api_error)
+
+                    # 429 RESOURCE_EXHAUSTED 에러 확인
+                    if "429" in error_str or "RESOURCE_EXHAUSTED" in error_str:
+                        # RetryInfo에서 대기 시간 추출 시도
+                        retry_match = re.search(r'retry in (\d+(?:\.\d+)?)s', error_str, re.IGNORECASE)
+                        if retry_match and retry_count < max_retries:
+                            retry_seconds = float(retry_match.group(1))
+                            print(f"[AI Select] Rate limit 도달, {retry_seconds:.1f}초 대기 후 재시도...")
+                            time.sleep(retry_seconds + 1)  # 여유를 위해 1초 추가
+                            retry_count += 1
+                            continue
+
+                    # 재시도 불가능하거나 다른 오류
+                    raise api_error
 
             selected_number = response.get("selected_number", 1)
             reason = response.get("reason", "AI 선택")
