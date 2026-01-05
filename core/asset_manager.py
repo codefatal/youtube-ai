@@ -181,27 +181,104 @@ class AssetManager:
                 assets = self._search_from_providers(search_query)
 
             if assets:
-                # 첫 번째 영상 다운로드
-                asset = assets[0]
-                filepath = self._download_video(asset)
-
-                if filepath:
-                    asset.local_path = filepath
-                    asset.downloaded = True
-                    all_assets.append(asset)
-
-                    # 캐시 저장
-                    self._cache_video(search_query, asset)
+                # ✨ Phase 5: AI가 가장 적합한 영상 선택
+                if len(assets) > 1:
+                    asset = self._select_best_video_with_ai(segment.text, assets)
                 else:
-                    print(f"[WARNING] '{search_query}' 다운로드 실패")
+                    asset = assets[0]
+
+                if asset:
+                    # 영상 다운로드
+                    filepath = self._download_video(asset)
+
+                    if filepath:
+                        asset.local_path = filepath
+                        asset.downloaded = True
+                        all_assets.append(asset)
+
+                        # 캐시 저장
+                        self._cache_video(search_query, asset)
+                    else:
+                        print(f"[WARNING] '{search_query}' 다운로드 실패")
+                else:
+                    print(f"[WARNING] AI 영상 선택 실패")
             else:
                 print(f"[WARNING] '{search_query}' 검색 결과 없음 (모든 fallback 시도 완료)")
 
         return all_assets
 
-    def _search_from_providers(self, keyword: str, per_page: int = 3) -> List[StockVideoAsset]:
+    def _select_best_video_with_ai(self, segment_text: str, video_assets: List[StockVideoAsset]) -> StockVideoAsset:
         """
-        여러 제공자에서 영상 검색 (Phase 4: Smart Fallback)
+        ✨ AI 기반 영상 선택: 대본과 가장 잘 맞는 영상을 Gemini API로 선택
+
+        Args:
+            segment_text: 세그먼트 대본 텍스트
+            video_assets: 영상 후보 리스트
+
+        Returns:
+            선택된 StockVideoAsset
+        """
+        if not video_assets:
+            return None
+
+        if len(video_assets) == 1:
+            return video_assets[0]
+
+        try:
+            from providers.ai import GeminiProvider
+
+            # Gemini API 초기화
+            gemini = GeminiProvider()
+
+            # 프롬프트 생성
+            candidates_text = ""
+            for i, asset in enumerate(video_assets, start=1):
+                candidates_text += f"{i}. ID: {asset.id}, 키워드: {asset.keyword}\n"
+
+            prompt = f"""
+다음 대사에 가장 어울리는 영상을 선택하세요.
+
+**대사**: "{segment_text}"
+
+**영상 후보**:
+{candidates_text}
+
+**선택 기준**:
+- 대사 내용과 시각적으로 가장 잘 맞는 영상
+- 키워드가 대사의 핵심 의미와 일치하는 영상
+- 구체적이고 명확한 장면을 담은 영상
+
+**출력 형식** (JSON):
+{{
+  "selected_number": 1,
+  "reason": "선택 이유 (한 줄)"
+}}
+
+반드시 JSON 형식으로만 답변하세요.
+"""
+
+            # AI 응답 받기
+            response = gemini.generate_json(prompt, temperature=0.3)
+
+            selected_number = response.get("selected_number", 1)
+            reason = response.get("reason", "AI 선택")
+
+            # 범위 체크
+            if 1 <= selected_number <= len(video_assets):
+                selected_asset = video_assets[selected_number - 1]
+                print(f"[AI Select] {selected_number}번 영상 선택 - {reason}")
+                return selected_asset
+            else:
+                print(f"[WARNING] AI 선택 번호 오류 ({selected_number}), 첫 번째 영상 사용")
+                return video_assets[0]
+
+        except Exception as e:
+            print(f"[WARNING] AI 영상 선택 실패: {e}, 첫 번째 영상 사용")
+            return video_assets[0]
+
+    def _search_from_providers(self, keyword: str, per_page: int = 5) -> List[StockVideoAsset]:
+        """
+        여러 제공자에서 영상 검색 (✨ Phase 5: AI 선택용 다중 검색)
 
         우선순위:
         1. Pexels (빠르고 품질 좋음)
@@ -209,21 +286,22 @@ class AssetManager:
 
         Args:
             keyword: 검색 키워드
-            per_page: 제공자당 결과 개수
+            per_page: 제공자당 결과 개수 (✨ 기본값 3→5로 증가)
 
         Returns:
-            StockVideoAsset 리스트
+            StockVideoAsset 리스트 (✨ 다중 결과 반환)
         """
         all_assets = []
 
-        # Phase 4: Pexels 우선 검색
+        # Phase 5: Pexels 우선 검색 (다중 결과)
         if 'pexels' in self.providers:
             try:
-                print(f"[AssetManager] Phase 4: Pexels 검색 시도 - '{keyword}'")
+                print(f"[AssetManager] Phase 5: Pexels 검색 시도 - '{keyword}' (최대 {per_page}개)")
                 assets = self.providers['pexels'].search_videos(keyword, per_page=per_page)
                 if assets:
                     print(f"[AssetManager] Pexels 성공: {len(assets)}개 발견")
-                    return assets  # Pexels에서 찾으면 바로 반환
+                    all_assets.extend(assets)
+                    return all_assets  # ✨ 다중 결과 반환 (AI가 선택)
                 else:
                     print(f"[AssetManager] Pexels 결과 없음 - Pixabay로 fallback")
             except Exception as e:
@@ -270,21 +348,245 @@ class AssetManager:
 
         return provider.download_video(asset, output_dir=str(self.video_dir))
 
-    def _generate_tts(
+    def _generate_tts_wholesome(
         self,
         content_plan: ContentPlan,
         account_id: Optional[int] = None,
         tts_settings_override: Optional[Dict[str, Any]] = None
     ) -> tuple[Optional[AudioAsset], List[SegmentTiming]]:
         """
-        TTS 음성 생성 (세그먼트별 개별 생성 → 실제 싱크 맞춤)
+        ✨ Phase 6: 전체 대본 TTS 한 번에 생성 (톤 일관성 극대화)
 
-        Phase 2 개선: SegmentTiming 리스트 반환으로 정확한 동기화 지원
+        세그먼트별 생성 → 병합 방식 대신, 전체 대본을 한 번에 TTS 생성한 후
+        Whisper로 정확한 세그먼트 구간 분할
 
         Args:
             content_plan: ContentPlan 객체
             account_id: 계정 ID (DB 설정 조회용)
-            tts_settings_override: TTS 설정 오버라이드 (프론트엔드 직접 설정용)
+            tts_settings_override: TTS 설정 오버라이드
+
+        Returns:
+            (AudioAsset 객체 또는 None, SegmentTiming 리스트)
+        """
+        # 1. DB에서 계정 설정 가져오기
+        if account_id:
+            settings = self._get_account_tts_settings(account_id)
+        else:
+            settings = {
+                "tts_provider": self.tts_provider,
+                "tts_voice_id": "pNInz6obpgDQGcFmaJgB",
+                "tts_stability": 0.5,
+                "tts_similarity_boost": 0.75,
+                "tts_style": 0.0
+            }
+
+        # 2. 프론트엔드 오버라이드 설정 적용
+        if tts_settings_override:
+            if 'provider' in tts_settings_override:
+                settings['tts_provider'] = tts_settings_override.pop('provider')
+            if 'voiceId' in tts_settings_override:
+                settings['tts_voice_id'] = tts_settings_override.pop('voiceId')
+            settings.update(tts_settings_override)
+
+        provider = settings.get("tts_provider", "gtts")
+
+        # 3. ✨ 전체 대본 텍스트 병합 (대기 시간 제거)
+        import re
+        full_text_parts = []
+        for segment in content_plan.segments:
+            # 대기 시간 표현 제거
+            text = re.sub(r'\([^)]*\)', '', segment.text).strip()
+            if text:
+                full_text_parts.append(text)
+
+        full_text = " ".join(full_text_parts)
+        print(f"[TTS Wholesome] 전체 대본 TTS 생성 시작 ({len(full_text)}자)")
+
+        # 4. ✨ 한 번에 TTS 생성 (톤 일관성 보장)
+        full_tts_path = None
+        if provider == "elevenlabs":
+            # Auto-Tune 파라미터 적용 (전체 대본 기준)
+            tuned_params = self._auto_tune_tts_params(full_text, settings)
+            full_tts_path = self._generate_elevenlabs(
+                text=full_text,
+                voice_id=settings.get("tts_voice_id"),
+                stability=tuned_params["stability"],
+                similarity_boost=tuned_params["similarity_boost"],
+                style=tuned_params["style"]
+            )
+        elif provider == "typecast":
+            voice_id = settings.get("tts_voice_id", "tc_5c3c52ca5827e00008dd7f3a")
+            if not str(voice_id).startswith("tc_"):
+                voice_id = "tc_5c3c52ca5827e00008dd7f3a"
+            auto_emotion = self._auto_select_typecast_emotion(full_text)
+            full_tts_path = self._generate_typecast(
+                text=full_text,
+                voice_id=voice_id,
+                emotion=auto_emotion
+            )
+        else:
+            full_tts_path = self._generate_gtts(full_text)
+
+        if not full_tts_path:
+            print("[ERROR] 전체 대본 TTS 생성 실패")
+            return None, []
+
+        # 5. 전체 TTS 길이 측정
+        total_duration = self._get_audio_duration(full_tts_path)
+        if not total_duration:
+            print("[ERROR] TTS 길이 측정 실패")
+            return None, []
+
+        print(f"[TTS Wholesome] 전체 TTS 생성 완료: {total_duration:.2f}초")
+
+        # 6. ✨ Whisper로 세그먼트 분할 (정확한 타임스탬프)
+        segment_timings = []
+
+        if WHISPER_AVAILABLE:
+            print(f"[Whisper] 전체 TTS를 {len(content_plan.segments)}개 세그먼트로 분할 중...")
+            try:
+                alignment_service = get_alignment_service()
+
+                # 세그먼트를 dict 형식으로 변환
+                segments_dict = [
+                    {"text": seg.text, "keyword": seg.keyword}
+                    for seg in content_plan.segments
+                ]
+
+                # Whisper 정렬
+                aligned_segments = alignment_service.align_segments_to_audio(
+                    segments_dict,
+                    full_tts_path
+                )
+
+                # SegmentTiming 생성
+                for i, aligned in enumerate(aligned_segments):
+                    timing = SegmentTiming(
+                        segment_index=i,
+                        text=content_plan.segments[i].text,
+                        tts_duration=aligned['duration'],
+                        start_time=aligned['start'],
+                        end_time=aligned['end'],
+                        tts_local_path=full_tts_path  # 전체 TTS 경로 공유
+                    )
+                    segment_timings.append(timing)
+
+                    # content_plan 업데이트
+                    content_plan.segments[i].duration = aligned['duration']
+
+                print(f"[SUCCESS] Whisper 세그먼트 분할 완료: {len(segment_timings)}개")
+
+            except Exception as e:
+                print(f"[WARNING] Whisper 처리 실패: {e}")
+                # Fallback: 균등 분할
+                segment_timings = self._fallback_segment_split(content_plan, total_duration, full_tts_path)
+        else:
+            print(f"[INFO] Whisper 미사용 - 균등 분할 사용")
+            segment_timings = self._fallback_segment_split(content_plan, total_duration, full_tts_path)
+
+        # 7. AudioAsset 생성
+        audio_asset = AudioAsset(
+            text=full_text,
+            provider=TTSProvider(provider),
+            local_path=full_tts_path,
+            duration=total_duration
+        )
+
+        return audio_asset, segment_timings
+
+    def _fallback_segment_split(
+        self,
+        content_plan: ContentPlan,
+        total_duration: float,
+        tts_path: str
+    ) -> List[SegmentTiming]:
+        """
+        Whisper 실패 시 균등 분할 Fallback
+
+        Args:
+            content_plan: ContentPlan 객체
+            total_duration: 전체 TTS 길이
+            tts_path: TTS 파일 경로
+
+        Returns:
+            SegmentTiming 리스트
+        """
+        import re
+
+        # 텍스트 길이 기반 비례 분할
+        segment_char_counts = []
+        for seg in content_plan.segments:
+            text = re.sub(r'\([^)]*\)', '', seg.text).strip()
+            segment_char_counts.append(len(text))
+
+        total_chars = sum(segment_char_counts)
+        segment_timings = []
+        current_time = 0.0
+
+        for i, char_count in enumerate(segment_char_counts):
+            # 비례 분할
+            duration = (char_count / total_chars) * total_duration if total_chars > 0 else total_duration / len(segment_char_counts)
+
+            timing = SegmentTiming(
+                segment_index=i,
+                text=content_plan.segments[i].text,
+                tts_duration=duration,
+                start_time=current_time,
+                end_time=current_time + duration,
+                tts_local_path=tts_path
+            )
+            segment_timings.append(timing)
+
+            # content_plan 업데이트
+            content_plan.segments[i].duration = duration
+            current_time += duration
+
+        print(f"[Fallback] 텍스트 길이 기반 균등 분할 완료")
+        return segment_timings
+
+    def _generate_tts(
+        self,
+        content_plan: ContentPlan,
+        account_id: Optional[int] = None,
+        tts_settings_override: Optional[Dict[str, Any]] = None,
+        use_wholesome: bool = True  # ✨ Phase 6: 기본값 True
+    ) -> tuple[Optional[AudioAsset], List[SegmentTiming]]:
+        """
+        TTS 음성 생성
+
+        ✨ Phase 6: use_wholesome=True면 전체 대본 한 번에 생성 (톤 일관성 극대화)
+                   use_wholesome=False면 세그먼트별 개별 생성 (기존 방식)
+
+        Args:
+            content_plan: ContentPlan 객체
+            account_id: 계정 ID (DB 설정 조회용)
+            tts_settings_override: TTS 설정 오버라이드
+            use_wholesome: True면 전체 대본 생성, False면 세그먼트별 생성
+
+        Returns:
+            (AudioAsset 객체 또는 None, SegmentTiming 리스트)
+        """
+        # ✨ Phase 6: 기본값으로 전체 대본 TTS 사용
+        if use_wholesome:
+            print(f"[TTS] Phase 6: 전체 대본 TTS 생성 모드 (톤 일관성 극대화)")
+            return self._generate_tts_wholesome(content_plan, account_id, tts_settings_override)
+        else:
+            print(f"[TTS] 세그먼트별 TTS 생성 모드 (기존 방식)")
+            return self._generate_tts_segmented(content_plan, account_id, tts_settings_override)
+
+    def _generate_tts_segmented(
+        self,
+        content_plan: ContentPlan,
+        account_id: Optional[int] = None,
+        tts_settings_override: Optional[Dict[str, Any]] = None
+    ) -> tuple[Optional[AudioAsset], List[SegmentTiming]]:
+        """
+        세그먼트별 개별 TTS 생성 (기존 방식)
+
+        Args:
+            content_plan: ContentPlan 객체
+            account_id: 계정 ID (DB 설정 조회용)
+            tts_settings_override: TTS 설정 오버라이드
 
         Returns:
             (AudioAsset 객체 또는 None, SegmentTiming 리스트)
@@ -344,12 +646,14 @@ class AssetManager:
             seg_filepath = None
             if text:
                 if provider == "elevenlabs":
+                    # ✨ Auto-Tune: 텍스트 분석으로 파라미터 자동 조정
+                    tuned_params = self._auto_tune_tts_params(text, settings)
                     seg_filepath = self._generate_elevenlabs(
                         text=text,
                         voice_id=settings.get("tts_voice_id"),
-                        stability=settings.get("tts_stability"),
-                        similarity_boost=settings.get("tts_similarity_boost"),
-                        style=settings.get("tts_style")
+                        stability=tuned_params["stability"],
+                        similarity_boost=tuned_params["similarity_boost"],
+                        style=tuned_params["style"]
                     )
                 elif provider == "typecast":
                     # Typecast v1 API는 tc_ prefix voice_id 사용
@@ -369,10 +673,12 @@ class AssetManager:
                         else:
                             typecast_voice_id = voice_id
 
+                    # ✨ Auto-Select: 텍스트 분석으로 감정 자동 선택
+                    auto_emotion = self._auto_select_typecast_emotion(text)
                     seg_filepath = self._generate_typecast(
                         text=text,
                         voice_id=typecast_voice_id,
-                        emotion=settings.get("tts_emotion", "normal")
+                        emotion=auto_emotion
                     )
                 else:
                     seg_filepath = self._generate_gtts(text)
@@ -508,6 +814,130 @@ class AssetManager:
             "tts_style": 0.0
         }
 
+
+    def _auto_select_typecast_emotion(self, text: str) -> str:
+        """
+        Typecast TTS용 감정(emotion) 자동 선택
+
+        Args:
+            text: 대본 텍스트
+
+        Returns:
+            emotion 문자열 (normal, happy, sad, angry, etc.)
+        """
+        # 감정 표현 분석
+        exclamation_count = text.count("!")
+        question_count = text.count("?")
+
+        # 긍정적 단어
+        happy_words = ["기쁘", "즐겁", "행복", "신나", "좋", "최고", "멋지", "훌륭", "완벽"]
+        happy_count = sum(1 for word in happy_words if word in text)
+
+        # 부정적 단어
+        sad_words = ["슬프", "안타까", "아쉬", "힘들", "어렵", "고민", "걱정"]
+        sad_count = sum(1 for word in sad_words if word in text)
+
+        # 긴급/강조 단어
+        urgent_words = ["지금", "즉시", "빨리", "중요", "반드시", "필수"]
+        urgent_count = sum(1 for word in urgent_words if word in text)
+
+        # 감정 결정
+        if happy_count >= 2 or (exclamation_count >= 2 and happy_count >= 1):
+            emotion = "happy"
+            print(f"[Typecast Auto-Select] happy 감정 선택 (긍정 단어: {happy_count})")
+        elif sad_count >= 2:
+            emotion = "sad"
+            print(f"[Typecast Auto-Select] sad 감정 선택 (부정 단어: {sad_count})")
+        elif urgent_count >= 1 or exclamation_count >= 2:
+            emotion = "angry"  # 강조/긴급 → angry (강렬한 톤)
+            print(f"[Typecast Auto-Select] angry 감정 선택 (긴급 단어: {urgent_count})")
+        else:
+            emotion = "normal"
+            print(f"[Typecast Auto-Select] normal 감정 선택 (기본)")
+
+        return emotion
+
+    def _auto_tune_tts_params(self, text: str, base_settings: dict) -> dict:
+        """
+        대본 내용에 따라 TTS 파라미터 자동 조정 (ElevenLabs용)
+
+        Args:
+            text: 대본 텍스트
+            base_settings: 기본 설정 (DB 또는 기본값)
+
+        Returns:
+            조정된 TTS 파라미터 딕셔너리
+        """
+        # 기본 파라미터 추출
+        base_stability = base_settings.get("tts_stability", 0.5)
+        base_similarity_boost = base_settings.get("tts_similarity_boost", 0.75)
+        base_style = base_settings.get("tts_style", 0.0)
+
+        stability = base_stability
+        similarity_boost = base_similarity_boost
+        style = base_style
+
+        # 1. 감정 표현 분석 (느낌표, 물음표)
+        exclamation_count = text.count("!")
+        question_count = text.count("?")
+        total_emotion_marks = exclamation_count + question_count
+
+        if total_emotion_marks >= 2:
+            # 감정 표현이 많음 → stability 낮춤 (더 감정적으로)
+            stability -= 0.2
+            style += 0.1
+            print(f"[Auto-Tune] 감정 표현 많음 (!?={total_emotion_marks}) → stability 낮춤")
+        elif total_emotion_marks == 1:
+            stability -= 0.1
+
+        # 2. 격식체 분석
+        formal_endings = ["입니다", "됩니다", "것입니다", "습니다", "합니다"]
+        formal_count = sum(1 for ending in formal_endings if ending in text)
+
+        if formal_count >= 2:
+            # 격식체 많음 → stability 높임 (일관성 유지)
+            stability += 0.2
+            print(f"[Auto-Tune] 격식체 감지 (count={formal_count}) → stability 높임")
+        elif formal_count == 1:
+            stability += 0.1
+
+        # 3. 반말/구어체 분석
+        casual_endings = ["~요", "~네요", "~죠", "~거든요", "~잖아요"]
+        casual_count = sum(1 for ending in casual_endings if ending in text)
+
+        if casual_count >= 2:
+            # 반말 많음 → stability 낮춤 (친근하고 자연스럽게)
+            stability -= 0.15
+            style += 0.05
+            print(f"[Auto-Tune] 구어체 감지 (count={casual_count}) → stability 낮춤")
+
+        # 4. 긴급/강조 단어 분석
+        urgent_words = ["지금", "즉시", "빨리", "서둘러", "빠르게", "중요", "반드시", "필수"]
+        urgent_count = sum(1 for word in urgent_words if word in text)
+
+        if urgent_count >= 1:
+            # 긴급성 있음 → style 높임 (강조)
+            style += 0.2
+            print(f"[Auto-Tune] 긴급 단어 감지 (count={urgent_count}) → style 높임")
+
+        # 5. 텍스트 길이 분석
+        text_length = len(text)
+        if text_length > 100:
+            # 긴 텍스트 → stability 약간 높임 (일관성)
+            stability += 0.05
+
+        # 6. 범위 제한 (0.0 ~ 1.0)
+        stability = max(0.0, min(1.0, stability))
+        similarity_boost = max(0.0, min(1.0, similarity_boost))
+        style = max(0.0, min(1.0, style))
+
+        print(f"[Auto-Tune] 최종 파라미터: stability={stability:.2f}, similarity_boost={similarity_boost:.2f}, style={style:.2f}")
+
+        return {
+            "stability": stability,
+            "similarity_boost": similarity_boost,
+            "style": style
+        }
 
     def _generate_gtts(self, text: str) -> Optional[str]:
         """

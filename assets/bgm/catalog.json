@@ -1,0 +1,68 @@
+{
+  "happy": [
+    {
+      "name": "happy_upbeat",
+      "local_path": "assets\\bgm\\HAPPY\\happy_upbeat.mp3",
+      "mood": "happy",
+      "duration": 146.385079,
+      "volume": 0.25,
+      "artist": null,
+      "license": null
+    }
+  ],
+  "sad": [
+    {
+      "name": "sad_piano",
+      "local_path": "assets\\bgm\\SAD\\sad_piano.mp3",
+      "mood": "sad",
+      "duration": 148.618186,
+      "volume": 0.25,
+      "artist": null,
+      "license": null
+    }
+  ],
+  "energetic": [
+    {
+      "name": "energetic_beat",
+      "local_path": "assets\\bgm\\ENERGETIC\\energetic_beat.mp3",
+      "mood": "energetic",
+      "duration": 147.168027,
+      "volume": 0.25,
+      "artist": null,
+      "license": null
+    }
+  ],
+  "calm": [
+    {
+      "name": "calm_piano",
+      "local_path": "assets\\bgm\\CALM\\calm_piano.mp3",
+      "mood": "calm",
+      "duration": 288.000023,
+      "volume": 0.25,
+      "artist": null,
+      "license": null
+    }
+  ],
+  "tense": [
+    {
+      "name": "tense_suspense",
+      "local_path": "assets\\bgm\\TENSE\\tense_suspense.mp3",
+      "mood": "tense",
+      "duration": 254.740998,
+      "volume": 0.25,
+      "artist": null,
+      "license": null
+    }
+  ],
+  "mysterious": [
+    {
+      "name": "mysterious_ambient",
+      "local_path": "assets\\bgm\\MYSTERIOUS\\mysterious_ambient.mp3",
+      "mood": "mysterious",
+      "duration": 288.052286,
+      "volume": 0.25,
+      "artist": null,
+      "license": null
+    }
+  ]
+}

@@ -94,6 +94,63 @@ def download_bgm(mood: MoodType, output_dir: Path):
         return False
 
 
+def create_catalog_json(music_dir: Path):
+    """
+    ✨ BGM catalog.json 자동 생성
+
+    Args:
+        music_dir: music 디렉토리 경로
+    """
+    import json
+    from mutagen.mp3 import MP3
+
+    catalog_path = music_dir / "catalog.json"
+    catalog_data = []
+
+    print()
+    print("[Catalog] BGM catalog.json 생성 중...")
+
+    for mood in MoodType:
+        mood_dir = music_dir / mood.value.upper()
+        if not mood_dir.exists():
+            continue
+
+        # 해당 mood 폴더의 모든 mp3 파일 탐색
+        for mp3_file in mood_dir.glob("*.mp3"):
+            try:
+                # MP3 길이 측정 (mutagen 사용)
+                try:
+                    audio = MP3(str(mp3_file))
+                    duration = audio.info.length
+                except:
+                    # mutagen 실패 시 기본값
+                    duration = 120.0
+
+                catalog_entry = {
+                    "name": mp3_file.stem.replace('_', ' ').title(),
+                    "mood": mood.value,
+                    "file_path": f"{mood.value.upper()}/{mp3_file.name}",
+                    "duration": round(duration, 2),
+                    "volume": 0.25,  # 기본 볼륨
+                    "license": "Bensound - Creative Commons"
+                }
+                catalog_data.append(catalog_entry)
+                print(f"  [+] {mood.value.upper()}/{mp3_file.name} (길이: {duration:.1f}초)")
+
+            except Exception as e:
+                print(f"  [WARNING] {mp3_file.name} 처리 실패: {e}")
+
+    # catalog.json 저장
+    try:
+        with open(catalog_path, 'w', encoding='utf-8') as f:
+            json.dump(catalog_data, f, ensure_ascii=False, indent=2)
+        print(f"[SUCCESS] catalog.json 생성 완료: {len(catalog_data)}개 BGM 등록")
+        return True
+    except Exception as e:
+        print(f"[ERROR] catalog.json 생성 실패: {e}")
+        return False
+
+
 def setup_default_bgm():
     """기본 BGM 자동 다운로드"""
     print("=" * 60)
@@ -125,6 +182,9 @@ def setup_default_bgm():
     print("=" * 60)
 
     if success_count > 0:
+        # ✨ catalog.json 자동 생성
+        create_catalog_json(music_dir)
+
         print()
         print("[INFO] BGM이 성공적으로 다운로드되었습니다!")
         print("[INFO] 이제 영상 생성 시 자동으로 BGM이 적용됩니다.")
@@ -139,6 +199,7 @@ def setup_default_bgm():
         print("[INFO] 수동으로 BGM을 추가하려면:")
         print(f"  1. music/MOOD_NAME/ 폴더에 mp3 파일 추가")
         print(f"  2. 예: music/ENERGETIC/my_music.mp3")
+        print(f"  3. python scripts/setup_default_bgm.py 실행하여 catalog.json 업데이트")
 
 
 if __name__ == "__main__":

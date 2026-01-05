@@ -843,5 +843,299 @@ class VideoEditor:
             print(f"[ERROR] 템플릿 로드 실패: {e}")
             return None
 
+    def export_srt(self, content_plan: ContentPlan, asset_bundle: AssetBundle, output_path: str) -> bool:
+        """
+        자막 SRT 파일 생성 (Vrew import용)
+
+        Format:
+        1
+        00:00:00,000 --> 00:00:04,500
+        여러분, 이것 알고 계셨나요?
+
+        2
+        00:00:04,500 --> 00:00:09,200
+        강아지는 사람의 감정을 90% 이상 인식할 수 있습니다.
+
+        Args:
+            content_plan: ContentPlan 객체
+            asset_bundle: AssetBundle 객체 (segment_timings 포함)
+            output_path: 출력 파일 경로 (.srt)
+
+        Returns:
+            성공 여부
+        """
+        try:
+            import os
+            os.makedirs(os.path.dirname(output_path), exist_ok=True)
+
+            with open(output_path, 'w', encoding='utf-8') as f:
+                # segment_timings가 있으면 사용, 없으면 segments에서 계산
+                if asset_bundle.segment_timings:
+                    for i, timing in enumerate(asset_bundle.segment_timings, start=1):
+                        start_time = self._format_srt_time(timing.start_time)
+                        end_time = self._format_srt_time(timing.end_time)
+
+                        # 대기 시간 표현 제거
+                        import re
+                        clean_text = re.sub(r'\([^)]*\)', '', timing.text).strip()
+
+                        if clean_text:  # 텍스트가 있는 경우만
+                            f.write(f"{i}\n")
+                            f.write(f"{start_time} --> {end_time}\n")
+                            f.write(f"{clean_text}\n\n")
+                else:
+                    # fallback: segments에서 직접 계산
+                    current_time = 0.0
+                    for i, segment in enumerate(content_plan.segments, start=1):
+                        duration = segment.duration if segment.duration else 3.0
+                        start_time = self._format_srt_time(current_time)
+                        end_time = self._format_srt_time(current_time + duration)
+
+                        # 대기 시간 표현 제거
+                        import re
+                        clean_text = re.sub(r'\([^)]*\)', '', segment.text).strip()
+
+                        if clean_text:
+                            f.write(f"{i}\n")
+                            f.write(f"{start_time} --> {end_time}\n")
+                            f.write(f"{clean_text}\n\n")
+
+                        current_time += duration
+
+            print(f"[SRT Export] 자막 파일 생성 완료: {output_path}")
+            return True
+
+        except Exception as e:
+            print(f"[ERROR] SRT 파일 생성 실패: {e}")
+            import traceback
+            traceback.print_exc()
+            return False
+
+    def export_project_json(self, content_plan: ContentPlan, asset_bundle: AssetBundle, output_path: str) -> bool:
+        """
+        Vrew import용 프로젝트 정보 JSON 생성
+
+        - TTS 파일 경로
+        - 영상 클립 경로 및 타임스탬프
+        - 자막 텍스트
+        - BGM 정보
+
+        Args:
+            content_plan: ContentPlan 객체
+            asset_bundle: AssetBundle 객체
+            output_path: 출력 파일 경로 (.json)
+
+        Returns:
+            성공 여부
+        """
+        try:
+            import os
+            import json
+            os.makedirs(os.path.dirname(output_path), exist_ok=True)
+
+            # 세그먼트 정보 생성
+            segments_data = []
+            if asset_bundle.segment_timings:
+                for timing in asset_bundle.segment_timings:
+                    # 대기 시간 표현 제거
+                    import re
+                    clean_text = re.sub(r'\([^)]*\)', '', timing.text).strip()
+
+                    segment_info = {
+                        "index": timing.segment_index,
+                        "text": clean_text,
+                        "start_time": timing.start_time,
+                        "end_time": timing.end_time,
+                        "duration": timing.tts_duration,
+                        "tts_path": timing.tts_local_path,
+                        "video_clip": None
+                    }
+
+                    # 영상 클립 매칭
+                    if timing.segment_index < len(asset_bundle.videos):
+                        video_asset = asset_bundle.videos[timing.segment_index]
+                        segment_info["video_clip"] = {
+                            "path": video_asset.local_path,
+                            "keyword": video_asset.keyword,
+                            "provider": video_asset.provider,
+                            "duration": video_asset.duration
+                        }
+
+                    segments_data.append(segment_info)
+            else:
+                # fallback: segments에서 직접 생성
+                current_time = 0.0
+                for i, segment in enumerate(content_plan.segments):
+                    duration = segment.duration if segment.duration else 3.0
+
+                    import re
+                    clean_text = re.sub(r'\([^)]*\)', '', segment.text).strip()
+
+                    segment_info = {
+                        "index": i,
+                        "text": clean_text,
+                        "start_time": current_time,
+                        "end_time": current_time + duration,
+                        "duration": duration,
+                        "tts_path": None,
+                        "video_clip": None
+                    }
+
+                    if i < len(asset_bundle.videos):
+                        video_asset = asset_bundle.videos[i]
+                        segment_info["video_clip"] = {
+                            "path": video_asset.local_path,
+                            "keyword": video_asset.keyword,
+                            "provider": video_asset.provider,
+                            "duration": video_asset.duration
+                        }
+
+                    segments_data.append(segment_info)
+                    current_time += duration
+
+            # 프로젝트 데이터 생성
+            project_data = {
+                "title": content_plan.title,
+                "description": content_plan.description,
+                "tags": content_plan.tags,
+                "format": content_plan.format.value,
+                "target_duration": content_plan.target_duration,
+                "audio": {
+                    "tts_path": asset_bundle.audio.local_path if asset_bundle.audio else None,
+                    "tts_duration": asset_bundle.audio.duration if asset_bundle.audio else 0,
+                    "tts_provider": asset_bundle.audio.provider.value if asset_bundle.audio else None
+                },
+                "bgm": {
+                    "enabled": asset_bundle.bgm is not None,
+                    "path": asset_bundle.bgm.local_path if asset_bundle.bgm else None,
+                    "name": asset_bundle.bgm.name if asset_bundle.bgm else None,
+                    "mood": asset_bundle.bgm.mood.value if asset_bundle.bgm else None,
+                    "volume": asset_bundle.bgm.volume if asset_bundle.bgm else 0
+                },
+                "segments": segments_data,
+                "total_segments": len(segments_data),
+                "total_video_clips": len(asset_bundle.videos)
+            }
+
+            # JSON 저장
+            with open(output_path, 'w', encoding='utf-8') as f:
+                json.dump(project_data, f, ensure_ascii=False, indent=2)
+
+            print(f"[JSON Export] 프로젝트 파일 생성 완료: {output_path}")
+            print(f"  - 세그먼트: {len(segments_data)}개")
+            print(f"  - 영상 클립: {len(asset_bundle.videos)}개")
+            print(f"  - TTS: {asset_bundle.audio.local_path if asset_bundle.audio else 'None'}")
+            print(f"  - BGM: {asset_bundle.bgm.name if asset_bundle.bgm else 'None'}")
+            return True
+
+        except Exception as e:
+            print(f"[ERROR] 프로젝트 JSON 생성 실패: {e}")
+            import traceback
+            traceback.print_exc()
+            return False
+
+    def _format_srt_time(self, seconds: float) -> str:
+        """
+        초를 SRT 시간 형식으로 변환 (HH:MM:SS,mmm)
+
+        Args:
+            seconds: 시간 (초)
+
+        Returns:
+            SRT 형식 문자열 (예: "00:00:04,500")
+        """
+        hours = int(seconds // 3600)
+        minutes = int((seconds % 3600) // 60)
+        secs = int(seconds % 60)
+        millis = int((seconds % 1) * 1000)
+        return f"{hours:02d}:{minutes:02d}:{secs:03d},{millis:03d}"
+
+    def export_vrew(
+        self,
+        content_plan: ContentPlan,
+        asset_bundle: AssetBundle,
+        output_path: str
+    ) -> bool:
+        """
+        ✨ Phase 6: Vrew 프로젝트 파일 (.vrew) 자동 생성
+
+        .vrew 파일은 ZIP 기반 아카이브로 다음을 포함:
+        - subtitle.srt: 자막 파일
+        - project.json: 프로젝트 메타데이터
+        - manifest.json: Vrew 매니페스트 정보
+
+        Args:
+            content_plan: 콘텐츠 기획 정보
+            asset_bundle: 에셋 번들 (TTS, BGM 경로 포함)
+            output_path: 저장 경로 (.vrew)
+
+        Returns:
+            bool: 성공 여부
+        """
+        import zipfile
+        import tempfile
+        import shutil
+        from pathlib import Path
+
+        try:
+            print(f"[Vrew Export] .vrew 프로젝트 파일 생성 중: {output_path}")
+
+            # 임시 디렉토리 생성
+            temp_dir = tempfile.mkdtemp(prefix="vrew_export_")
+            temp_path = Path(temp_dir)
+
+            try:
+                # 1. SRT 파일 생성
+                srt_path = temp_path / "subtitle.srt"
+                if not self.export_srt(content_plan, asset_bundle, str(srt_path)):
+                    print("[ERROR] SRT 파일 생성 실패")
+                    return False
+
+                # 2. 프로젝트 JSON 생성
+                json_path = temp_path / "project.json"
+                if not self.export_project_json(content_plan, asset_bundle, str(json_path)):
+                    print("[ERROR] 프로젝트 JSON 생성 실패")
+                    return False
+
+                # 3. Vrew 매니페스트 생성
+                manifest_data = {
+                    "version": "1.0",
+                    "type": "youtube-ai-export",
+                    "created_at": content_plan.created_at,
+                    "video_format": content_plan.video_format.value,
+                    "target_duration": content_plan.target_duration,
+                    "files": {
+                        "subtitle": "subtitle.srt",
+                        "project": "project.json"
+                    }
+                }
+
+                manifest_path = temp_path / "manifest.json"
+                with open(manifest_path, 'w', encoding='utf-8') as f:
+                    json.dump(manifest_data, f, ensure_ascii=False, indent=2)
+
+                # 4. ZIP 아카이브로 압축
+                with zipfile.ZipFile(output_path, 'w', zipfile.ZIP_DEFLATED) as zipf:
+                    zipf.write(srt_path, "subtitle.srt")
+                    zipf.write(json_path, "project.json")
+                    zipf.write(manifest_path, "manifest.json")
+
+                print(f"[SUCCESS] .vrew 파일 생성 완료: {output_path}")
+                print(f"  ✓ subtitle.srt")
+                print(f"  ✓ project.json")
+                print(f"  ✓ manifest.json")
+
+                return True
+
+            finally:
+                # 임시 디렉토리 정리
+                shutil.rmtree(temp_dir, ignore_errors=True)
+
+        except Exception as e:
+            print(f"[ERROR] .vrew 파일 생성 실패: {e}")
+            import traceback
+            traceback.print_exc()
+            return False
+
     def __repr__(self):
         return f"VideoEditor(resolution={self.config.resolution}, fps={self.config.fps})"

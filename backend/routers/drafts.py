@@ -551,3 +551,321 @@ def _draft_to_response(draft: Draft) -> DraftResponse:
         created_at=draft.created_at,
         updated_at=draft.updated_at
     )
+
+
+# ============================================================================
+# ✨ Phase 5: Export APIs (SRT + JSON)
+# ============================================================================
+
+@router.get("/{draft_id}/export/srt")
+async def export_draft_srt(
+    draft_id: str,
+    db: Session = Depends(get_db)
+):
+    """
+    ✨ Phase 5: Draft SRT 자막 파일 내보내기 (Vrew import용)
+
+    Args:
+        draft_id: Draft ID
+
+    Returns:
+        SRT 파일 경로
+    """
+    from fastapi.responses import FileResponse
+
+    draft = db.query(Draft).filter(Draft.draft_id == draft_id).first()
+    if not draft:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Draft '{draft_id}'를 찾을 수 없습니다."
+        )
+
+    try:
+        # ContentPlan 복원
+        content_plan_dict = json.loads(draft.content_plan_json)
+        content_plan = ContentPlan(**content_plan_dict)
+
+        # AssetBundle 생성 (segment_timings 포함)
+        from core.models import AssetBundle, SegmentTiming
+
+        segment_timings = []
+        for seg_db in sorted(draft.segments, key=lambda s: s.segment_index):
+            timing = SegmentTiming(
+                segment_index=seg_db.segment_index,
+                text=seg_db.text,
+                tts_duration=seg_db.tts_duration or 3.0,
+                start_time=sum(s.tts_duration or 3.0 for s in sorted(draft.segments, key=lambda x: x.segment_index) if s.segment_index < seg_db.segment_index),
+                end_time=sum(s.tts_duration or 3.0 for s in sorted(draft.segments, key=lambda x: x.segment_index) if s.segment_index <= seg_db.segment_index),
+                tts_local_path=seg_db.tts_local_path
+            )
+            segment_timings.append(timing)
+
+        asset_bundle = AssetBundle(
+            videos=[],
+            audio=None,
+            bgm=None,
+            segment_timings=segment_timings
+        )
+
+        # Editor로 SRT 생성
+        from core.editor import VideoEditor
+        editor = VideoEditor()
+
+        srt_filename = f"{draft_id}.srt"
+        srt_path = os.path.join(os.path.dirname(__file__), '..', '..', 'output', 'drafts', srt_filename)
+
+        success = editor.export_srt(content_plan, asset_bundle, srt_path)
+
+        if not success:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="SRT 파일 생성 실패"
+            )
+
+        return FileResponse(
+            path=srt_path,
+            media_type="text/plain",
+            filename=srt_filename
+        )
+
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"SRT Export 실패: {str(e)}"
+        )
+
+
+@router.get("/{draft_id}/export/json")
+async def export_draft_json(
+    draft_id: str,
+    db: Session = Depends(get_db)
+):
+    """
+    ✨ Phase 5: Draft JSON 프로젝트 파일 내보내기 (Vrew import용)
+
+    Args:
+        draft_id: Draft ID
+
+    Returns:
+        JSON 파일 경로
+    """
+    from fastapi.responses import FileResponse
+
+    draft = db.query(Draft).filter(Draft.draft_id == draft_id).first()
+    if not draft:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Draft '{draft_id}'를 찾을 수 없습니다."
+        )
+
+    try:
+        # ContentPlan 복원
+        content_plan_dict = json.loads(draft.content_plan_json)
+        content_plan = ContentPlan(**content_plan_dict)
+
+        # AssetBundle 생성
+        from core.models import AssetBundle, StockVideoAsset, SegmentTiming
+
+        videos = []
+        segment_timings = []
+
+        for seg_db in sorted(draft.segments, key=lambda s: s.segment_index):
+            # Video Asset
+            if seg_db.video_local_path:
+                video_asset = StockVideoAsset(
+                    id=seg_db.video_id or f"video_{seg_db.segment_index}",
+                    url=seg_db.video_url or "",
+                    provider=seg_db.video_provider or "unknown",
+                    keyword=seg_db.keyword,
+                    duration=seg_db.duration or 5.0,
+                    resolution="1080x1920",
+                    local_path=seg_db.video_local_path,
+                    downloaded=True
+                )
+                videos.append(video_asset)
+
+            # Segment Timing
+            timing = SegmentTiming(
+                segment_index=seg_db.segment_index,
+                text=seg_db.text,
+                tts_duration=seg_db.tts_duration or 3.0,
+                start_time=sum(s.tts_duration or 3.0 for s in sorted(draft.segments, key=lambda x: x.segment_index) if s.segment_index < seg_db.segment_index),
+                end_time=sum(s.tts_duration or 3.0 for s in sorted(draft.segments, key=lambda x: x.segment_index) if s.segment_index <= seg_db.segment_index),
+                tts_local_path=seg_db.tts_local_path
+            )
+            segment_timings.append(timing)
+
+        asset_bundle = AssetBundle(
+            videos=videos,
+            audio=None,
+            bgm=None,
+            segment_timings=segment_timings
+        )
+
+        # Editor로 JSON 생성
+        from core.editor import VideoEditor
+        editor = VideoEditor()
+
+        json_filename = f"{draft_id}.json"
+        json_path = os.path.join(os.path.dirname(__file__), '..', '..', 'output', 'drafts', json_filename)
+
+        success = editor.export_project_json(content_plan, asset_bundle, json_path)
+
+        if not success:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="JSON 파일 생성 실패"
+            )
+
+        return FileResponse(
+            path=json_path,
+            media_type="application/json",
+            filename=json_filename
+        )
+
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"JSON Export 실패: {str(e)}"
+        )
+
+
+@router.get("/{draft_id}/export/vrew", response_class=FileResponse)
+async def export_draft_vrew(
+    draft_id: str,
+    db: Session = Depends(get_db)
+):
+    """
+    ✨ Phase 6: Draft Vrew 프로젝트 파일 (.vrew) 내보내기
+
+    .vrew 파일은 ZIP 기반 아카이브로 다음을 포함:
+    - subtitle.srt: 자막 파일
+    - project.json: 프로젝트 메타데이터
+    - manifest.json: Vrew 매니페스트
+
+    Args:
+        draft_id: Draft ID
+        db: DB 세션
+
+    Returns:
+        FileResponse: .vrew 파일 다운로드
+    """
+    try:
+        print(f"[API] Draft Vrew Export 요청: draft_id={draft_id}")
+
+        # 1. DB에서 Draft 조회
+        draft = db.query(Draft).filter(Draft.id == draft_id).first()
+        if not draft:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Draft not found: {draft_id}"
+            )
+
+        # 2. ContentPlan 복원
+        try:
+            content_plan_dict = json.loads(draft.content_plan_json)
+            content_plan = ContentPlan(**content_plan_dict)
+        except Exception as e:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"ContentPlan 복원 실패: {str(e)}"
+            )
+
+        # 3. AssetBundle 복원
+        try:
+            asset_bundle_dict = json.loads(draft.asset_bundle_json)
+
+            # TTS 에셋 복원
+            tts_asset = None
+            if asset_bundle_dict.get("tts_asset"):
+                tts_asset = AudioAsset(**asset_bundle_dict["tts_asset"])
+
+            # BGM 에셋 복원
+            bgm_asset = None
+            if asset_bundle_dict.get("bgm_asset"):
+                bgm_asset = BGMAsset(**asset_bundle_dict["bgm_asset"])
+
+            # VideoAsset 복원
+            video_assets = []
+            if asset_bundle_dict.get("video_assets"):
+                for va_dict in asset_bundle_dict["video_assets"]:
+                    video_assets.append(VideoAsset(**va_dict))
+
+            # AssetBundle 생성
+            asset_bundle = AssetBundle(
+                video_assets=video_assets,
+                tts_asset=tts_asset,
+                bgm_asset=bgm_asset,
+                collected_at=asset_bundle_dict.get("collected_at", "")
+            )
+
+        except Exception as e:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"AssetBundle 복원 실패: {str(e)}"
+            )
+
+        # 4. .vrew 파일 생성
+        from core.editor import VideoEditor
+
+        editor = VideoEditor()
+
+        # 임시 .vrew 파일 경로
+        import tempfile
+        temp_vrew_fd, temp_vrew_path = tempfile.mkstemp(suffix=".vrew")
+        os.close(temp_vrew_fd)
+
+        try:
+            success = editor.export_vrew(
+                content_plan=content_plan,
+                asset_bundle=asset_bundle,
+                output_path=temp_vrew_path
+            )
+
+            if not success:
+                raise HTTPException(
+                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                    detail=".vrew 파일 생성 실패"
+                )
+
+            # 파일명 생성
+            safe_title = "".join(c for c in content_plan.title if c.isalnum() or c in (' ', '-', '_')).strip()
+            safe_title = safe_title.replace(' ', '_')[:50]
+            vrew_filename = f"{safe_title}_{draft_id[:8]}.vrew"
+
+            print(f"[SUCCESS] .vrew 파일 생성 완료: {vrew_filename}")
+
+            return FileResponse(
+                path=temp_vrew_path,
+                media_type="application/zip",
+                filename=vrew_filename
+            )
+
+        except HTTPException:
+            # HTTPException은 그대로 전달
+            if os.path.exists(temp_vrew_path):
+                os.unlink(temp_vrew_path)
+            raise
+
+        except Exception as e:
+            # 기타 에러 처리
+            if os.path.exists(temp_vrew_path):
+                os.unlink(temp_vrew_path)
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f".vrew Export 실패: {str(e)}"
+            )
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f".vrew Export 실패: {str(e)}"
+        )
