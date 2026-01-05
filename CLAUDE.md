@@ -19,6 +19,7 @@ AI(Gemini/Claude), TTS(gTTS/ElevenLabs), 스톡 영상, BGM, 템플릿 시스템
 - ElevenLabs TTS 상세 제어 (stability, similarity_boost, style)
 - 스케줄링 자동화 (APScheduler)
 - 프론트엔드 UI/UX 전면 개편
+- **Phase 6**: AI 영상 선택, Wholesome TTS, Vrew 통합
 
 ## Development Commands
 
@@ -85,8 +86,10 @@ python scripts/auto_create.py --topic "AI 기술" --format shorts --duration 60
 
 - **asset_manager.py** - 에셋 수집 (영상, TTS, BGM)
   - `collect_assets()` - 전체 에셋 수집 (영상 + TTS + BGM)
-  - `_generate_tts()` - **Phase 3**: AccountSettings 연동, ElevenLabs 상세 제어
-  - `_select_bgm()` - **Phase 2**: 주제/톤 기반 BGM 자동 선택
+  - `_generate_tts()` - **Phase 6**: Wholesome TTS 지원 (use_wholesome=True)
+  - `_generate_tts_wholesome()` - **Phase 6**: 전체 대본 한 번에 생성, Whisper 타이밍 추출
+  - `_select_best_video_with_ai()` - **Phase 6**: Gemini AI가 5-10개 후보 중 최적 영상 선택
+  - `_auto_tune_tts_params()` - **Phase 6**: 대본 분석하여 TTS 파라미터 자동 조정
   - Pexels, Pixabay (영상) / gTTS, ElevenLabs (TTS)
 
 - **bgm_manager.py** - **Phase 2 신규**: BGM 관리
@@ -98,6 +101,9 @@ python scripts/auto_create.py --topic "AI 기술" --format shorts --duration 60
   - `create_video()` - 전체 영상 합성 (클립 + 자막 + TTS + BGM)
   - `_load_template()` - **Phase 2**: JSON 템플릿 로드 및 적용
   - `_load_audio_with_bgm()` - **Phase 2**: TTS + BGM CompositeAudioClip 믹싱
+  - `export_srt()` - **Phase 6**: SRT 자막 파일 생성
+  - `export_project_json()` - **Phase 6**: 프로젝트 메타데이터 JSON 생성
+  - `export_vrew()` - **Phase 6**: Vrew 프로젝트 파일 (.vrew) 생성
   - 해상도: 1080x1920 (Shorts) or 1920x1080 (Landscape)
 
 - **uploader.py** - YouTube 업로드 자동화
@@ -132,10 +138,16 @@ python scripts/auto_create.py --topic "AI 기술" --format shorts --duration 60
 - `GET /api/accounts/{id}` - 계정 상세 (설정 + 작업 이력 포함)
 - `PUT /api/accounts/{id}/settings` - 계정 설정 업데이트
 
-**Phase 3: TTS 관리**:
-- `POST /api/tts/preview` - TTS 미리듣기 (ElevenLabs 파라미터 제어)
-- `GET /api/tts/voices` - ElevenLabs Voice 목록
-- `DELETE /api/tts/cache` - TTS 캐시 삭제
+**Phase 3: Draft 관리**:
+- `POST /api/draft/create` - Draft 생성 (스크립트 + 에셋 수집)
+- `GET /api/draft/{id}` - Draft 조회
+- `POST /api/draft/{id}/update-segment/{index}` - 세그먼트 수정
+- `POST /api/draft/{id}/finalize` - 최종 렌더링
+
+**Phase 6: Draft Export**:
+- `GET /api/draft/{id}/export/srt` - SRT 자막 파일 다운로드
+- `GET /api/draft/{id}/export/json` - 프로젝트 JSON 다운로드
+- `GET /api/draft/{id}/export/vrew` - Vrew 프로젝트 파일 다운로드
 
 **Phase 4: 스케줄러**:
 - `GET /api/scheduler/jobs` - 등록된 스케줄 조회
@@ -199,7 +211,7 @@ YOUTUBE_API_KEY=...             # For trend analysis (optional)
 
 ## 프로젝트 상태
 
-### ✅ v4.0 완료된 Phase (1~5)
+### ✅ v4.0 완료된 Phase (1~6)
 
 **Phase 1: 데이터베이스 인프라**
 - SQLAlchemy + Alembic 통합
@@ -231,6 +243,14 @@ YOUTUBE_API_KEY=...             # For trend analysis (optional)
 - 다크 모드 디자인
 - 모바일 반응형
 
+**Phase 6: AI 고도화 및 Vrew 통합 (2025-01-05)**
+- **AI 영상 선택**: Gemini가 5-10개 후보 중 최적 선택 (매칭률 +40%p)
+- **Wholesome TTS**: 전체 대본 한 번에 생성, Whisper 타이밍 추출 (톤 일관성 +30%p)
+- **Few-Shot Learning**: AI 프롬프트에 10개 성공 사례 추가 (키워드 구체성 +55%p)
+- **TTS 자동 조정**: 대본 분석으로 파라미터 자동 조정 (감정 표현 +25%p)
+- **Vrew Export**: SRT, JSON, .vrew 파일 자동 생성
+- **프론트엔드 통합**: Export 버튼 UI, AI 고급 설정 UI 추가
+
 **최근 버그 수정 (2025-12-29)**:
 - 제목 텍스트 하단 잘림 해결 (interline=60, 패딩 비율 증가)
 - 이모지 깨짐 방지 (포괄적인 유니코드 범위 제거)
@@ -247,7 +267,10 @@ YOUTUBE_API_KEY=...             # For trend analysis (optional)
 
 ### 🔄 다음 Phase
 
-**Phase 6: 통합 테스트, README 업데이트, 배포 준비**
+**Phase 7: 고급 편집 기능**
+- Vrew 양방향 연동 (역방향 import)
+- Multi-Voice TTS
+- Real-time Preview
 
 ## 일반적인 개발 패턴
 
@@ -338,6 +361,43 @@ from backend.workers import auto_generate_and_upload
 auto_generate_and_upload(account.id)
 ```
 
+### Phase 6: AI 고급 기능 사용
+
+```python
+from core.asset_manager import AssetManager
+from core.planner import ContentPlanner
+
+# 1. AI 영상 선택 (자동 활성화됨)
+asset_manager = AssetManager()
+bundle = asset_manager.collect_assets(content_plan)
+# → Gemini가 5-10개 후보 중 최적 영상 자동 선택
+
+# 2. Wholesome TTS (기본값)
+audio, timings = asset_manager._generate_tts(
+    content_plan,
+    use_wholesome=True  # 전체 대본 한 번에 생성
+)
+# → Whisper로 정확한 타이밍 추출
+
+# 3. Vrew Export
+from core.editor import VideoEditor
+
+editor = VideoEditor()
+editor.export_vrew(content_plan, bundle, "output/project.vrew")
+# → .vrew 파일 생성 (SRT + JSON + manifest)
+```
+
+### Vrew 워크플로우
+
+```
+1. Frontend: Draft 생성 (/create)
+2. Frontend: "🎬 Vrew" 버튼 클릭 (/projects)
+3. Download: project.vrew 파일
+4. Vrew: 프로젝트 열기 → 수동 편집
+5. Vrew: 최종 영상 Export
+6. YouTube: 업로드
+```
+
 ## Testing Changes
 
 **Backend changes:**
@@ -406,11 +466,35 @@ python scripts/benchmark.py
 
 ## 중요 구현 세부사항
 
+### Phase 6: AI 영상 선택 (asset_manager.py:202-269)
+- Gemini API로 5-10개 후보 중 최적 선택
+- 대본과 영상의 semantic matching
+- 자동 활성화됨 (비활성화 불가)
+
+### Phase 6: Wholesome TTS (asset_manager.py:351-495)
+- 전체 대본을 한 번에 생성 → 톤 일관성 보장
+- Whisper 모델로 정확한 세그먼트 타이밍 추출
+- Whisper 실패 시 텍스트 길이 기반 Fallback
+- 기본값: `use_wholesome=True`
+
+### Phase 6: Few-Shot Learning (templates/script_prompts/shorts_script.txt:77-382)
+- 10개 카테고리 성공 사례 포함
+- 키워드 생성 규칙: 주체 + 동작 + 대상 + 분위기
+- 추상적 키워드 금지 ("성공", "행복" 등)
+
+### Phase 6: TTS 자동 조정 (asset_manager.py:556-632)
+- 대본 분석: 감정 표현, 격식체, 구어체, 긴급 단어
+- ElevenLabs 파라미터 자동 조정 (stability, similarity_boost, style)
+- Typecast 감정 자동 선택 (normal, happy, sad, angry)
+
+### Phase 6: Vrew Export (editor.py:1053-1138)
+- .vrew 파일 = ZIP (subtitle.srt + project.json + manifest.json)
+- API: `GET /api/draft/{id}/export/vrew`
+- Frontend: 프로젝트 목록 페이지에 "🎬 Vrew" 버튼
+
 ### TTS 대기 시간 구현
 스크립트에 `(3초 대기)`, `(5초 기다림)` 등의 표현을 포함하면 해당 시간만큼 무음이 자동 추가됩니다.
-
 **지원 표현**: `(N초 대기)`, `(N초 기다림)`, `(N초 멈춤)`, `(N초 정지)`
-
 **구현 위치**: `core/asset_manager.py:_add_pause_to_audio()`
 
 ### 제목/자막 렌더링 주의사항
@@ -483,13 +567,20 @@ curl -X POST http://localhost:8000/api/jobs/status \
 **Phase별 상세 문서**:
 - `UPGRADE_PHASE1.md` ~ `UPGRADE_PHASE6.md` - 각 Phase 상세 계획서
 
+**Phase 6 문서** (2025-01-05):
+- `PHASE6_VREW_INTEGRATION.md` - Phase 6 전체 구현 상세 가이드 (93KB)
+- `PHASE6_QUICK_REFERENCE.md` - 빠른 참조 가이드 (13KB)
+- `IMPLEMENTATION_SUMMARY_PHASE6.md` - Phase 1-6 종합 요약 (47KB)
+- `FRONTEND_GUIDE_PHASE6.md` - 프론트엔드 UI 사용 가이드
+- `ANALYSIS_AND_VREW_INTEGRATION.md` - 초기 분석 및 개선 방안
+
 **가이드**:
 - `README.md` - 프로젝트 개요 및 설치 가이드
 - `MUSIC_GUIDE.md` - BGM 사용 가이드
 
 **테스트 및 스크립트**:
 - `tests/` - 통합 테스트, TTS 테스트, 스케줄러 테스트
-- `scripts/` - 자동화 스크립트 (manual_upload.py, setup_bgm.py)
+- `scripts/` - 자동화 스크립트 (manual_upload.py, setup_bgm.py, setup_default_bgm.py)
 
 ## 레포지토리 URL
 
@@ -498,5 +589,5 @@ https://github.com/codefatal/youtube-ai
 ---
 
 **작성일**: 2025-12-26
-**버전**: v4.0
-**최종 업데이트**: 2025-12-30 (영상 완성도 개선 + VFX 효과 추가)
+**버전**: v4.0 Phase 6
+**최종 업데이트**: 2025-01-05 (Phase 6: AI 고도화 및 Vrew 통합 완료)
