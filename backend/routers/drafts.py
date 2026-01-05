@@ -3,6 +3,7 @@ Phase 3: Draft Management API Router
 Draft 생성, 조회, 수정, 최종 렌더링 (Human-in-the-Loop)
 """
 from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 from typing import List, Optional, Dict, Any
 from datetime import datetime
