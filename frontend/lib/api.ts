@@ -180,6 +180,78 @@ export async function deleteDraft(draftId: string): Promise<void> {
   }
 }
 
+/**
+ * ✨ Phase 6: Export draft as SRT subtitle file
+ */
+export async function exportDraftSRT(draftId: string): Promise<void> {
+  const response = await fetch(`${API_URL}/api/draft/${draftId}/export/srt`, {
+    method: 'GET',
+  });
+
+  if (!response.ok) {
+    throw new Error(`Failed to export SRT: ${response.statusText}`);
+  }
+
+  // Download file
+  const blob = await response.blob();
+  const url = window.URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `${draftId}_subtitle.srt`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  window.URL.revokeObjectURL(url);
+}
+
+/**
+ * ✨ Phase 6: Export draft as JSON project file
+ */
+export async function exportDraftJSON(draftId: string): Promise<void> {
+  const response = await fetch(`${API_URL}/api/draft/${draftId}/export/json`, {
+    method: 'GET',
+  });
+
+  if (!response.ok) {
+    throw new Error(`Failed to export JSON: ${response.statusText}`);
+  }
+
+  // Download file
+  const blob = await response.blob();
+  const url = window.URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `${draftId}_project.json`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  window.URL.revokeObjectURL(url);
+}
+
+/**
+ * ✨ Phase 6: Export draft as Vrew project file (.vrew)
+ */
+export async function exportDraftVrew(draftId: string): Promise<void> {
+  const response = await fetch(`${API_URL}/api/draft/${draftId}/export/vrew`, {
+    method: 'GET',
+  });
+
+  if (!response.ok) {
+    throw new Error(`Failed to export Vrew: ${response.statusText}`);
+  }
+
+  // Download file
+  const blob = await response.blob();
+  const url = window.URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `${draftId}.vrew`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  window.URL.revokeObjectURL(url);
+}
+
 // ============================================================
 // Helper Functions
 // ============================================================

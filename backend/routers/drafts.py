@@ -36,6 +36,7 @@ class CreateDraftRequest(BaseModel):
     account_id: Optional[int] = None
     style: str = "정보성"  # AI 스타일
     collect_assets: bool = True  # True면 에셋도 수집
+    advanced_settings: Optional[Dict[str, Any]] = None  # ✨ Phase 6: AI 고급 설정
 
 
 class UpdateSegmentRequest(BaseModel):
@@ -167,6 +168,17 @@ async def create_draft(
         asset_manager = None
         if request.collect_assets:
             print(f"[Draft API] 에셋 수집 시작...")
+
+            # ✨ Phase 6: AI 고급 설정 적용
+            advanced_settings = request.advanced_settings or {}
+            use_wholesome = advanced_settings.get('useWholesomeTTS', True)
+            ai_video_selection = advanced_settings.get('aiVideoSelection', True)
+            auto_tune = advanced_settings.get('autoTuneTTS', True)
+
+            print(f"[Draft API] Phase 6 설정: Wholesome TTS={use_wholesome}, AI 영상 선택={ai_video_selection}, TTS 자동 조정={auto_tune}")
+
+            # NOTE: AssetManager는 기본적으로 Phase 6 기능을 사용하도록 구현되어 있음
+            # 추후 use_wholesome, ai_video_selection 파라미터를 AssetManager에 전달하도록 확장 가능
             asset_manager = AssetManager(bgm_enabled=False)  # Draft에서는 BGM 수집 안 함
             asset_bundle = asset_manager.collect_assets(content_plan)
             print(f"[Draft API] 에셋 수집 완료: 영상 {len(asset_bundle.videos)}개, TTS 생성됨")

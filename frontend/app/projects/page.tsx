@@ -7,7 +7,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { listDrafts, deleteDraft } from '@/lib/api';
+import { listDrafts, deleteDraft, exportDraftSRT, exportDraftJSON, exportDraftVrew } from '@/lib/api';
 import type { DraftProject } from '@/lib/types';
 
 export default function ProjectsPage() {
@@ -49,6 +49,40 @@ export default function ProjectsPage() {
     } catch (error) {
       console.error('Failed to delete project:', error);
       alert('프로젝트 삭제에 실패했습니다.');
+    }
+  };
+
+  // ✨ Phase 6: Export handlers
+  const handleExportSRT = async (draftId: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    try {
+      await exportDraftSRT(draftId);
+      alert('SRT 파일이 다운로드되었습니다.');
+    } catch (error) {
+      console.error('Failed to export SRT:', error);
+      alert('SRT 내보내기에 실패했습니다.');
+    }
+  };
+
+  const handleExportJSON = async (draftId: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    try {
+      await exportDraftJSON(draftId);
+      alert('JSON 파일이 다운로드되었습니다.');
+    } catch (error) {
+      console.error('Failed to export JSON:', error);
+      alert('JSON 내보내기에 실패했습니다.');
+    }
+  };
+
+  const handleExportVrew = async (draftId: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    try {
+      await exportDraftVrew(draftId);
+      alert('Vrew 프로젝트 파일이 다운로드되었습니다.');
+    } catch (error) {
+      console.error('Failed to export Vrew:', error);
+      alert('Vrew 내보내기에 실패했습니다.');
     }
   };
 
@@ -153,25 +187,53 @@ export default function ProjectsPage() {
               </div>
 
               {/* 액션 버튼 */}
-              <div className="mt-4 flex gap-2">
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    router.push(`/projects/${project.draft_id}/edit`);
-                  }}
-                  className="flex-1 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium"
-                >
-                  ✏️ 편집
-                </button>
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleDelete(project.draft_id);
-                  }}
-                  className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg text-sm font-medium"
-                >
-                  🗑️
-                </button>
+              <div className="mt-4 space-y-2">
+                {/* 편집 및 삭제 */}
+                <div className="flex gap-2">
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      router.push(`/projects/${project.draft_id}/edit`);
+                    }}
+                    className="flex-1 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition"
+                  >
+                    ✏️ 편집
+                  </button>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleDelete(project.draft_id);
+                    }}
+                    className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition"
+                  >
+                    🗑️
+                  </button>
+                </div>
+
+                {/* ✨ Phase 6: Export 버튼들 */}
+                <div className="flex gap-2">
+                  <button
+                    onClick={(e) => handleExportSRT(project.draft_id, e)}
+                    className="flex-1 bg-gray-700 hover:bg-gray-600 text-white px-2 py-1.5 rounded text-xs font-medium transition"
+                    title="SRT 자막 파일 다운로드"
+                  >
+                    📄 SRT
+                  </button>
+                  <button
+                    onClick={(e) => handleExportJSON(project.draft_id, e)}
+                    className="flex-1 bg-gray-700 hover:bg-gray-600 text-white px-2 py-1.5 rounded text-xs font-medium transition"
+                    title="프로젝트 JSON 다운로드"
+                  >
+                    📋 JSON
+                  </button>
+                  <button
+                    onClick={(e) => handleExportVrew(project.draft_id, e)}
+                    className="flex-1 bg-purple-700 hover:bg-purple-600 text-white px-2 py-1.5 rounded text-xs font-medium transition"
+                    title="Vrew 프로젝트 파일 다운로드"
+                  >
+                    🎬 Vrew
+                  </button>
+                </div>
               </div>
             </div>
           ))}
