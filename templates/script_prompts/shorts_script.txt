@@ -84,27 +84,27 @@
 **스타일**: 정보성
 
 ```json
-{
+{{
   "title": "아침 운동 시작하세요",
   "segments": [
-    {
+    {{
       "text": "아침 6시, 당신의 하루는 어떻게 시작되나요?",
       "image_search_query": "person waking up bed stretching morning sunlight window alarm clock"
-    },
-    {
+    }},
+    {{
       "text": "연구에 따르면 아침 운동을 하는 사람은 하루 종일 에너지가 넘친다고 합니다.",
       "image_search_query": "athlete running track morning sunrise exercising jogging outdoor"
-    },
-    {
+    }},
+    {{
       "text": "단 30분의 운동으로 신진대사가 12시간 동안 활성화됩니다.",
       "image_search_query": "fitness woman doing pushups gym workout exercise morning"
-    },
-    {
+    }},
+    {{
       "text": "오늘부터 아침 운동을 시작해보세요!",
       "image_search_query": "happy person exercising park outdoor fitness smiling energetic"
-    }
+    }}
   ]
-}
+}}
 ```
 
 ## 성공 사례 2: 음식/요리 주제
@@ -113,27 +113,27 @@
 **스타일**: 친근하고 활기찬
 
 ```json
-{
+{{
   "title": "샐러드 다이어트 성공법",
   "segments": [
-    {
+    {{
       "text": "다이어트, 굶지 말고 똑똑하게 하세요!",
       "image_search_query": "woman measuring waist tape diet scale weight loss success"
-    },
-    {
+    }},
+    {{
       "text": "신선한 채소와 과일로 가득한 샐러드 한 그릇이면 충분합니다.",
       "image_search_query": "fresh colorful salad bowl vegetables greens tomato avocado healthy food close up"
-    },
-    {
+    }},
+    {{
       "text": "단백질을 위해 닭가슴살이나 계란을 추가하세요.",
       "image_search_query": "grilled chicken breast salad protein meal healthy eating plate"
-    },
-    {
+    }},
+    {{
       "text": "하루 한 끼, 샐러드로 시작해보세요!",
       "image_search_query": "person eating salad kitchen healthy lifestyle smiling happy"
-    }
+    }}
   ]
-}
+}}
 ```
 
 ## 성공 사례 3: 생산성/비즈니스 주제
@@ -142,27 +142,27 @@
 **스타일**: 전문적이고 정보성
 
 ```json
-{
+{{
   "title": "생산성 2배 높이는 법",
   "segments": [
-    {
+    {{
       "text": "매일 야근에 지쳐 있나요?",
       "image_search_query": "tired businessperson working late night office desk computer fatigue overtime"
-    },
-    {
+    }},
+    {{
       "text": "핵심은 할 일 목록을 우선순위별로 정리하는 것입니다.",
       "image_search_query": "person writing checklist notebook desk pen hand planning todo list"
-    },
-    {
+    }},
+    {{
       "text": "포모도로 기법으로 25분 집중, 5분 휴식을 반복하세요.",
       "image_search_query": "timer clock desk workspace focus concentration working productivity"
-    },
-    {
+    }},
+    {{
       "text": "오늘부터 실천하면 야근은 이제 안녕!",
       "image_search_query": "happy businessperson leaving office smiling success work life balance"
-    }
+    }}
   ]
-}
+}}
 ```
 
 ## 성공 사례 4: 여행/라이프스타일 주제
@@ -171,27 +171,27 @@
 **스타일**: 감성적이고 힐링
 
 ```json
-{
+{{
   "title": "혼자 떠나는 제주 여행",
   "segments": [
-    {
+    {{
       "text": "가끔은 혼자만의 시간이 필요합니다.",
       "image_search_query": "woman alone beach ocean sunset peaceful solitude thinking"
-    },
-    {
+    }},
+    {{
       "text": "제주도의 푸른 바다와 맑은 공기가 당신을 기다립니다.",
       "image_search_query": "beautiful seascape ocean waves blue sky beach scenic landscape nature"
-    },
-    {
+    }},
+    {{
       "text": "카페에 앉아 책 한 권, 커피 한 잔의 여유를 즐기세요.",
       "image_search_query": "person reading book cafe window coffee cup relaxing peaceful"
-    },
-    {
+    }},
+    {{
       "text": "제주도로 떠나는 힐링 여행, 지금 계획해보세요!",
       "image_search_query": "backpack travel suitcase airport departure adventure journey trip"
-    }
+    }}
   ]
-}
+}}
 ```
 
 ## 성공 사례 5: 기술/AI 주제
@@ -200,27 +200,27 @@
 **스타일**: 정보성이고 실용적
 
 ```json
-{
+{{
   "title": "ChatGPT 업무 활용법",
   "segments": [
-    {
+    {{
       "text": "매일 반복되는 이메일 작성에 지치셨나요?",
       "image_search_query": "person typing email laptop office desk working computer keyboard"
-    },
-    {
+    }},
+    {{
       "text": "ChatGPT에게 초안을 맡기면 5분 안에 완성됩니다.",
       "image_search_query": "smartphone screen ai chatbot chat message interface technology digital"
-    },
-    {
+    }},
+    {{
       "text": "보고서 요약, 회의록 정리도 AI가 자동으로 해줍니다.",
       "image_search_query": "business document report data analysis graph chart office desk"
-    },
-    {
+    }},
+    {{
       "text": "오늘부터 ChatGPT로 업무 효율을 2배로 높이세요!",
       "image_search_query": "happy businessperson using laptop office successful productive working"
-    }
+    }}
   ]
-}
+}}
 ```
 
 ## 성공 사례 6: 반려동물 주제
@@ -229,27 +229,27 @@
 **스타일**: 친근하고 교육적
 
 ```json
-{
+{{
   "title": "강아지 훈련 3단계",
   "segments": [
-    {
+    {{
       "text": "우리 강아지, 산책만 나가면 말을 안 들어요!",
       "image_search_query": "dog pulling leash walk street owner training disobedient"
-    },
-    {
+    }},
+    {{
       "text": "1단계: 간식으로 앉기 명령을 연습하세요.",
       "image_search_query": "person training dog treat reward teaching sitting command puppy"
-    },
-    {
+    }},
+    {{
       "text": "2단계: 목줄을 느슨하게 하고 천천히 걷는 연습을 합니다.",
       "image_search_query": "owner walking dog park leash training outdoor obedience exercise"
-    },
-    {
+    }},
+    {{
       "text": "3단계: 다른 강아지를 만나도 침착하게 행동하도록 유도하세요.",
       "image_search_query": "two dogs meeting park socialization training friendly interaction"
-    }
+    }}
   ]
-}
+}}
 ```
 
 ## 성공 사례 7: 투자/재테크 주제
@@ -258,27 +258,27 @@
 **스타일**: 정보성이고 진지한
 
 ```json
-{
+{{
   "title": "20대 필수 재테크",
   "segments": [
-    {
+    {{
       "text": "20대, 지금 모으지 않으면 평생 후회합니다.",
       "image_search_query": "young person worried money bills debt financial stress calculation"
-    },
-    {
+    }},
+    {{
       "text": "매달 월급의 30%는 자동이체로 저축하세요.",
       "image_search_query": "piggy bank money coins saving financial planning investment"
-    },
-    {
+    }},
+    {{
       "text": "소액이라도 ETF나 인덱스 펀드에 투자하세요.",
       "image_search_query": "stock market graph chart investment smartphone app trading finance"
-    },
-    {
+    }},
+    {{
       "text": "복리의 힘으로 10년 후 당신의 자산은 몇 배가 됩니다!",
       "image_search_query": "businessman success money growth wealth financial freedom celebration"
-    }
+    }}
   ]
-}
+}}
 ```
 
 ## 성공 사례 8: 육아/가족 주제
@@ -287,27 +287,27 @@
 **스타일**: 따뜻하고 가족적
 
 ```json
-{
+{{
   "title": "아이와 즐거운 주말",
   "segments": [
-    {
+    {{
       "text": "주말마다 아이가 핸드폰만 보고 있나요?",
       "image_search_query": "child playing smartphone tablet screen digital device indoor bored"
-    },
-    {
+    }},
+    {{
       "text": "공원에서 공 던지기, 자전거 타기를 함께 해보세요.",
       "image_search_query": "father son playing ball park outdoor family activity happy laughing"
-    },
-    {
+    }},
+    {{
       "text": "집에서는 레고나 보드게임으로 창의력을 키워줍니다.",
       "image_search_query": "family playing board game table children parents together indoor fun"
-    },
-    {
+    }},
+    {{
       "text": "아이와의 소중한 추억, 지금 만들어보세요!",
       "image_search_query": "happy family smiling hugging outdoor park sunset togetherness love"
-    }
+    }}
   ]
-}
+}}
 ```
 
 ## 성공 사례 9: 자기계발 주제
@@ -316,27 +316,27 @@
 **스타일**: 동기부여적
 
 ```json
-{
+{{
   "title": "새해 목표 100% 달성",
   "segments": [
-    {
+    {{
       "text": "작년 새해 목표, 제대로 지켰나요?",
       "image_search_query": "person writing goals notebook planner resolution new year planning desk"
-    },
-    {
+    }},
+    {{
       "text": "목표는 구체적으로! '운동하기'가 아니라 '주 3회 헬스장 가기'로 정하세요.",
       "image_search_query": "fitness goal tracker calendar checkmark schedule planning achievement"
-    },
-    {
+    }},
+    {{
       "text": "매일 작은 성공을 기록하며 동기를 유지하세요.",
       "image_search_query": "person checking off list accomplishment success motivation diary journal"
-    },
-    {
+    }},
+    {{
       "text": "올해는 달라집니다. 지금 바로 시작하세요!",
       "image_search_query": "motivated person running sunrise mountain peak success achievement victory"
-    }
+    }}
   ]
-}
+}}
 ```
 
 ## 성공 사례 10: 패션/뷰티 주제
@@ -345,27 +345,27 @@
 **스타일**: 트렌디하고 실용적
 
 ```json
-{
+{{
   "title": "겨울 데일리룩 코디",
   "segments": [
-    {
+    {{
       "text": "겨울 아침, 옷장 앞에서 매일 고민하시나요?",
       "image_search_query": "woman choosing clothes wardrobe closet fashion deciding outfit"
-    },
-    {
+    }},
+    {{
       "text": "베이직한 롱 패딩에 청바지만 입어도 세련됩니다.",
       "image_search_query": "woman wearing long padded coat jeans winter fashion street style"
-    },
-    {
+    }},
+    {{
       "text": "목도리나 비니 하나로 포인트를 주세요.",
       "image_search_query": "fashion accessories scarf beanie hat winter style outfit detail"
-    },
-    {
+    }},
+    {{
       "text": "심플하지만 멋진 겨울 코디, 오늘부터 시도해보세요!",
       "image_search_query": "stylish woman posing winter outfit fashion confident urban street"
-    }
+    }}
   ]
-}
+}}
 ```
 
 ---
@@ -383,14 +383,14 @@
 # 주제 정보
 
 - **주제**: {topic}
-- **카테고리**: {category}
+- **카테고리**: {{category}}
 - **추가 요구사항**: {additional_requirements}
 
 # 출력 형식 (JSON)
 
 반드시 아래 JSON 형식으로 출력하세요. 마크다운 코드 블록 없이 순수 JSON만 반환하세요.
 
-{{
+{{{{
   "title": "영상 제목 (최대 20자, 간결하고 명확하게)",
   "description": "영상 설명 (200-300자, 해시태그 포함)",
   "tags": ["태그1", "태그2", "태그3", "태그4", "태그5"],
@@ -398,23 +398,23 @@
   "format": "shorts",
   "target_duration": {target_duration},
   "segments": [
-    {{
+    {{{{
       "text": "여러분, 이것 알고 계셨나요?",
       "keyword": "surprised person",
       "image_search_query": "surprised person reacting shocked expression close up"
-    }},
-    {{
+    }}}},
+    {{{{
       "text": "강아지는 사람의 감정을 90% 이상 인식할 수 있습니다.",
       "keyword": "dog owner",
       "image_search_query": "happy golden retriever dog owner smiling playing outdoor"
-    }},
-    {{
+    }}}},
+    {{{{
       "text": "오늘부터 반려견과 더 많은 시간을 보내세요!",
       "keyword": "dog park",
       "image_search_query": "person playing throwing ball dog park sunny day"
-    }}
+    }}}}
   ]
-}}
+}}}}
 
 # 중요 사항
 
