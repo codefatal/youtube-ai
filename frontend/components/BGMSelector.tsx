@@ -26,12 +26,22 @@ interface BGMCatalog {
 interface BGMSelectorProps {
   onSelect: (bgm: BGMItem | null) => void
   selectedBGM?: BGMItem | null
+  volume?: number
+  onVolumeChange?: (volume: number) => void
+  showVolumeControl?: boolean
 }
 
-export default function BGMSelector({ onSelect, selectedBGM }: BGMSelectorProps) {
+export default function BGMSelector({
+  onSelect,
+  selectedBGM,
+  volume = 0.3,
+  onVolumeChange,
+  showVolumeControl = true
+}: BGMSelectorProps) {
   const [catalog, setCatalog] = useState<BGMCatalog | null>(null)
   const [selectedMood, setSelectedMood] = useState<string>('all')
   const [playingBGM, setPlayingBGM] = useState<string | null>(null)
+  const [currentVolume, setCurrentVolume] = useState(volume)
   const audioRef = useRef<HTMLAudioElement | null>(null)
 
   // BGM catalog 로드
@@ -41,6 +51,17 @@ export default function BGMSelector({ onSelect, selectedBGM }: BGMSelectorProps)
       .then(data => setCatalog(data))
       .catch(err => console.error('Failed to load BGM catalog:', err))
   }, [])
+
+  // 볼륨 변경 핸들러
+  const handleVolumeChange = (newVolume: number) => {
+    setCurrentVolume(newVolume)
+    if (audioRef.current) {
+      audioRef.current.volume = newVolume
+    }
+    if (onVolumeChange) {
+      onVolumeChange(newVolume)
+    }
+  }
 
   // 오디오 재생/일시정지
   const togglePlay = (bgm: BGMItem) => {
@@ -55,7 +76,7 @@ export default function BGMSelector({ onSelect, selectedBGM }: BGMSelectorProps)
       if (audioRef.current) {
         audioRef.current.pause()
         audioRef.current.src = audioPath
-        audioRef.current.volume = bgm.volume
+        audioRef.current.volume = currentVolume
         audioRef.current.play()
         setPlayingBGM(bgm.file_path)
       }
@@ -237,6 +258,32 @@ export default function BGMSelector({ onSelect, selectedBGM }: BGMSelectorProps)
 
       {/* 숨겨진 오디오 플레이어 */}
       <audio ref={audioRef} className="hidden" />
+
+      {/* 볼륨 조절 */}
+      {showVolumeControl && (
+        <div className="mt-4 p-4 bg-gray-50 border border-gray-200 rounded">
+          <div className="flex items-center gap-4">
+            <label className="text-sm font-medium text-gray-700 min-w-[80px]">
+              Volume:
+            </label>
+            <input
+              type="range"
+              min="0"
+              max="1"
+              step="0.01"
+              value={currentVolume}
+              onChange={(e) => handleVolumeChange(parseFloat(e.target.value))}
+              className="flex-1 h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-blue-600"
+            />
+            <span className="text-sm font-medium text-gray-700 min-w-[50px] text-right">
+              {Math.round(currentVolume * 100)}%
+            </span>
+          </div>
+          <p className="text-xs text-gray-500 mt-2">
+            Adjust the volume and click play to preview
+          </p>
+        </div>
+      )}
 
       {/* 선택된 BGM 표시 */}
       {selectedBGM && (

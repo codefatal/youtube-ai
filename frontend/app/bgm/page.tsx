@@ -26,7 +26,7 @@ export default function BGMPage() {
   const [uploading, setUploading] = useState(false);
 
   const [file, setFile] = useState<File | null>(null);
-  const [mood, setMood] = useState('ENERGETIC');
+  const [mood, setMood] = useState('auto');  // 기본값: AI 자동 분류
   const [name, setName] = useState('');
 
   // BGM 선택 상태
@@ -159,12 +159,18 @@ export default function BGMPage() {
                 onChange={(e) => setMood(e.target.value)}
                 className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white"
               >
+                <option value="auto">🤖 AI 자동 분류 (권장)</option>
                 {moods.map((m) => (
                   <option key={m} value={m}>
                     {m}
                   </option>
                 ))}
               </select>
+              {mood === 'auto' && (
+                <p className="text-xs text-blue-400 mt-2">
+                  💡 AI가 파일명을 분석하여 자동으로 분위기를 분류합니다
+                </p>
+              )}
             </div>
 
             <button

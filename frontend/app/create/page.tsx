@@ -4,7 +4,19 @@ import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import TTSSettings from '@/components/TTSSettings';
 import TemplateSelector from '@/components/TemplateSelector';
+import BGMSelector from '@/components/BGMSelector';
 import { createDraft } from '@/lib/api';
+
+interface BGMItem {
+  name: string;
+  mood: string;
+  file_path: string;
+  duration: number;
+  volume: number;
+  artist: string;
+  license: string;
+  url: string;
+}
 
 export default function CreatePage() {
   const router = useRouter();
@@ -24,7 +36,11 @@ export default function CreatePage() {
     enabled: true,
     mood: 'auto',
     volume: 0.3,
+    file_path: '',  // 선택된 BGM 파일 경로
   });
+
+  // 선택된 BGM
+  const [selectedBGM, setSelectedBGM] = useState<BGMItem | null>(null);
 
   // ✨ Phase 6: AI 고급 설정
   const [advancedSettings, setAdvancedSettings] = useState({
@@ -36,6 +52,23 @@ export default function CreatePage() {
   const [loading, setLoading] = useState(false);
   const [previewLoading, setPreviewLoading] = useState(false);
   const [draftLoading, setDraftLoading] = useState(false);
+
+  // BGM 선택 핸들러
+  const handleBGMSelect = (bgm: BGMItem | null) => {
+    setSelectedBGM(bgm);
+    if (bgm) {
+      setBgmSettings({
+        ...bgmSettings,
+        mood: bgm.mood.toUpperCase(),
+        file_path: bgm.file_path,
+      });
+    }
+  };
+
+  // BGM 볼륨 변경 핸들러
+  const handleBGMVolumeChange = (volume: number) => {
+    setBgmSettings({ ...bgmSettings, volume });
+  };
 
   // Phase 3: Draft 모드로 생성 (편집 가능한 초안)
   const handleCreateDraft = async () => {
@@ -178,75 +211,33 @@ export default function CreatePage() {
           <TTSSettings settings={ttsSettings} onChange={setTtsSettings} />
 
           {/* Phase 5: BGM 설정 */}
-          <div className="bg-gray-800 rounded-lg p-6 space-y-4">
-            <h3 className="text-lg font-semibold text-white mb-4">🎵 BGM 설정</h3>
+          <div className="space-y-4">
+            <div className="bg-gray-800 rounded-lg p-6">
+              <div className="flex items-center space-x-2 mb-4">
+                <input
+                  type="checkbox"
+                  id="bgm-enabled"
+                  checked={bgmSettings.enabled}
+                  onChange={(e) =>
+                    setBgmSettings({ ...bgmSettings, enabled: e.target.checked })
+                  }
+                  className="w-4 h-4 text-blue-600 bg-gray-700 border-gray-600 rounded focus:ring-blue-500"
+                />
+                <label htmlFor="bgm-enabled" className="text-sm font-medium text-gray-300">
+                  BGM 사용
+                </label>
+              </div>
 
-            {/* BGM 활성화 */}
-            <div className="flex items-center space-x-2">
-              <input
-                type="checkbox"
-                id="bgm-enabled"
-                checked={bgmSettings.enabled}
-                onChange={(e) =>
-                  setBgmSettings({ ...bgmSettings, enabled: e.target.checked })
-                }
-                className="w-4 h-4 text-blue-600 bg-gray-700 border-gray-600 rounded focus:ring-blue-500"
-              />
-              <label htmlFor="bgm-enabled" className="text-sm font-medium text-gray-300">
-                BGM 사용
-              </label>
+              {bgmSettings.enabled && (
+                <BGMSelector
+                  onSelect={handleBGMSelect}
+                  selectedBGM={selectedBGM}
+                  volume={bgmSettings.volume}
+                  onVolumeChange={handleBGMVolumeChange}
+                  showVolumeControl={true}
+                />
+              )}
             </div>
-
-            {bgmSettings.enabled && (
-              <>
-                {/* 분위기 선택 */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-2">
-                    분위기
-                  </label>
-                  <select
-                    value={bgmSettings.mood}
-                    onChange={(e) =>
-                      setBgmSettings({ ...bgmSettings, mood: e.target.value })
-                    }
-                    className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white text-sm"
-                  >
-                    <option value="auto">자동 선택 (AI 추론)</option>
-                    <option value="HAPPY">행복한 (밝고 즐거운)</option>
-                    <option value="SAD">슬픈 (차분하고 감성적인)</option>
-                    <option value="ENERGETIC">활기찬 (빠르고 역동적인)</option>
-                    <option value="CALM">차분한 (편안하고 여유로운)</option>
-                    <option value="TENSE">긴장감 있는 (긴박하고 스릴)</option>
-                    <option value="MYSTERIOUS">신비로운 (몽환적이고 신비)</option>
-                  </select>
-                </div>
-
-                {/* 볼륨 조절 */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-2">
-                    BGM 볼륨: {(bgmSettings.volume * 100).toFixed(0)}%
-                  </label>
-                  <input
-                    type="range"
-                    min="0"
-                    max="1"
-                    step="0.05"
-                    value={bgmSettings.volume}
-                    onChange={(e) =>
-                      setBgmSettings({
-                        ...bgmSettings,
-                        volume: parseFloat(e.target.value),
-                      })
-                    }
-                    className="w-full"
-                  />
-                  <div className="flex justify-between text-xs text-gray-400 mt-1">
-                    <span>0%</span>
-                    <span>100%</span>
-                  </div>
-                </div>
-              </>
-            )}
           </div>
 
           {/* ✨ Phase 6: AI 고급 설정 */}
