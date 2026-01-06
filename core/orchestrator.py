@@ -154,7 +154,8 @@ class ContentOrchestrator:
         job_id: Optional[str] = None,
         account_id: Optional[int] = None,
         template: Optional[str] = None,
-        tts_settings: Optional[Dict[str, Any]] = None
+        tts_settings: Optional[Dict[str, Any]] = None,
+        bgm_settings: Optional[Dict[str, Any]] = None  # ✨ FIX: BGM 설정 추가
     ) -> DBJobHistory:
         """
         전체 콘텐츠 생성 파이프라인 실행 (DB 기반)
@@ -221,13 +222,26 @@ class ContentOrchestrator:
 
             # 2. Asset Manager: 에셋 수집
             self._update_job_status(db_job, JobStatus.COLLECTING_ASSETS, "에셋 수집 중 (영상 + 음성)...")
-            asset_manager = self._get_asset_manager()
+
+            # ✨ FIX: bgm_settings 적용
+            bgm_enabled = True
+            if bgm_settings:
+                bgm_enabled = bgm_settings.get('enabled', True)
+
+            asset_manager = AssetManager(
+                stock_providers=['pexels', 'pixabay'],
+                tts_provider=self.config.tts_provider.value,
+                cache_enabled=True,
+                bgm_enabled=bgm_enabled
+            )
+
             asset_bundle = asset_manager.collect_assets(
                 content_plan,
                 download_videos=True,
                 generate_tts=True,
                 account_id=account_id,
-                tts_settings_override=tts_settings
+                tts_settings_override=tts_settings,
+                bgm_settings_override=bgm_settings  # ✨ FIX: BGM 설정 전달
             )
             if not asset_bundle:
                 raise Exception("에셋 수집 실패")

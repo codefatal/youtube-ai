@@ -97,7 +97,8 @@ class AssetManager:
         generate_tts: bool = True,
         select_bgm: bool = True,
         account_id: Optional[int] = None, # ✨ NEW
-        tts_settings_override: Optional[Dict[str, Any]] = None # ✨ NEW
+        tts_settings_override: Optional[Dict[str, Any]] = None, # ✨ NEW
+        bgm_settings_override: Optional[Dict[str, Any]] = None  # ✨ FIX: BGM 설정 추가
     ) -> Optional[AssetBundle]:
         """
         ContentPlan을 기반으로 모든 에셋 수집
@@ -129,7 +130,37 @@ class AssetManager:
         # 3. Phase 2: BGM 선택
         bgm_asset = None
         if select_bgm and self.bgm_enabled and self.bgm_manager:
-            bgm_asset = self._select_bgm(content_plan)
+            # ✨ FIX: bgm_settings_override 적용
+            if bgm_settings_override and bgm_settings_override.get('file_path'):
+                # 사용자가 직접 선택한 BGM 사용
+                bgm_file_path = bgm_settings_override['file_path']
+                bgm_mood = bgm_settings_override.get('mood', 'calm').lower()
+                bgm_volume = bgm_settings_override.get('volume', 0.3)
+
+                # BGM 파일 경로 처리 (상대 경로를 절대 경로로 변환)
+                from pathlib import Path
+                project_root = Path(__file__).parent.parent
+                full_bgm_path = project_root / "frontend" / "public" / "assets" / "bgm" / bgm_file_path
+
+                if full_bgm_path.exists():
+                    bgm_asset = BGMAsset(
+                        name=full_bgm_path.stem,
+                        mood=MoodType(bgm_mood) if bgm_mood in [m.value for m in MoodType] else MoodType.CALM,
+                        local_path=str(full_bgm_path),
+                        duration=0.0,  # 실제 처리 시 측정됨
+                        volume=bgm_volume
+                    )
+                    print(f"[AssetManager] 사용자 선택 BGM 적용: {bgm_asset.name} ({bgm_mood}, 볼륨: {bgm_volume})")
+                else:
+                    print(f"[WARNING] 선택된 BGM 파일을 찾을 수 없음: {full_bgm_path}, 자동 선택으로 폴백")
+                    bgm_asset = self._select_bgm(content_plan)
+            else:
+                # 자동 BGM 선택
+                bgm_asset = self._select_bgm(content_plan)
+
+                # 볼륨 오버라이드 적용
+                if bgm_settings_override and 'volume' in bgm_settings_override and bgm_asset:
+                    bgm_asset.volume = bgm_settings_override['volume']
 
         # 4. AssetBundle 생성 (Phase 2: segment_timings 포함)
         bundle = AssetBundle(

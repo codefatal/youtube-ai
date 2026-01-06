@@ -163,12 +163,13 @@ class VideoEditor:
         if audio_clip:
             final_video = final_video.with_audio(audio_clip)
 
-        # 6. 자막 추가 (FIX: target_duration 강제)
+        # 6. 자막 추가 (FIX: target_duration 강제, segment_timings 사용)
         if content_plan.segments:
             final_video = self._add_subtitles(
                 final_video,
                 content_plan,
-                target_duration  # audio_clip.duration 대신 target_duration 사용
+                target_duration,  # audio_clip.duration 대신 target_duration 사용
+                asset_bundle  # ✨ FIX: segment_timings 전달
             )
 
         # 7. 출력 파일명 생성
@@ -734,7 +735,8 @@ class VideoEditor:
         self,
         video_clip,
         content_plan: ContentPlan,
-        total_duration: float
+        total_duration: float,
+        asset_bundle: Optional[AssetBundle] = None  # ✨ FIX: AssetBundle 추가
     ):
         """
         자막 추가 (SHORTS_SPEC.md: SubtitleService + Safe Zone 적용)
@@ -743,6 +745,7 @@ class VideoEditor:
             video_clip: 베이스 비디오 클립
             content_plan: ContentPlan 객체
             total_duration: 총 영상 길이
+            asset_bundle: AssetBundle 객체 (segment_timings 포함)
 
         Returns:
             자막이 추가된 CompositeVideoClip
@@ -753,32 +756,52 @@ class VideoEditor:
         # SHORTS_SPEC.md: SubtitleService 사용 (Pillow 기반 + Safe Zone)
         subtitle_service = get_subtitle_service()
 
-        # 세그먼트를 dict 리스트로 변환 (SubtitleService 인터페이스 맞춤)
+        # ✨ FIX: segment_timings 우선 사용 (더 정확한 타이밍)
         segments_data = []
-        current_time = 0.0
 
-        for seg in content_plan.segments:
-            # Phase 1: 실제 TTS 길이 사용 (AssetManager가 업데이트한 값)
-            duration = seg.duration if seg.duration else 3.0
+        if asset_bundle and asset_bundle.segment_timings:
+            # segment_timings가 있으면 정확한 타이밍 사용
+            print(f"[Subtitle] segment_timings 사용 (Whisper/실측 타이밍) - {len(asset_bundle.segment_timings)}개")
 
-            # Whisper로 정렬된 경우 start/end 사용, 아니면 누적 계산
-            if hasattr(seg, 'start') and seg.start is not None:
-                start_time = seg.start
-                end_time = seg.end if hasattr(seg, 'end') else start_time + duration
-            else:
-                start_time = current_time
-                end_time = current_time + duration
+            for i, timing in enumerate(asset_bundle.segment_timings):
+                if i < len(content_plan.segments):
+                    segments_data.append({
+                        "text": content_plan.segments[i].text,
+                        "start": timing.start_time,
+                        "end": timing.end_time,
+                        "duration": timing.tts_duration
+                    })
 
-            segments_data.append({
-                "text": seg.text,
-                "start": start_time,
-                "end": end_time,
-                "duration": duration
-            })
+            total_subtitle_duration = asset_bundle.segment_timings[-1].end_time if asset_bundle.segment_timings else 0.0
+            print(f"[Subtitle] 정확한 타이밍 적용 완료: 총 {total_subtitle_duration:.2f}초")
 
-            current_time = end_time
+        else:
+            # fallback: content_plan.segments 사용 (기존 로직)
+            print(f"[WARNING] segment_timings 없음, content_plan.segments로 자막 생성 (정확도 낮음)")
+            current_time = 0.0
 
-        print(f"[Phase 1] 자막 생성: {len(segments_data)}개 세그먼트, 총 {current_time:.2f}초")
+            for seg in content_plan.segments:
+                # Phase 1: 실제 TTS 길이 사용 (AssetManager가 업데이트한 값)
+                duration = seg.duration if seg.duration else 3.0
+
+                # Whisper로 정렬된 경우 start/end 사용, 아니면 누적 계산
+                if hasattr(seg, 'start') and seg.start is not None:
+                    start_time = seg.start
+                    end_time = seg.end if hasattr(seg, 'end') else start_time + duration
+                else:
+                    start_time = current_time
+                    end_time = current_time + duration
+
+                segments_data.append({
+                    "text": seg.text,
+                    "start": start_time,
+                    "end": end_time,
+                    "duration": duration
+                })
+
+                current_time = end_time
+
+            print(f"[Subtitle] Fallback 자막 생성: {len(segments_data)}개 세그먼트, 총 {current_time:.2f}초")
 
         # SubtitleService로 자막 클립 정보 생성 (PIL Image + Safe Zone 적용됨)
         subtitle_clip_data = subtitle_service.create_subtitle_clips(segments_data, fps=self.config.fps)

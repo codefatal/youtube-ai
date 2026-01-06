@@ -264,7 +264,8 @@ async def create_video(request: CreateVideoRequest):
             target_duration=request.duration,
             upload=request.upload,
             template=request.template,  # ✨ NEW
-            tts_settings=request.tts_settings  # ✨ NEW
+            tts_settings=request.tts_settings,  # ✨ NEW
+            bgm_settings=request.bgm_settings  # ✨ FIX: BGM 설정 전달
         )
 
         return {
