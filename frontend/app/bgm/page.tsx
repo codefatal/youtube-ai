@@ -1,11 +1,23 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import BGMSelector from '@/components/BGMSelector';
 
 interface BGM {
   mood: string;
   name: string;
   filepath: string;
+}
+
+interface BGMItem {
+  name: string;
+  mood: string;
+  file_path: string;
+  duration: number;
+  volume: number;
+  artist: string;
+  license: string;
+  url: string;
 }
 
 export default function BGMPage() {
@@ -16,6 +28,9 @@ export default function BGMPage() {
   const [file, setFile] = useState<File | null>(null);
   const [mood, setMood] = useState('ENERGETIC');
   const [name, setName] = useState('');
+
+  // BGM 선택 상태
+  const [selectedBGM, setSelectedBGM] = useState<BGMItem | null>(null);
 
   const moods = ['HAPPY', 'SAD', 'ENERGETIC', 'CALM', 'TENSE', 'MYSTERIOUS'];
 
@@ -88,10 +103,23 @@ export default function BGMPage() {
 
   const groupedBGM = groupByMood(bgmList);
 
+  const handleBGMSelect = (bgm: BGMItem | null) => {
+    setSelectedBGM(bgm);
+    if (bgm) {
+      console.log('Selected BGM:', bgm);
+      // 부모 컴포넌트나 상태 관리 스토어에 BGM 정보 전달
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gray-900 text-white p-8">
       <div className="max-w-6xl mx-auto">
         <h1 className="text-3xl font-bold mb-8">🎵 BGM 관리</h1>
+
+        {/* BGM 선택 컴포넌트 (NEW) */}
+        <div className="mb-8">
+          <BGMSelector onSelect={handleBGMSelect} selectedBGM={selectedBGM} />
+        </div>
 
         {/* 업로드 폼 */}
         <div className="bg-gray-800 rounded-lg p-6 mb-8">

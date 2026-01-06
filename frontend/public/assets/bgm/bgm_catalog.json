@@ -1,0 +1,76 @@
+{
+  "version": "1.0",
+  "source": "Bensound (https://www.bensound.com)",
+  "license": "Creative Commons - Non-commercial use",
+  "total_count": 6,
+  "moods": [
+    "happy",
+    "sad",
+    "energetic",
+    "calm",
+    "tense",
+    "mysterious"
+  ],
+  "bgm_list": [
+    {
+      "name": "Happy Upbeat",
+      "mood": "happy",
+      "file_path": "HAPPY/happy_upbeat.mp3",
+      "duration": 117.31,
+      "volume": 0.25,
+      "artist": "Bensound",
+      "license": "Bensound - Creative Commons",
+      "url": "https://www.bensound.com"
+    },
+    {
+      "name": "Sad Piano",
+      "mood": "sad",
+      "file_path": "SAD/sad_piano.mp3",
+      "duration": 119.11,
+      "volume": 0.25,
+      "artist": "Bensound",
+      "license": "Bensound - Creative Commons",
+      "url": "https://www.bensound.com"
+    },
+    {
+      "name": "Energetic Beat",
+      "mood": "energetic",
+      "file_path": "ENERGETIC/energetic_beat.mp3",
+      "duration": 168.52,
+      "volume": 0.25,
+      "artist": "Bensound",
+      "license": "Bensound - Creative Commons",
+      "url": "https://www.bensound.com"
+    },
+    {
+      "name": "Calm Piano",
+      "mood": "calm",
+      "file_path": "CALM/calm_piano.mp3",
+      "duration": 230.78,
+      "volume": 0.25,
+      "artist": "Bensound",
+      "license": "Bensound - Creative Commons",
+      "url": "https://www.bensound.com"
+    },
+    {
+      "name": "Tense Suspense",
+      "mood": "tense",
+      "file_path": "TENSE/tense_suspense.mp3",
+      "duration": 349.95,
+      "volume": 0.25,
+      "artist": "Bensound",
+      "license": "Bensound - Creative Commons",
+      "url": "https://www.bensound.com"
+    },
+    {
+      "name": "Mysterious Ambient",
+      "mood": "mysterious",
+      "file_path": "MYSTERIOUS/mysterious_ambient.mp3",
+      "duration": 230.75,
+      "volume": 0.25,
+      "artist": "Bensound",
+      "license": "Bensound - Creative Commons",
+      "url": "https://www.bensound.com"
+    }
+  ]
+}
