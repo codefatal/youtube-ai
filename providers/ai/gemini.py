@@ -5,6 +5,7 @@ Google Gemini API wrapper for content generation
 import os
 import re
 import json
+import time
 from typing import Optional, Dict, Any
 from datetime import datetime
 
@@ -109,14 +110,58 @@ class GeminiProvider:
 
             # 429 quota 초과 에러 감지
             if "429" in error_str or "RESOURCE_EXHAUSTED" in error_str or "quota" in error_str.lower():
-                # gemini-2.5-flash에서 quota 초과 시 gemini-2.0-flash로 자동 fallback
-                if "2.5" in self.model and not self.fallback_attempted:
-                    fallback_model = "gemini-2.0-flash"  # 2.0이 별도 quota
+                # ✨ RetryInfo에서 대기 시간 추출
+                retry_delay = self._extract_retry_delay(error_str)
+
+                # ✨ 1차: RetryInfo 대기 후 재시도
+                if retry_delay and retry_delay <= 60:  # 60초 이하만 자동 대기
                     print(f"\n{'='*60}")
-                    print(f"⚠️  Gemini 2.5 Quota 초과 감지!")
+                    print(f"⚠️  Gemini Rate Limit 감지!")
+                    print(f"{'='*60}")
+                    print(f"[AUTO-RETRY] {retry_delay:.1f}초 대기 후 재시도합니다...")
+                    print(f"{'='*60}\n")
+
+                    time.sleep(retry_delay + 1)  # 여유 1초 추가
+
+                    try:
+                        response = self.client.models.generate_content(
+                            model=self.model,
+                            contents=full_prompt,
+                            config=config
+                        )
+
+                        response_text = response.text
+
+                        if hasattr(response, 'candidates') and response.candidates:
+                            finish_reason = response.candidates[0].finish_reason
+                            if finish_reason and finish_reason != 'STOP':
+                                print(f"⚠️ Gemini 응답이 완전히 생성되지 않았습니다: {finish_reason}")
+
+                        if json_mode:
+                            response_text = self._clean_json_response(response_text)
+
+                        self._log_usage(prompt, response_text, response)
+
+                        print(f"[SUCCESS] 재시도 성공!\n")
+                        return response_text
+
+                    except Exception as retry_error:
+                        print(f"[WARNING] 재시도 실패: {retry_error}")
+                        # 2차 fallback으로 진행
+
+                # ✨ 2차: gemini-2.5-flash → gemini-1.5-flash 또는 gemini-2.0-flash
+                if not self.fallback_attempted:
+                    # 2.5 사용 중이면 1.5로 fallback (더 안정적)
+                    if "2.5" in self.model:
+                        fallback_model = "gemini-1.5-flash"
+                    else:
+                        fallback_model = "gemini-2.0-flash"
+
+                    print(f"\n{'='*60}")
+                    print(f"⚠️  Gemini Quota 초과 - 모델 전환!")
                     print(f"{'='*60}")
                     print(f"[AUTO-FALLBACK] {self.model} → {fallback_model}")
-                    print(f"[INFO] Gemini 2.0은 별도 quota로 계산됩니다")
+                    print(f"[INFO] 다른 모델은 별도 quota로 계산됩니다")
                     print(f"{'='*60}\n")
 
                     # 모델 변경
@@ -143,12 +188,12 @@ class GeminiProvider:
 
                         self._log_usage(prompt, response_text, response)
 
-                        print(f"[SUCCESS] Gemini 2.0으로 성공적으로 처리 완료!\n")
+                        print(f"[SUCCESS] {fallback_model}로 성공적으로 처리 완료!\n")
                         return response_text
 
                     except Exception as fallback_error:
-                        print(f"[ERROR] Gemini 2.0 fallback도 실패: {fallback_error}")
-                        raise RuntimeError(f"Gemini API 호출 실패 (2.5 및 2.0 모두 실패): {fallback_error}")
+                        print(f"[ERROR] {fallback_model} fallback도 실패: {fallback_error}")
+                        raise RuntimeError(f"Gemini API 호출 실패 (모든 fallback 실패): {fallback_error}")
 
             # quota 에러가 아니거나 이미 fallback을 시도했으면 그냥 에러 발생
             raise RuntimeError(f"Gemini API 호출 실패: {e}")
@@ -247,11 +292,57 @@ class GeminiProvider:
                     raise
 
             except Exception as e:
+                error_str = str(e)
+
+                # ✨ Rate limit 에러 처리 (generate()와 동일)
+                if "429" in error_str or "RESOURCE_EXHAUSTED" in error_str or "quota" in error_str.lower():
+                    # 1차: RetryInfo 대기 후 재시도
+                    retry_delay = self._extract_retry_delay(error_str)
+                    if retry_delay and retry_delay <= 60 and attempt == 0:  # 첫 시도에서만
+                        print(f"\n{'='*60}")
+                        print(f"⚠️  Gemini Rate Limit 감지! (JSON 모드)")
+                        print(f"{'='*60}")
+                        print(f"[AUTO-RETRY] {retry_delay:.1f}초 대기 후 재시도합니다...")
+                        print(f"{'='*60}\n")
+
+                        time.sleep(retry_delay + 1)
+                        continue  # 재시도
+
+                    # 2차: 모델 전환
+                    if not self.fallback_attempted and attempt == 0:
+                        fallback_model = "gemini-1.5-flash" if "2.5" in self.model else "gemini-2.0-flash"
+                        print(f"\n[AUTO-FALLBACK] {self.model} → {fallback_model}")
+                        self.model = fallback_model
+                        self.fallback_attempted = True
+                        continue  # 재시도
+
                 # 다른 에러는 즉시 발생
                 raise RuntimeError(f"Gemini API 호출 실패: {e}")
 
         # 여기 도달하면 모든 재시도 실패
         raise RuntimeError(f"JSON 생성 실패: 최대 재시도 횟수({max_retries}) 초과")
+
+    def _extract_retry_delay(self, error_str: str) -> Optional[float]:
+        """
+        에러 메시지에서 RetryInfo의 retryDelay 추출
+
+        Args:
+            error_str: 에러 메시지
+
+        Returns:
+            대기 시간(초) 또는 None
+        """
+        # "Please retry in 41.868561516s" 패턴
+        match = re.search(r'retry in ([\d.]+)s', error_str, re.IGNORECASE)
+        if match:
+            return float(match.group(1))
+
+        # "retryDelay": "41s" 패턴
+        match = re.search(r'"retryDelay"\s*:\s*"([\d.]+)s"', error_str)
+        if match:
+            return float(match.group(1))
+
+        return None
 
     def _clean_json_response(self, text: str) -> str:
         """
