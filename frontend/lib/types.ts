@@ -57,6 +57,11 @@ export interface CreateDraftRequest {
   account_id?: number | null;
   style?: string;
   collect_assets?: boolean;
+  advanced_settings?: {
+    useWholesomeTTS?: boolean;
+    aiVideoSelection?: boolean;
+    autoTuneTTS?: boolean;
+  };
 }
 
 export interface CreateDraftResponse {

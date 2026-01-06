@@ -771,7 +771,7 @@ async def export_draft_vrew(
         print(f"[API] Draft Vrew Export 요청: draft_id={draft_id}")
 
         # 1. DB에서 Draft 조회
-        draft = db.query(Draft).filter(Draft.id == draft_id).first()
+        draft = db.query(Draft).filter(Draft.draft_id == draft_id).first()
         if not draft:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
@@ -788,35 +788,49 @@ async def export_draft_vrew(
                 detail=f"ContentPlan 복원 실패: {str(e)}"
             )
 
-        # 3. AssetBundle 복원
+        # 3. AssetBundle 복원 (DraftSegment에서 재구성)
         try:
-            asset_bundle_dict = json.loads(draft.asset_bundle_json)
+            from core.models import AssetBundle, StockVideoAsset, SegmentTiming
 
-            # TTS 에셋 복원
-            tts_asset = None
-            if asset_bundle_dict.get("tts_asset"):
-                tts_asset = AudioAsset(**asset_bundle_dict["tts_asset"])
+            videos = []
+            segment_timings = []
 
-            # BGM 에셋 복원
-            bgm_asset = None
-            if asset_bundle_dict.get("bgm_asset"):
-                bgm_asset = BGMAsset(**asset_bundle_dict["bgm_asset"])
+            for seg_db in sorted(draft.segments, key=lambda s: s.segment_index):
+                # Video Asset
+                if seg_db.video_local_path:
+                    video_asset = StockVideoAsset(
+                        id=seg_db.video_id or f"video_{seg_db.segment_index}",
+                        url=seg_db.video_url or "",
+                        provider=seg_db.video_provider or "unknown",
+                        keyword=seg_db.keyword,
+                        duration=seg_db.duration or 5.0,
+                        resolution="1080x1920",
+                        local_path=seg_db.video_local_path,
+                        downloaded=True
+                    )
+                    videos.append(video_asset)
 
-            # VideoAsset 복원
-            video_assets = []
-            if asset_bundle_dict.get("video_assets"):
-                for va_dict in asset_bundle_dict["video_assets"]:
-                    video_assets.append(VideoAsset(**va_dict))
+                # Segment Timing
+                timing = SegmentTiming(
+                    segment_index=seg_db.segment_index,
+                    text=seg_db.text,
+                    tts_duration=seg_db.tts_duration or 3.0,
+                    start_time=sum(s.tts_duration or 3.0 for s in sorted(draft.segments, key=lambda x: x.segment_index) if s.segment_index < seg_db.segment_index),
+                    end_time=sum(s.tts_duration or 3.0 for s in sorted(draft.segments, key=lambda x: x.segment_index) if s.segment_index <= seg_db.segment_index),
+                    tts_local_path=seg_db.tts_local_path
+                )
+                segment_timings.append(timing)
 
-            # AssetBundle 생성
             asset_bundle = AssetBundle(
-                video_assets=video_assets,
-                tts_asset=tts_asset,
-                bgm_asset=bgm_asset,
-                collected_at=asset_bundle_dict.get("collected_at", "")
+                videos=videos,
+                audio=None,
+                bgm=None,
+                segment_timings=segment_timings
             )
 
         except Exception as e:
+            import traceback
+            traceback.print_exc()
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=f"AssetBundle 복원 실패: {str(e)}"
